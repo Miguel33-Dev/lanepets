@@ -1,0 +1,44 @@
+﻿id,nome,preco,porte,adicionais_json,pacote,adicional
+SRV-4DDF52040025,Pacote Quinzenal porte pequeno,99.9,,[],False,False
+SRV-EBF9D8017F4F,Hidratação,30,,[],False,False
+SRV-334619199A18,Pacote pago,0.01,,[],False,False
+SRV-D2A92FDC02AC,banho + tosa na tesoura Porte Pequeno,100,,[],False,False
+SRV-98D537FDBB19,banho + tosa higienica porte pequeno,65,,[],False,False
+SRV-BDACB6DCB320,Ozônio,25,,[],False,False
+SRV-E810BBEE1F40,Banho,60,Pequeno,[],False,False
+SRV-947DEA17103A,Banho,80,Médio,[],False,False
+SRV-2C17077FF469,Banho,150,Grande,[],False,False
+SRV-D90796CE43F6,Banho + tosa higiênica,75,Pequeno,[],False,False
+SRV-75AA7F1C0B1A,Banho + tosa higiênica,100,Médio,[],False,False
+SRV-4D13ACE27973,Banho + tosa higiênica,190,Grande,[],False,False
+SRV-B48BB2B7283E,Banho + tosa na máquina,150,Pequeno,[],False,False
+SRV-5C8B92C124DF,Banho + tosa na máquina,185,Médio,[],False,False
+SRV-9DEFC86A4F5F,Banho + tosa na máquina,250,Grande,[],False,False
+SRV-EDAFEE8A6BED,Banho + tosa na tesoura,180,Pequeno,[],False,False
+SRV-155D7F21B841,Banho + tosa na tesoura,220,Médio,[],False,False
+SRV-01392CFD6C32,Banho + tosa na tesoura (Trimming),350,Grande,[],False,False
+SRV-7630483855AE,Pacote,,Pequeno,[],True,False
+SRV-0CEF67132D96,Pacote,,Médio,[],True,False
+SRV-C7859D116640,Pacote,,Grande,[],True,False
+SRV-B31BDD4CD0FF,Remoção de Subpelos,30,Adicional,[],False,False
+SRV-DFEA1430C715,Limpeza de dentes,10,,[],False,True
+SRV-C17EB5D5473C,Remoção de subpelos (pequeno),30,,[],False,True
+SRV-EFD0C3235E1C,Remoção de subpelos (médio),40,,[],False,True
+SRV-9CC3D48723CB,Remoção de subpelos (grande),50,,[],False,True
+SRV-C39FC84B472C,Hidratação simples,30,,[],False,True
+SRV-7512285BB5C3,Hidratação Premium,60,,[],False,True
+SRV-C50E1BE6AD25,Ozônio,25,,[],False,True
+SRV-81A9584B7AB4,Hidratação Premium,60,Adicional,[],False,False
+SRV-39A537A090D8,Hidratação Vip,30,Adicional,[],False,False
+SRV-4D580ACBC84D,Limpeza de dentes,10,Adicional,[],False,False
+SRV-FD523015978B,Ozônio,25,Adicional,[],False,False
+SRV-D5ABDF7C4008,Desembolo (pequeno),30,Adicional,[],False,False
+SRV-D292F79B1F17,Desembolo (médio),40,Adicional,[],False,False
+SRV-E780709D9970,Shampoo Anti-parasitário,10,Adicional,[],False,False
+SRV-49907501ACC2,Banho + tosa verão,150,Pequeno,[],False,False
+SRV-99749317C7F7,Banho + tosa Higiênica detalhada,100,Pequeno,[],False,False
+SRV-239900769AE2,Tosa,180,Gato,[],False,False
+SRV-D92EEA2DF92A,Banho em gato,80,Gato,[],False,False
+SRV-78D00CF317DD,Banho em porquinho da India,40,Adicional,[],False,False
+SRV-93FF784411D0,Banho + tosa higiênica,120,Gato,[],False,False
+SRV-8A56A701CE3E,Corte de unhas,10,Adicional,[],False,False
