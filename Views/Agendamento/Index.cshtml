@@ -1,0 +1,54 @@
+@model PetshopCSharp.Models.AgendamentoViewModel
+@{
+    ViewData["Title"] = "Agendar";
+}
+
+<div class="auth-shell">
+    <div class="card form-card">
+        <div class="text-center mb-4">
+            <div class="display-6 mb-2">🐶</div>
+            <h3 class="text-success fw-bold mb-1">Agendar Serviço</h3>
+            <p class="text-muted mb-0">Escolha o serviço, informe o pet e confirme a melhor data e horário.</p>
+        </div>
+
+        <form asp-action="Index" method="post">
+            <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+
+            <div class="mb-3">
+                <label asp-for="PetNome" class="form-label">Nome do Pet</label>
+                <input asp-for="PetNome" class="form-control" required />
+                <span asp-validation-for="PetNome" class="text-danger"></span>
+            </div>
+
+            <div class="mb-3">
+                <label asp-for="Servico" class="form-label">Serviço</label>
+                <select asp-for="Servico" class="form-select" required>
+                    <option value="">Selecione</option>
+                    <option value="Banho">Banho</option>
+                    <option value="Tosa">Tosa</option>
+                    <option value="Consulta Veterinária">Consulta Veterinária</option>
+                    <option value="Vacinação">Vacinação</option>
+                </select>
+                <span asp-validation-for="Servico" class="text-danger"></span>
+            </div>
+
+            <div class="mb-3">
+                <label asp-for="Telefone" class="form-label">Telefone de Contato</label>
+                <input asp-for="Telefone" class="form-control" placeholder="(XX) XXXXX-XXXX" required />
+                <span asp-validation-for="Telefone" class="text-danger"></span>
+            </div>
+
+            <div class="mb-3">
+                <label asp-for="DataAgendada" class="form-label">Data e Hora</label>
+                <input asp-for="DataAgendada" class="form-control" type="datetime-local" required />
+                <span asp-validation-for="DataAgendada" class="text-danger"></span>
+            </div>
+
+            <button type="submit" class="btn btn-success w-100">Confirmar Agendamento</button>
+        </form>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

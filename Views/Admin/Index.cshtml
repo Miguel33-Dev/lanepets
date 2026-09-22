@@ -1,0 +1,360 @@
+@using System.Globalization
+@model PetshopCSharp.Models.DashboardViewModel
+@{
+    ViewData["Title"] = "Painel Admin";
+    var ptBr = new CultureInfo("pt-BR");
+}
+
+<div class="header-admin text-center py-4 text-white" style="background-color: #2e7d32;">
+    <div class="container">
+        <span class="dashboard-badge">Sistema operacional</span>
+        <h2>🐾 Painel do Administrador</h2>
+        <p class="mb-3">Bem-vindo, <strong>@Context.Session.GetString("UsuarioNome")</strong>!</p>
+        <div class="d-flex justify-content-center gap-2 flex-wrap">
+            <a asp-controller="Produto" asp-action="Index" class="btn btn-light btn-sm">Ver loja</a>
+            <a asp-controller="Account" asp-action="Logout" class="btn btn-outline-light btn-sm">Sair</a>
+        </div>
+    </div>
+</div>
+
+<div class="container py-5 dashboard-shell">
+    <div class="row g-4 mb-4">
+        <div class="col-md-3">
+            <div class="card p-3 h-100 border-0 shadow-sm summary-card dashboard-stat">
+                <div class="d-flex justify-content-between align-items-center">
+                    <span class="metric-label">Produtos</span>
+                    <span class="badge bg-success">@Model.Produtos.Count</span>
+                </div>
+                <h3 class="mt-3 mb-0 text-success fw-bold">@Model.Produtos.Count</h3>
+                <small class="text-muted">cadastros ativos</small>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card p-3 h-100 border-0 shadow-sm summary-card dashboard-stat">
+                <div class="d-flex justify-content-between align-items-center">
+                    <span class="metric-label">Agendamentos</span>
+                    <span class="badge bg-primary">@Model.Agendamentos.Count</span>
+                </div>
+                <h3 class="mt-3 mb-0 text-primary fw-bold">@Model.Agendamentos.Count</h3>
+                <small class="text-muted">solicitações no mês</small>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card p-3 h-100 border-0 shadow-sm summary-card dashboard-stat">
+                <div class="d-flex justify-content-between align-items-center">
+                    <span class="metric-label">Pedidos</span>
+                    <span class="badge bg-info text-dark">@Model.Pedidos.Count</span>
+                </div>
+                <h3 class="mt-3 mb-0 text-info fw-bold">@Model.Pedidos.Count</h3>
+                <small class="text-muted">total de compras</small>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card p-3 h-100 border-0 shadow-sm summary-card dashboard-stat">
+                <div class="d-flex justify-content-between align-items-center">
+                    <span class="metric-label">Receita</span>
+                    <span class="badge bg-warning text-dark">@Model.Pedidos.Count(p => p.Status != "Cancelado")</span>
+                </div>
+                <h3 class="mt-3 mb-0 text-warning fw-bold">@Model.Pedidos.Where(p => p.Status != "Cancelado").Sum(p => p.Total).ToString("C2", ptBr)</h3>
+                <small class="text-muted">em pedidos válidos</small>
+            </div>
+        </div>
+    </div>
+
+    <div class="card p-4 mb-4 shadow-sm dashboard-panel">
+        <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+            <h4 class="text-success mb-0">Relatório rápido</h4>
+            <span class="badge bg-light text-success border">@Model.Pedidos.Count pedido(s) exibidos</span>
+        </div>
+
+        <div class="row g-3">
+            <div class="col-md-3">
+                <a asp-action="Index" class="quick-action">
+                    <i class="bi bi-box-seam"></i>
+                    <span>Produtos</span>
+                </a>
+            </div>
+            <div class="col-md-3">
+                <a asp-action="Index" asp-route-status="Confirmado" class="quick-action">
+                    <i class="bi bi-bag-check"></i>
+                    <span>Confirmados</span>
+                </a>
+            </div>
+            <div class="col-md-3">
+                <a asp-action="Index" asp-route-status="Em preparação" class="quick-action">
+                    <i class="bi bi-truck"></i>
+                    <span>Em preparo</span>
+                </a>
+            </div>
+            <div class="col-md-3">
+                <a asp-action="Index" asp-route-status="Entregue" class="quick-action">
+                    <i class="bi bi-check2-circle"></i>
+                    <span>Entregues</span>
+                </a>
+            </div>
+        </div>
+
+        <form method="get" class="row g-3 align-items-end mt-2">
+            <div class="col-md-4">
+                <label class="form-label fw-semibold">Buscar cliente ou produto</label>
+                <input type="text" name="busca" value="@ViewBag.BuscaAtual" class="form-control" placeholder="Ex: João, ração, tapete..." />
+            </div>
+            <div class="col-md-2">
+                <label class="form-label fw-semibold">Status</label>
+                <select name="status" class="form-select">
+                    <option value="">Todos</option>
+                    <option value="Confirmado" selected="@(ViewBag.StatusAtual == "Confirmado")">Confirmado</option>
+                    <option value="Em preparação" selected="@(ViewBag.StatusAtual == "Em preparação")">Em preparação</option>
+                    <option value="Saiu para entrega" selected="@(ViewBag.StatusAtual == "Saiu para entrega")">Saiu para entrega</option>
+                    <option value="Entregue" selected="@(ViewBag.StatusAtual == "Entregue")">Entregue</option>
+                    <option value="Cancelado" selected="@(ViewBag.StatusAtual == "Cancelado")">Cancelado</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label fw-semibold">De</label>
+                <input type="date" name="inicio" value="@ViewBag.InicioAtual" class="form-control" />
+            </div>
+            <div class="col-md-2">
+                <label class="form-label fw-semibold">Até</label>
+                <input type="date" name="fim" value="@ViewBag.FimAtual" class="form-control" />
+            </div>
+            <div class="col-md-2 d-flex gap-2">
+                <button type="submit" class="btn btn-success w-100">Filtrar</button>
+            </div>
+        </form>
+    </div>
+
+    <div class="row g-4 mb-4">
+        <div class="col-lg-6">
+            <div class="card p-4 shadow-sm h-100">
+                <h5 class="text-success mb-3">Resumo por status</h5>
+                <div class="d-grid gap-2">
+                    @foreach (var status in new[] { "Confirmado", "Em preparação", "Saiu para entrega", "Entregue", "Cancelado" })
+                    {
+                        var totalStatus = Model.Pedidos.Count(p => p.Status == status);
+                        <div class="d-flex justify-content-between align-items-center border rounded px-3 py-2">
+                            <span>@status</span>
+                            <span class="badge bg-light text-dark border">@totalStatus</span>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-6">
+            <div class="card p-4 shadow-sm h-100">
+                <h5 class="text-success mb-3">Movimento</h5>
+                <div class="d-grid gap-3">
+                    <div>
+                        <small class="text-muted">Receita disponível</small>
+                        <h4 class="mb-0 text-success">@Model.Pedidos.Where(p => p.Status != "Cancelado").Sum(p => p.Total).ToString("C2", ptBr)</h4>
+                    </div>
+                    <div>
+                        <small class="text-muted">Pedidos entregues</small>
+                        <h4 class="mb-0 text-primary">@Model.Pedidos.Count(p => p.Status == "Entregue")</h4>
+                    </div>
+                    <div>
+                        <small class="text-muted">Pedidos em andamento</small>
+                        <h4 class="mb-0 text-warning">@Model.Pedidos.Count(p => p.Status != "Entregue" && p.Status != "Cancelado")</h4>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card p-4 mb-4 shadow-sm">
+        <h4 class="text-success mb-3">Cadastrar Novo Produto</h4>
+        <form asp-action="CreateProduct" method="post">
+            <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <input name="Nome" class="form-control" placeholder="Nome do produto" required />
+                </div>
+                <div class="col-md-6">
+                    <input name="Preco" type="text" class="form-control" placeholder="Preço (R$) ex: 49,90" required />
+                </div>
+                <div class="col-12">
+                    <textarea name="Descricao" class="form-control" placeholder="Descrição" rows="2"></textarea>
+                </div>
+                <div class="col-12">
+                    <input name="Imagem" class="form-control" placeholder="URL da imagem (opcional)" />
+                </div>
+                <div class="col-12 text-center mt-3">
+                    <button type="submit" class="btn btn-success px-4">Cadastrar Produto</button>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <div class="card p-4 mb-4 shadow-sm">
+        <h4 class="text-success mb-3">Produtos Cadastrados</h4>
+        @if (Model.Produtos.Count == 0)
+        {
+            <p class="text-center">Nenhum produto cadastrado ainda.</p>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-bordered align-middle text-center">
+                    <thead class="table-success">
+                        <tr>
+                            <th>ID</th>
+                            <th>Nome</th>
+                            <th>Preço</th>
+                            <th>Descrição</th>
+                            <th>Status</th>
+                            <th>Ação</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var produto in Model.Produtos)
+                        {
+                            <tr>
+                                <td>@produto.Id</td>
+                                <td>@produto.Nome</td>
+                                <td>@produto.Preco.ToString("C2", ptBr)</td>
+                                <td>@produto.Descricao</td>
+                                <td>
+                                    @if (produto.Disponivel)
+                                    {
+                                        <span class="badge bg-success">Disponível</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-danger">Indisponível</span>
+                                    }
+                                </td>
+                                <td>
+                                    <a asp-action="ToggleProduto" asp-route-id="@produto.Id" class="btn btn-outline-success btn-sm">Alternar</a>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+
+    <div class="card p-4 mb-4 shadow-sm">
+        <h4 class="text-success mb-3">Pedidos Recentes</h4>
+        @if (Model.Pedidos.Count == 0)
+        {
+            <p class="text-center">Nenhum pedido registrado ainda.</p>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-bordered align-middle text-center">
+                    <thead class="table-success">
+                        <tr>
+                            <th>ID</th>
+                            <th>Cliente</th>
+                            <th>Telefone</th>
+                            <th>Itens</th>
+                            <th>Pag.</th>
+                            <th>Total</th>
+                            <th>Data</th>
+                            <th>Status</th>
+                            <th>Ação</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var pedido in Model.Pedidos)
+                        {
+                            var nomeCliente = pedido.Usuario?.Nome ?? pedido.NomeCliente;
+                            var statusClass = pedido.Status switch
+                            {
+                                "Confirmado" => "bg-info",
+                                "Em preparação" => "bg-warning text-dark",
+                                "Saiu para entrega" => "bg-primary",
+                                "Entregue" => "bg-success",
+                                "Cancelado" => "bg-danger",
+                                _ => "bg-secondary"
+                            };
+
+                            <tr>
+                                <td>@pedido.Id</td>
+                                <td>
+                                    <div class="fw-semibold">@nomeCliente</div>
+                                    <small class="text-muted">@pedido.Endereco</small>
+                                </td>
+                                <td>@pedido.Telefone</td>
+                                <td>
+                                    @if (pedido.Itens.Any())
+                                    {
+                                        <ul class="list-unstyled mb-0 text-start">
+                                            @foreach (var item in pedido.Itens)
+                                            {
+                                                <li>• @item.ProdutoNome (@item.Quantidade x)</li>
+                                            }
+                                        </ul>
+                                    }
+                                </td>
+                                <td><span class="badge bg-light text-dark border">@pedido.FormaPagamento</span></td>
+                                <td>@pedido.Total.ToString("C2", ptBr)</td>
+                                <td>@pedido.DataPedido.ToString("dd/MM/yyyy HH:mm")</td>
+                                <td><span class="badge @statusClass">@pedido.Status</span></td>
+                                <td>
+                                    <form asp-action="AtualizarStatusPedido" method="post" class="d-flex gap-2 align-items-center justify-content-center flex-wrap">
+                                        @Html.AntiForgeryToken()
+                                        <input type="hidden" name="id" value="@pedido.Id" />
+                                        <select name="status" class="form-select form-select-sm">
+                                            @foreach (var status in new[] { "Confirmado", "Em preparação", "Saiu para entrega", "Entregue", "Cancelado" })
+                                            {
+                                                <option value="@status" selected="@(pedido.Status == status)">
+                                                    @status
+                                                </option>
+                                            }
+                                        </select>
+                                        <button type="submit" class="btn btn-outline-success btn-sm">Salvar</button>
+                                    </form>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+
+    <div class="card p-4 mb-5 shadow-sm">
+        <h4 class="text-success mb-3">Agendamentos de Clientes</h4>
+        @if (Model.Agendamentos.Count == 0)
+        {
+            <p class="text-center">Nenhum agendamento encontrado.</p>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-bordered align-middle text-center">
+                    <thead class="table-success">
+                        <tr>
+                            <th>ID</th>
+                            <th>Cliente</th>
+                            <th>Pet</th>
+                            <th>Serviço</th>
+                            <th>Telefone</th>
+                            <th>Data</th>
+                            <th>Ação</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var agendamento in Model.Agendamentos)
+                        {
+                            <tr>
+                                <td>@agendamento.Id</td>
+                                <td>@(agendamento.Usuario?.Nome ?? "Cliente")</td>
+                                <td>@agendamento.PetNome</td>
+                                <td>@agendamento.Servico</td>
+                                <td>@agendamento.Telefone</td>
+                                <td>@agendamento.DataAgendada.ToString("dd/MM/yyyy HH:mm")</td>
+                                <td>
+                                    <a asp-action="CancelarAgendamento" asp-route-id="@agendamento.Id" class="btn btn-danger btn-sm" onclick="return confirm('Tem certeza que deseja cancelar este agendamento?')">Cancelar</a>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+</div>

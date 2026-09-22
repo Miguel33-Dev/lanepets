@@ -1,0 +1,99 @@
+@using System.Globalization
+@model List<PetshopCSharp.Models.Produto>
+@{
+    ViewData["Title"] = "Produtos";
+    var ptBr = new CultureInfo("pt-BR");
+}
+
+<section class="section-soft py-5">
+    <div class="container">
+        <div class="text-center mb-5">
+            <span class="badge text-bg-success px-3 py-2 mb-3">Produtos selecionados</span>
+            <h2 class="text-success fw-bold mb-3">🛍️ Nossos Produtos</h2>
+            <p class="text-muted mx-auto" style="max-width: 700px;">
+                Cuidados essenciais para o bem-estar do seu pet, com qualidade, praticidade e amor em cada escolha.
+            </p>
+        </div>
+
+        <div class="card shadow-sm border-0 p-3 mb-4">
+            <form method="get" class="row g-3 align-items-end">
+                <div class="col-lg-10 col-md-8">
+                    <label class="form-label fw-semibold text-success">Buscar produto</label>
+                    <input type="text" name="busca" value="@ViewBag.Busca" class="form-control" placeholder="Ex: ração, brinquedo, banho..." />
+                </div>
+                <div class="col-lg-2 col-md-4">
+                    <button type="submit" class="btn btn-success w-100">Buscar</button>
+                </div>
+            </form>
+        </div>
+
+        @if (Model.Count == 0)
+        {
+            <div class="text-center py-5">
+                <p class="text-muted mb-0">Nenhum produto cadastrado ainda.</p>
+            </div>
+        }
+        else
+        {
+            <div class="row g-4">
+                @foreach (var produto in Model)
+                {
+                    <div class="col-lg-4 col-md-6">
+                        <div class="card product-card h-100 overflow-hidden">
+                            <div class="product-image-wrap position-relative">
+                                <img src="@(string.IsNullOrWhiteSpace(produto.Imagem) ? "https://via.placeholder.com/400x250?text=Sem+Imagem" : produto.Imagem)"
+                                     class="card-img-top product-image"
+                                     alt="@produto.Nome" />
+                                <span class="product-badge @(produto.Disponivel ? "bg-success" : "bg-secondary")">
+                                    @(produto.Disponivel ? "Disponível" : "Indisponível")
+                                </span>
+                            </div>
+
+                            <div class="card-body d-flex flex-column">
+                                <h5 class="card-title text-success fw-bold">@produto.Nome</h5>
+                                <p class="card-text text-muted flex-grow-1">@produto.Descricao</p>
+                                <p class="fw-bold fs-4 text-success mb-3">@produto.Preco.ToString("C2", ptBr)</p>
+
+                                <div class="d-grid gap-2">
+                                    <a asp-action="Details" asp-route-id="@produto.Id" class="btn btn-outline-secondary">Detalhes</a>
+
+                                    @if (!produto.Disponivel)
+                                    {
+                                        <button class="btn btn-secondary w-100" type="button" onclick="abrirPopup(@produto.Id)">Indisponível</button>
+                                        <div class="overlay" id="popupOverlay@(produto.Id)" style="position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.6); display: none; justify-content: center; align-items: center; z-index: 9999;">
+                                            <div class="popup" style="background: #fff; padding: 25px; border-radius: 16px; width: 320px; text-align: center; box-shadow: 0 0 12px rgba(0,0,0,0.3);">
+                                                <h3 style="color:#d60000; font-weight:bold;">Produto Indisponível</h3>
+                                                <p class="mb-3">Desculpe, este produto não está disponível no momento.</p>
+                                                <button type="button" onclick="fecharPopup(@produto.Id)" class="btn btn-danger">Fechar</button>
+                                            </div>
+                                        </div>
+                                    }
+                                    else
+                                    {
+                                        <form asp-controller="Cart" asp-action="Add" method="post">
+                                            @Html.AntiForgeryToken()
+                                            <input type="hidden" name="productId" value="@produto.Id" />
+                                            <button class="btn btn-success w-100" type="submit">Comprar</button>
+                                        </form>
+                                    }
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+    </div>
+</section>
+
+@section Scripts {
+    <script>
+        function abrirPopup(id) {
+            document.getElementById("popupOverlay" + id).style.display = "flex";
+        }
+
+        function fecharPopup(id) {
+            document.getElementById("popupOverlay" + id).style.display = "none";
+        }
+    </script>
+}

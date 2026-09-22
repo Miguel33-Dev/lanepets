@@ -1,0 +1,28 @@
+# Visual Studio
+.vscode/
+bin/
+obj/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Rider
+.idea/
+
+# ASP.NET
+appsettings.Development.json
+appsettings.*.Local.*
+
+# SQLite DB
+*.db
+
+# NuGet packages
+*.nupkg
+**/packages/*
+
+# Publish
+publish/
+
+# Logs
+*.log

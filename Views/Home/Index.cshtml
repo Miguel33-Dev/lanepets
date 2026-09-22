@@ -1,0 +1,280 @@
+@{
+    ViewData["Title"] = "Início";
+}
+
+<section class="banner-hero">
+    <div class="container hero-content">
+        <span class="badge badge-soft">Cuidados com amor e qualidade</span>
+        <h1>Bem-vindo à LanPets 🐾</h1>
+        <p class="lead mb-4">Cuidamos do seu melhor amigo com carinho, amor e respeito à natureza!</p>
+        <div class="d-flex flex-wrap justify-content-center gap-3">
+            <a asp-controller="Agendamento" asp-action="Index" class="btn btn-light btn-lg px-4 fw-semibold shadow">Agende um Serviço</a>
+            <a asp-controller="Produto" asp-action="Index" class="btn btn-outline-light btn-lg px-4 fw-semibold shadow">Ver Produtos</a>
+        </div>
+    </div>
+</section>
+
+<section class="section-stats">
+    <div class="container">
+        <div class="row g-4 text-center">
+            <div class="col-md-4">
+                <div class="stat-card">
+                    <i class="bi bi-paw-fill"></i>
+                    <h3>+2.500</h3>
+                    <p>pets atendidos</p>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="stat-card">
+                    <i class="bi bi-star-fill"></i>
+                    <h3>4.9/5</h3>
+                    <p>avaliação média</p>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="stat-card">
+                    <i class="bi bi-heart-fill"></i>
+                    <h3>100%</h3>
+                    <p>atenção com carinho</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="py-5 bg-white">
+    <div class="container">
+        <div class="text-center mb-5">
+            <span class="badge text-bg-success px-3 py-2 mb-3">LanPets Premium</span>
+            <h2 class="fw-bold text-success mb-3">Tudo que seu pet precisa em um só lugar</h2>
+        </div>
+        <div class="row g-4">
+            <div class="col-md-4">
+                <div class="card premium-feature-card h-100 p-4">
+                    <i class="bi bi-bag-heart-fill display-6 text-success mb-3"></i>
+                    <h5 class="fw-bold text-success">Marketplace pet</h5>
+                    <p class="text-muted mb-0">Produtos de qualidade para alimentação, higiene, conforto e diversão do seu animal.</p>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card premium-feature-card h-100 p-4">
+                    <i class="bi bi-calendar-check-fill display-6 text-success mb-3"></i>
+                    <h5 class="fw-bold text-success">Agendamento rápido</h5>
+                    <p class="text-muted mb-0">Marque banho, tosa, consultas e serviços em poucos cliques com tempo real.</p>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card premium-feature-card h-100 p-4">
+                    <i class="bi bi-truck display-6 text-success mb-3"></i>
+                    <h5 class="fw-bold text-success">Entrega segura</h5>
+                    <p class="text-muted mb-0">Receba seus produtos com praticidade e atenção, sempre com a qualidade LanPets.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="section-soft">
+    <div class="container text-center">
+        <h2 class="fw-bold text-success mb-4">Nossos Serviços</h2>
+        <div class="row g-4">
+            <div class="col-md-4">
+                <div class="card border-0 shadow-sm h-100 p-3 service-card">
+                    <i class="bi bi-shower card-icon text-success mb-3"></i>
+                    <h5 class="fw-semibold">Banho e Tosa</h5>
+                    <p class="text-muted">Seu pet limpo, cheiroso e com o melhor cuidado natural.</p>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card border-0 shadow-sm h-100 p-3 service-card">
+                    <i class="bi bi-heart-pulse card-icon text-success mb-3"></i>
+                    <h5 class="fw-semibold">Consultas Veterinárias</h5>
+                    <p class="text-muted">Atendimento com profissionais que amam e respeitam os animais.</p>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card border-0 shadow-sm h-100 p-3 service-card">
+                    <i class="bi bi-capsule card-icon text-success mb-3"></i>
+                    <h5 class="fw-semibold">Vacinação</h5>
+                    <p class="text-muted">Proteção e cuidado com a saúde do seu bichinho.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="py-5 bg-white">
+    <div class="container">
+        <div class="text-center mb-5">
+            <span class="badge text-bg-success px-3 py-2 mb-3">Por que escolher a LanPets</span>
+            <h2 class="fw-bold text-success mb-3">Experiência premium para o bem-estar do seu pet</h2>
+        </div>
+        <div class="row g-4">
+            <div class="col-md-3 col-sm-6">
+                <div class="card trust-card h-100 p-4">
+                    <i class="bi bi-clipboard-heart display-5 text-success mb-3"></i>
+                    <h6 class="fw-bold text-success mb-2">Cuidados com carinho</h6>
+                    <p class="text-muted mb-0">Cada atendimento pensado para reduzir estresse e aumentar conforto.</p>
+                </div>
+            </div>
+            <div class="col-md-3 col-sm-6">
+                <div class="card trust-card h-100 p-4">
+                    <i class="bi bi-lightning-charge display-5 text-success mb-3"></i>
+                    <h6 class="fw-bold text-success mb-2">Atendimento ágil</h6>
+                    <p class="text-muted mb-0">Agendamento rápido e organização para você não perder tempo.</p>
+                </div>
+            </div>
+            <div class="col-md-3 col-sm-6">
+                <div class="card trust-card h-100 p-4">
+                    <i class="bi bi-bag-check display-5 text-success mb-3"></i>
+                    <h6 class="fw-bold text-success mb-2">Produtos confiáveis</h6>
+                    <p class="text-muted mb-0">Seleção pensada em qualidade para saúde, higiene e bem-estar.</p>
+                </div>
+            </div>
+            <div class="col-md-3 col-sm-6">
+                <div class="card trust-card h-100 p-4">
+                    <i class="bi bi-award display-5 text-success mb-3"></i>
+                    <h6 class="fw-bold text-success mb-2">Excelência em serviço</h6>
+                    <p class="text-muted mb-0">Nossos clientes escolhem a LanPets pela experiência que entregamos.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="py-5 section-soft">
+    <div class="container">
+        <div class="text-center mb-5">
+            <span class="badge text-bg-success px-3 py-2 mb-3">Depoimentos</span>
+            <h2 class="fw-bold text-success mb-3">O que nossos clientes dizem</h2>
+        </div>
+
+        <div class="row g-4">
+            <div class="col-md-4">
+                <div class="card review-card h-100 p-4">
+                    <div class="review-stars mb-3">★★★★★</div>
+                    <p class="text-muted">“O atendimento foi excelente, o banho ficou impecável e meu pet voltou super feliz. Recomendo demais!”</p>
+                    <div class="review-author">
+                        <strong>Maria L.</strong>
+                        <small>Dona de doguinho</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card review-card h-100 p-4">
+                    <div class="review-stars mb-3">★★★★★</div>
+                    <p class="text-muted">“A compra do ração e brinquedos foi rápida, o site é lindo e a entrega chegou com toda atenção.”</p>
+                    <div class="review-author">
+                        <strong>Pedro H.</strong>
+                        <small>Cliente recorrente</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card review-card h-100 p-4">
+                    <div class="review-stars mb-3">★★★★★</div>
+                    <p class="text-muted">“A equipe é muito carinhosa e profissional. Senti que meu pet estava em boas mãos do início ao fim.”</p>
+                    <div class="review-author">
+                        <strong>Fernanda S.</strong>
+                        <small>Cliente no pet care</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="py-5 bg-white">
+    <div class="container">
+        <h2 class="fw-bold text-center text-success mb-5">Sobre Nós 🐾</h2>
+        <div class="row align-items-center">
+            <div class="col-lg-6 mb-4 mb-lg-0">
+                <img src="https://images.unsplash.com/photo-1601758123927-1963d1d8dc69?auto=format&fit=crop&w=900&q=80"
+                     alt="Equipe LanPets"
+                     class="img-fluid image-rounded w-100" />
+            </div>
+            <div class="col-lg-6">
+                <h4 class="fw-semibold mb-3 text-success">Cuidar com amor é nossa missão</h4>
+                <p class="text-muted">
+                    A LanPets nasceu da paixão pelos animais e do compromisso com um atendimento ético,
+                    sustentável e cheio de carinho.
+                </p>
+                <p class="text-muted">
+                    Aqui, combinamos tecnologia e cuidado humano para oferecer uma experiência moderna,
+                    prática e acolhedora a você e ao seu melhor amigo.
+                </p>
+            </div>
+        </div>
+
+        <div class="mt-5 text-center">
+            <h3 class="fw-bold text-success mb-4">Nossos Valores</h3>
+            <p class="text-muted mb-5">Os princípios que guiam nosso amor pelos pets e pela natureza 🌱</p>
+            <div class="row g-4">
+                <div class="col-md-3 col-6">
+                    <div class="card border-0 shadow-sm p-4 value-card">
+                        <i class="bi bi-heart-fill display-5 text-success mb-3"></i>
+                        <h6 class="fw-semibold mb-1">Amor</h6>
+                        <p class="small text-muted mb-0">Cada pet é tratado com carinho, atenção e afeto verdadeiro.</p>
+                    </div>
+                </div>
+                <div class="col-md-3 col-6">
+                    <div class="card border-0 shadow-sm p-4 value-card">
+                        <i class="bi bi-shield-check display-5 text-success mb-3"></i>
+                        <h6 class="fw-semibold mb-1">Confiança</h6>
+                        <p class="small text-muted mb-0">Transparência e responsabilidade em cada serviço prestado.</p>
+                    </div>
+                </div>
+                <div class="col-md-3 col-6">
+                    <div class="card border-0 shadow-sm p-4 value-card">
+                        <i class="bi bi-stars display-5 text-success mb-3"></i>
+                        <h6 class="fw-semibold mb-1">Qualidade</h6>
+                        <p class="small text-muted mb-0">Serviços e produtos de excelência, com foco no bem-estar animal.</p>
+                    </div>
+                </div>
+                <div class="col-md-3 col-6">
+                    <div class="card border-0 shadow-sm p-4 value-card">
+                        <i class="bi bi-globe-americas display-5 text-success mb-3"></i>
+                        <h6 class="fw-semibold mb-1">Sustentabilidade</h6>
+                        <p class="small text-muted mb-0">Respeito à natureza e uso consciente de recursos.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row mt-5 text-center">
+            <h3 class="fw-bold text-success mb-4">Nossa Equipe</h3>
+            <div class="col-md-4">
+                <div class="card border-0 shadow-sm p-3">
+                    <img src="https://randomuser.me/api/portraits/women/68.jpg" class="rounded-circle mx-auto mb-3" width="120" height="120" alt="Veterinária">
+                    <h6 class="fw-semibold mb-0">Dra. Marina Souza</h6>
+                    <small class="text-muted">Veterinária Chefe</small>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card border-0 shadow-sm p-3">
+                    <img src="https://randomuser.me/api/portraits/men/72.jpg" class="rounded-circle mx-auto mb-3" width="120" height="120" alt="Tosador">
+                    <h6 class="fw-semibold mb-0">Carlos Oliveira</h6>
+                    <small class="text-muted">Banho e Tosa</small>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card border-0 shadow-sm p-3">
+                    <img src="https://randomuser.me/api/portraits/women/45.jpg" class="rounded-circle mx-auto mb-3" width="120" height="120" alt="Atendimento">
+                    <h6 class="fw-semibold mb-0">Juliana Alves</h6>
+                    <small class="text-muted">Atendimento e Agendamentos</small>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="cta-final">
+    <div class="container">
+        <h2 class="fw-bold mb-3">Pronto para cuidar do seu pet?</h2>
+        <p class="mb-4">Agende um serviço conosco e garanta o melhor para seu bichinho!</p>
+        <div class="d-flex justify-content-center gap-3 flex-wrap">
+            <a asp-controller="Agendamento" asp-action="Index" class="btn btn-light btn-lg fw-semibold shadow">Agendar Agora</a>
+            <a asp-controller="Produto" asp-action="Index" class="btn btn-outline-light btn-lg fw-semibold shadow">Explorar Produtos</a>
+        </div>
+    </div>
+</section>
