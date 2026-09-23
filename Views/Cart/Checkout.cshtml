@@ -1,0 +1,106 @@
+@model PetshopCSharp.Models.CheckoutViewModel
+@{
+    ViewData["Title"] = "Checkout";
+}
+
+<div class="container py-5 checkout-shell">
+    <div class="checkout-layout">
+        <aside class="checkout-summary">
+            <div class="checkout-summary-header">
+                <span class="summary-pill">Resumo do pedido</span>
+                <h4 class="mb-0 text-success fw-bold">LanPets</h4>
+            </div>
+
+            <div class="summary-items">
+                @foreach (var item in Model.Items)
+                {
+                    <div class="summary-item">
+                        <div>
+                            <div class="summary-item-name">@item.Nome</div>
+                            <small class="text-muted">@item.Quantidade x @item.Preco.ToString("C2")</small>
+                        </div>
+                        <strong>@item.Total.ToString("C2")</strong>
+                    </div>
+                }
+            </div>
+
+            <div class="summary-total">
+                <span>Total</span>
+                <strong>@Model.Total.ToString("C2")</strong>
+            </div>
+
+            <div class="summary-trust">
+                <div><i class="bi bi-shield-check"></i> Compra segura</div>
+                <div><i class="bi bi-truck"></i> Entrega em até 48h</div>
+            </div>
+        </aside>
+
+        <div class="card form-card checkout-card">
+            <div class="text-center mb-4">
+                <div class="display-6 mb-2">✅</div>
+                <h3 class="text-success fw-bold mb-1">Finalizar Compra</h3>
+                <p class="text-muted mb-0">Confira os itens e complete os dados para entrega.</p>
+            </div>
+
+            <form asp-action="FinalizarCompra" method="post">
+                @Html.AntiForgeryToken()
+                <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+
+                <div class="row g-3 mb-3">
+                    <div class="col-md-6">
+                        <label asp-for="NomeCliente" class="form-label">Nome completo</label>
+                        <input asp-for="NomeCliente" class="form-control" placeholder="Seu nome" />
+                        <span asp-validation-for="NomeCliente" class="text-danger"></span>
+                    </div>
+                    <div class="col-md-6">
+                        <label asp-for="Telefone" class="form-label">Telefone</label>
+                        <input asp-for="Telefone" class="form-control" placeholder="(11) 99999-9999" />
+                        <span asp-validation-for="Telefone" class="text-danger"></span>
+                    </div>
+                    <div class="col-12">
+                        <label asp-for="Endereco" class="form-label">Endereço</label>
+                        <textarea asp-for="Endereco" class="form-control" rows="3" placeholder="Rua, número, bairro, cidade..."></textarea>
+                        <span asp-validation-for="Endereco" class="text-danger"></span>
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label">Forma de pagamento</label>
+                        <div class="row g-3">
+                            <div class="col-md-4">
+                                <label class="payment-option">
+                                    <input type="radio" asp-for="FormaPagamento" value="PIX" checked />
+                                    <span>💳 PIX</span>
+                                </label>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="payment-option">
+                                    <input type="radio" asp-for="FormaPagamento" value="Boleto" />
+                                    <span>🧾 Boleto</span>
+                                </label>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="payment-option">
+                                    <input type="radio" asp-for="FormaPagamento" value="Cartão" />
+                                    <span>💳 Cartão</span>
+                                </label>
+                            </div>
+                        </div>
+                        <span asp-validation-for="FormaPagamento" class="text-danger"></span>
+                    </div>
+                    <div class="col-12">
+                        <label asp-for="Observacao" class="form-label">Observação</label>
+                        <textarea asp-for="Observacao" class="form-control" rows="2" placeholder="Alguma observação sobre o pedido?"></textarea>
+                    </div>
+                </div>
+
+                <div class="d-flex gap-2 justify-content-end flex-wrap">
+                    <a asp-controller="Cart" asp-action="Index" class="btn btn-outline-success">Voltar</a>
+                    <button type="submit" class="btn btn-success">Confirmar Pedido</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

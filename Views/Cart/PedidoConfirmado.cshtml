@@ -1,0 +1,41 @@
+@using System.Globalization
+@model PetshopCSharp.Models.Pedido
+@{
+    ViewData["Title"] = "Pedido Confirmado";
+    var ptBr = new CultureInfo("pt-BR");
+}
+
+<div class="container py-5">
+    <div class="success-order-box text-center">
+        <div class="success-icon">✅</div>
+        <p class="text-success fw-semibold mb-2">Pedido confirmado</p>
+        <h2 class="mb-3">Seu pedido foi recebido com sucesso!</h2>
+        <p class="text-muted mb-4">Recebemos sua compra e ela já está sendo preparada com todo o cuidado da LanPets.</p>
+
+        <div class="summary-confirmation mx-auto">
+            <div class="row g-3 text-start">
+                <div class="col-md-6">
+                    <span class="text-muted d-block mb-1">Número do pedido</span>
+                    <strong>#@Model.Id</strong>
+                </div>
+                <div class="col-md-6">
+                    <span class="text-muted d-block mb-1">Pagamento</span>
+                    <strong>@Model.FormaPagamento</strong>
+                </div>
+                <div class="col-md-6">
+                    <span class="text-muted d-block mb-1">Cliente</span>
+                    <strong>@Model.NomeCliente</strong>
+                </div>
+                <div class="col-md-6">
+                    <span class="text-muted d-block mb-1">Valor total</span>
+                    <strong>@Model.Total.ToString("C2", ptBr)</strong>
+                </div>
+            </div>
+        </div>
+
+        <div class="mt-4 d-flex justify-content-center gap-3 flex-wrap">
+            <a asp-controller="Account" asp-action="MeusPedidos" class="btn btn-success btn-lg px-4">Ver meus pedidos</a>
+            <a asp-controller="Produto" asp-action="Index" class="btn btn-outline-success btn-lg px-4">Voltar à loja</a>
+        </div>
+    </div>
+</div>

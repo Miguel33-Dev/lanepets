@@ -1,0 +1,1630 @@
+
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Agendamentos | Lane Pets Caieiras</title>
+<link rel="stylesheet" href="design-system.css?v=3">
+<style>
+  /* ---- KPIs ---- */
+  .kpi-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: var(--sp-4); margin-bottom: var(--sp-6); }
+  .kpi-card {
+    width: 100%; text-align: left; font: inherit; color: inherit; cursor: pointer;
+    transition: transform .15s var(--ease), box-shadow .15s var(--ease), border-color .15s var(--ease);
+  }
+  .kpi-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); border-color: var(--brand-300); }
+  .kpi-card:focus-visible { outline: 3px solid var(--brand-200); outline-offset: 2px; }
+  .kpi-card.active { border-color: var(--brand-500); box-shadow: 0 0 0 2px var(--brand-100), var(--shadow-sm); }
+  .kpi-card.active .stat-icon { background: var(--brand-700); color: #fff; }
+  @media (max-width: 1080px) { .kpi-grid { grid-template-columns: repeat(3, 1fr); } }
+  @media (max-width: 640px) { .kpi-grid { grid-template-columns: repeat(2, 1fr); } }
+
+  /* ---- Form: pares campo + botão selecionar ---- */
+  .pick-row { display: flex; gap: 8px; align-items: flex-end; }
+  .pick-row .field { flex: 1; margin-bottom: 0; }
+  .pick-row .btn { flex-shrink: 0; margin-bottom: 1px; }
+
+  /* ---- Lista de agendamentos em cards ---- */
+  #listaAgendamentos { display: flex; flex-direction: column; gap: var(--sp-4); }
+  .ag-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg);
+    padding: var(--sp-5); box-shadow: var(--shadow-sm); display: grid;
+    grid-template-columns: 130px 1fr auto; gap: var(--sp-5); align-items: start;
+    animation: card-in .25s var(--ease) both;
+  }
+  @media (max-width: 780px) { .ag-card { grid-template-columns: 1fr; } }
+  .ag-time { font-family: var(--font-display); font-weight: 800; color: var(--brand-800); }
+  .ag-time .ag-date { display: block; font-size: .78rem; font-weight: 700; color: var(--ink-500); text-transform: uppercase; letter-spacing: .03em; }
+  .ag-time .ag-hour { display: block; font-size: 1.35rem; margin-top: 2px; }
+  .ag-body .ag-pet { font-size: 1.05rem; font-weight: 800; color: var(--ink-900); }
+  .ag-body .ag-dono { font-size: .84rem; color: var(--ink-500); font-weight: 600; margin-top: 1px; }
+  .ag-meta { display: flex; flex-wrap: wrap; gap: 6px 16px; margin-top: var(--sp-3); font-size: .82rem; color: var(--ink-700); }
+  .ag-meta strong { color: var(--ink-900); font-weight: 700; }
+  .ag-obs { margin-top: var(--sp-2); font-size: .82rem; color: var(--ink-500); font-style: italic; }
+  .ag-side { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; min-width: 170px; }
+  @media (max-width: 780px) { .ag-side { align-items: stretch; } }
+  .ag-total { font-family: var(--font-display); font-weight: 800; font-size: 1.05rem; color: var(--ink-900); }
+  .payment-method-chip { display: inline-block; margin-top: 4px; font-size: .72rem; font-weight: 700; color: var(--info-500); background: var(--info-100); padding: 2px 8px; border-radius: var(--r-full); }
+  .status-select { border-radius: var(--r-full) !important; font-weight: 700 !important; font-size: .76rem !important; padding: 6px 12px !important; border: none !important; cursor: pointer; }
+  .status-select.pendente { background: var(--warning-100); color: #9c7415; }
+  .status-select.em-processo { background: var(--info-100); color: var(--info-500); }
+  .status-select.pronto { background: var(--brand-100); color: var(--brand-700); }
+  .status-select.entregue { background: var(--success-100); color: var(--success-500); }
+  .status-select.payment-select.pago { background: var(--success-100); color: var(--success-500); }
+  .status-select.payment-select.a-pagar { background: var(--danger-100); color: var(--danger-500); }
+  .unit-switcher { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:var(--sp-3); margin:0 0 var(--sp-5); }
+  .unit-tab { border:1px solid var(--border); background:var(--surface); border-radius:var(--r-lg); padding:14px 16px; text-align:left; cursor:pointer; transition:.18s ease; box-shadow:var(--shadow-sm); }
+  .unit-tab:hover { border-color:var(--brand-300); transform:translateY(-1px); }
+  .unit-tab.active { border-color:var(--brand-500); box-shadow:0 0 0 2px var(--brand-100); background:var(--brand-50); }
+  .unit-tab strong { display:block; font-size:.95rem; color:var(--text-900); }
+  .unit-tab span { display:block; margin-top:4px; font-size:.78rem; color:var(--text-500); }
+  .unit-badge { display:inline-flex; align-items:center; gap:5px; padding:4px 9px; border-radius:999px; background:var(--brand-100); color:var(--brand-700); font-size:.72rem; font-weight:700; margin-top:7px; }
+  @media (max-width: 700px) { .unit-switcher { grid-template-columns:1fr; } }
+
+  /* ---- Calendário/agenda visual ---- */
+  .agenda-toolbar { display:flex; align-items:center; justify-content:space-between; gap:var(--sp-4); flex-wrap:wrap; margin-bottom:var(--sp-4); }
+  .agenda-view-switch { display:flex; gap:6px; padding:4px; background:var(--surface-2); border:1px solid var(--border); border-radius:var(--r-full); }
+  .agenda-view-btn { border:0; background:transparent; padding:8px 13px; border-radius:var(--r-full); font-weight:700; color:var(--ink-600); cursor:pointer; }
+  .agenda-view-btn.active { background:var(--surface); color:var(--brand-700); box-shadow:var(--shadow-sm); }
+  .agenda-nav { display:flex; align-items:center; gap:8px; }
+  .agenda-period { min-width:230px; text-align:center; font-weight:800; color:var(--ink-900); }
+  .calendar-shell { overflow:auto; border:1px solid var(--border); border-radius:var(--r-lg); background:var(--surface); box-shadow:var(--shadow-sm); }
+  .calendar-week { display:grid; grid-template-columns:repeat(7,minmax(145px,1fr)); min-width:1015px; }
+  .calendar-day-head { padding:11px 10px; border-bottom:1px solid var(--border); border-right:1px solid var(--border); background:var(--surface-2); font-size:.78rem; color:var(--ink-500); font-weight:800; text-transform:uppercase; }
+  .calendar-day-head:last-child { border-right:0; }
+  .calendar-grid { display:grid; grid-template-columns:repeat(7,minmax(145px,1fr)); min-width:1015px; }
+  .calendar-cell { min-height:145px; padding:8px; border-right:1px solid var(--border); border-bottom:1px solid var(--border); background:var(--surface); cursor:pointer; }
+  .calendar-cell:nth-child(7n) { border-right:0; }
+  .calendar-cell.muted { background:var(--surface-2); opacity:.72; }
+  .calendar-cell.today { box-shadow:inset 0 3px 0 var(--brand-500); }
+  .calendar-date { display:flex; justify-content:space-between; align-items:center; font-weight:800; font-size:.82rem; color:var(--ink-700); margin-bottom:7px; }
+  .calendar-date .today-dot { background:var(--brand-700); color:#fff; width:25px; height:25px; border-radius:50%; display:grid; place-items:center; }
+  .calendar-event { border:1px solid var(--border); border-left:4px solid var(--brand-500); border-radius:9px; padding:7px 8px; margin-bottom:6px; background:var(--surface); box-shadow:var(--shadow-sm); cursor:pointer; }
+  .calendar-event:hover { border-color:var(--brand-300); transform:translateY(-1px); }
+  .calendar-event-time { font-size:.72rem; font-weight:800; color:var(--brand-700); }
+  .calendar-event-pet { font-size:.82rem; font-weight:800; color:var(--ink-900); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .calendar-event-service { font-size:.72rem; color:var(--ink-500); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; } .calendar-event-owner { font-size:.68rem; color:var(--ink-600); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-top:2px; }
+  .calendar-event-status { font-size:.64rem; font-weight:800; margin-top:2px; }
+  .calendar-event.pendente .calendar-event-status { color:var(--warning-700, #9a6700); }
+  .calendar-event.em-processo .calendar-event-status { color:var(--info-700, #2563eb); }
+  .calendar-event.pronto .calendar-event-status { color:var(--success-700, #15803d); }
+  .calendar-event.entregue .calendar-event-status { color:var(--ink-500); }
+
+  .calendar-more { font-size:.72rem; font-weight:800; color:var(--brand-700); padding:3px 5px; }
+  .agenda-day-list { display:flex; flex-direction:column; gap:10px; }
+  .agenda-day-empty { padding:28px; text-align:center; color:var(--ink-500); }
+  .agenda-day-row { display:grid; grid-template-columns:72px 1fr; gap:12px; align-items:start; }
+  .agenda-day-hour { font-weight:800; color:var(--brand-700); padding-top:12px; text-align:right; }
+  .agenda-event-card { border:1px solid var(--border); border-radius:var(--r-lg); background:var(--surface); padding:13px 15px; box-shadow:var(--shadow-sm); }
+  .agenda-event-card .event-main { display:flex; justify-content:space-between; gap:12px; align-items:flex-start; }
+  .agenda-event-card .event-title { font-weight:800; color:var(--ink-900); }
+  .agenda-event-card .event-sub { font-size:.82rem; color:var(--ink-500); margin-top:3px; }
+  .agenda-event-card .event-meta { display:flex; flex-wrap:wrap; gap:6px 14px; margin-top:8px; font-size:.78rem; color:var(--ink-600); }
+  .agenda-event-actions { display:flex; gap:7px; flex-wrap:wrap; justify-content:flex-end; margin-top:10px; }
+  .agenda-month-title { padding:13px 15px; border-bottom:1px solid var(--border); font-weight:800; color:var(--ink-900); }
+  @media(max-width:760px) { .agenda-toolbar { align-items:stretch; } .agenda-nav { justify-content:space-between; width:100%; } .agenda-period { min-width:0; flex:1; } .agenda-view-switch { width:100%; justify-content:space-between; } .agenda-view-btn { flex:1; } .agenda-day-row { grid-template-columns:55px 1fr; } }
+
+  /* ---- Modais rápidos (seleção de pet/dono) reaproveitando o token system ---- */
+  .quick-modal-overlay { position: fixed; inset: 0; background: rgba(14,35,33,.5); z-index: 300; align-items: center; justify-content: center; padding: var(--sp-4); }
+  .quick-modal-box { background: var(--surface); padding: var(--sp-6); border-radius: var(--r-lg); max-width: 560px; width: 100%; max-height: 82vh; overflow: auto; box-shadow: var(--shadow-lg); }
+  .quick-modal-box h3 { font-size: 1.05rem; font-weight: 800; margin-bottom: var(--sp-3); }
+  .pick-item { border-bottom: 1px solid var(--border); padding: 10px 4px; display: flex; justify-content: space-between; align-items: center; gap: var(--sp-3); }
+  .pick-item:last-child { border-bottom: none; }
+</style>
+  <script src="js/config.js"></script>
+  <script src="js/api.js"></script>
+</head>
+<body>
+<div class="app-shell">
+  <aside class="sidebar">
+    <div class="sidebar-brand"><a class="brand-home" href="cliente.html" title="Ir para a página inicial do LanePets">
+      <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#F2994A" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="7" cy="8" r="2"/><circle cx="12" cy="5.5" r="2"/><circle cx="17" cy="8" r="2"/>
+        <path d="M12 13c-3.3 0-6 2.1-6 4.7 0 1.6 1.5 2.3 3 1.8.9-.3 1.9-.5 3-.5s2.1.2 3 .5c1.5.5 3-.2 3-1.8 0-2.6-2.7-4.7-6-4.7Z"/>
+      </svg>
+      <div><div class="brand-name">Lane Pets</div><span class="brand-sub">Franco + Caieiras</span></div><svg class="brand-home-ico" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg></a><button class="sidebar-close hide-desktop" aria-label="Fechar menu">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <nav class="sidebar-nav">
+      <a class="nav-item" href="index.html">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg>
+        Cadastro
+      </a>
+      <a class="nav-item" href="clientes.html">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        Clientes
+      </a>
+      <a class="nav-item" href="clientes_pacote.html">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="14" rx="2"/><path d="M8 7V5a4 4 0 0 1 8 0v2"/></svg>
+        Pacotes
+      </a>
+      <a class="nav-item active" href="agendamentos.html">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+        Agendamentos
+      </a><a class="nav-item" href="dashboard_financeiro.html">◫ <span>Dashboard</span></a>
+      <a class="nav-item" href="Produtos.html">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21 8-9-5-9 5 9 5 9-5Z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v8"/></svg>
+        Produtos
+      </a>
+      <a class="nav-item" href="entradas_e_saidas.html">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+        Entradas e Saídas
+      </a>
+      <a class="nav-item" href="relatorio.html">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M18 17V9M13 17V5M8 17v-3"/></svg>
+        Relatório
+      </a>
+    </nav>
+    <div class="sidebar-foot">Lane Pets © 2026</div>
+  </aside>
+
+  <div class="main-area">
+    <header class="topbar">
+      <div class="topbar-left">
+        <button class="menu-toggle hide-desktop" aria-label="Abrir menu">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+        </button>
+        <div>
+          <div class="topbar-title">Agendamentos</div>
+          <div class="topbar-breadcrumb hide-mobile">Início / Agenda de atendimentos</div>
+        </div>
+      </div>
+      <div class="topbar-right"><div class="topbar-user"><div class="avatar">LP</div><span>Lane Pets</span></div></div>
+    </header>
+
+    <main class="page-content">
+      <div class="page-header">
+        <div>
+          <h1>Agendamentos</h1>
+          <p>Crie, acompanhe e gerencie os atendimentos do pet shop.</p>
+        </div>
+        <button class="btn btn-primary" onclick="document.getElementById('formAgendarCard').scrollIntoView({behavior:'smooth'});document.getElementById('agendamentoNomeDono').focus();">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+          Novo agendamento
+        </button>
+      </div>
+
+      <!-- Unidades -->
+      <section aria-label="Unidade da agenda">
+        <div class="unit-switcher" id="unitSwitcher">
+          <button type="button" class="unit-tab" data-unit="franco" onclick="selecionarUnidade('franco')">
+            <strong>Franco da Rocha</strong><span>Agenda e indicadores da unidade</span><span class="unit-badge" id="countFranco">0 agendamentos</span>
+          </button>
+          <button type="button" class="unit-tab" data-unit="caieiras" onclick="selecionarUnidade('caieiras')">
+            <strong>Caieiras</strong><span>Agenda e indicadores da unidade</span><span class="unit-badge" id="countCaieiras">0 agendamentos</span>
+          </button>
+          <button type="button" class="unit-tab" data-unit="sem-unidade" onclick="selecionarUnidade('sem-unidade')">
+            <strong>Antigos / sem unidade</strong><span>Agendamentos criados antes da atualização</span><span class="unit-badge" id="countSemUnidade">0 agendamentos</span>
+          </button>
+        </div>
+      </section>
+
+      <!-- KPIs -->
+      <div class="kpi-grid" id="kpiGrid"></div>
+
+      <!-- Novo agendamento -->
+      <section class="card" id="formAgendarCard" style="margin-bottom:var(--sp-6);">
+        <h2 class="section-title">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--brand-700)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+          Novo agendamento
+        </h2>
+
+        <fieldset class="form-section">
+          <legend>Unidade</legend>
+          <div class="field">
+            <label for="agendamentoUnidade">Unidade do atendimento <span class="hint">(obrigatório)</span></label>
+            <select id="agendamentoUnidade" required>
+              <option value="franco">Franco da Rocha</option>
+              <option value="caieiras">Caieiras</option>
+            </select>
+          </div>
+        </fieldset>
+
+        <fieldset class="form-section">
+          <legend>Cliente e pets</legend>
+          <div class="pick-row" style="margin-bottom:var(--sp-4);">
+            <div class="field"><label for="agendamentoNomeDono">Nome do dono</label><input type="text" id="agendamentoNomeDono" placeholder="Digite ou selecione"></div>
+            <button type="button" class="btn btn-secondary" onclick="abrirSelecionarDono()">Selecionar dono</button>
+          </div>
+          <div class="pick-row" style="margin-bottom:var(--sp-4);">
+            <div class="field"><label for="agendamentoNomePet">Pet</label><input type="text" id="agendamentoNomePet" placeholder="Nome do pet"></div>
+            <button type="button" class="btn btn-secondary" onclick="abrirSelecionarPet1()">Selecionar</button>
+          </div>
+          <div class="pick-row" style="margin-bottom:var(--sp-4);">
+            <div class="field"><label for="agendamentoNomePet2">2º pet <span class="hint">(opcional)</span></label><input type="text" id="agendamentoNomePet2" placeholder="Nome do segundo pet"></div>
+            <button type="button" class="btn btn-secondary" onclick="abrirSelecionarPet2()">Selecionar</button>
+          </div>
+          <div class="pick-row">
+            <div class="field" style="margin-bottom:0;"><label for="agendamentoNomePet3">3º pet <span class="hint">(opcional)</span></label><input type="text" id="agendamentoNomePet3" placeholder="Nome do terceiro pet"></div>
+            <button type="button" class="btn btn-secondary" onclick="abrirSelecionarPet3()">Selecionar</button>
+          </div>
+        </fieldset>
+
+        <fieldset class="form-section">
+          <legend>Serviços e horário</legend>
+          <div class="field">
+            <label for="listaServicos">Serviços <span class="hint">(Ctrl+clique para selecionar mais de um)</span></label>
+            <select id="listaServicos" multiple size="5"></select>
+          </div>
+          <div class="field"><label for="dataHora">Data e hora</label><input type="datetime-local" id="dataHora"></div>
+          <label class="checkbox-row" for="transporteCheck" style="margin-bottom:var(--sp-3);">
+            <input type="checkbox" id="transporteCheck" onchange="document.getElementById('valorTransporte').disabled = !this.checked;">
+            Transporte
+          </label>
+          <div class="field"><label for="valorTransporte">Valor do transporte</label><input type="number" id="valorTransporte" placeholder="0,00" min="0" step="0.01" disabled></div>
+          <div class="field"><label for="agendamentoObs">Observação</label><textarea id="agendamentoObs" rows="2" placeholder="Observações do agendamento"></textarea></div>
+        </fieldset>
+
+        <fieldset class="form-section">
+          <legend>Pagamento</legend>
+          <div class="field-row">
+            <div class="field"><label for="agendamentoPagamentoStatus">Pagamento</label>
+              <select id="agendamentoPagamentoStatus" class="status-select payment-select a-pagar" onchange="aplicarEstiloPagamento('agendamentoPagamentoStatus')">
+                <option value="A pagar">A pagar</option>
+                <option value="Pago">Pago</option>
+              </select>
+            </div>
+            <div class="field"><label for="agendamentoFormaPagamento">Forma de pagamento</label>
+              <select id="agendamentoFormaPagamento">
+                <option value="">Selecione</option>
+                <option value="Crédito">Crédito</option>
+                <option value="Débito">Débito</option>
+                <option value="Pix">Pix</option>
+                <option value="Dinheiro">Dinheiro</option>
+              </select>
+            </div>
+          </div>
+        </fieldset>
+
+        <button type="button" class="btn btn-primary" id="btnAgendar" onclick="handleAgendar()" style="width:100%;">Agendar</button>
+      </section>
+
+      <!-- Filtros -->
+      <section class="card" style="margin-bottom:var(--sp-6);">
+        <h2 class="section-title">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--brand-700)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 3H2l8 9.46V19l4 2v-8.54L22 3Z"/></svg>
+          Filtrar agendamentos
+        </h2>
+        <div class="grid grid-4">
+          <div class="field" style="margin-bottom:0;"><label for="filtroPet">Pet</label><input type="text" id="filtroPet" placeholder="Nome do pet" oninput="filtrarAgendamentos()"></div>
+          <div class="field" style="margin-bottom:0;"><label for="filtroDono">Dono</label><input type="text" id="filtroDono" placeholder="Nome do dono" oninput="filtrarAgendamentos()"></div>
+          <div class="field" style="margin-bottom:0;"><label for="filtroStatus">Status</label>
+            <select id="filtroStatus" onchange="filtrarAgendamentos()">
+              <option value="">Todos os status</option>
+              <option value="Pendente">Pendente</option>
+              <option value="Em processo">Em processo</option>
+              <option value="Pronto">Pronto</option>
+              <option value="Entregue">Entregue</option>
+            </select>
+          </div>
+          <div class="field" style="margin-bottom:0;"><label>Período</label>
+            <div style="display:flex;gap:8px;">
+              <input type="date" id="filtroDataInicio" onchange="filtrarAgendamentos()">
+              <input type="date" id="filtroDataFim" onchange="filtrarAgendamentos()">
+            </div>
+          </div>
+        </div>
+        <button type="button" id="btnLimparFiltros" class="btn btn-outline" style="margin-top:var(--sp-4);">Limpar filtros</button>
+      </section>
+
+      <!-- Agenda visual: calendário + lista operacional -->
+      <section id="agendaSection">
+        <div class="agenda-toolbar">
+          <div>
+            <h2 class="section-title" style="margin-bottom:4px;">Agenda</h2>
+            <p class="text-muted" style="margin:0;">Escolha uma visualização sem alterar os dados ou funções dos agendamentos.</p>
+          </div>
+          <div class="agenda-nav">
+            <button type="button" class="btn btn-outline btn-sm" id="agendaAnterior" aria-label="Período anterior">‹</button>
+            <button type="button" class="btn btn-outline btn-sm" id="agendaHoje">Hoje</button>
+            <div class="agenda-period" id="agendaPeriodo"></div>
+            <button type="button" class="btn btn-outline btn-sm" id="agendaProximo" aria-label="Próximo período">›</button>
+          </div>
+          <div class="agenda-view-switch" role="tablist" aria-label="Visualização da agenda">
+            <button type="button" class="agenda-view-btn active" data-view="day">Dia</button>
+            <button type="button" class="agenda-view-btn" data-view="week">Semana</button>
+            <button type="button" class="agenda-view-btn" data-view="month">Mês</button>
+            <button type="button" class="agenda-view-btn" data-view="list">Lista</button>
+          </div>
+        </div>
+        <div id="agendaVisual"></div>
+        <div id="listaAgendamentos" style="display:none;"></div>
+      </section>
+    </main>
+  </div>
+</div>
+
+<!-- Modal editar agendamento -->
+<div id="modalEditarAgendamento" class="modal-overlay">
+  <form id="formEditarAgendamento" class="modal-box modal-wide" autocomplete="off">
+    <div class="modal-head">
+      <h2>Editar agendamento</h2>
+      <button type="button" class="modal-close" onclick="fecharModalAgendamento()" aria-label="Fechar">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <input type="hidden" id="editAgendamentoIndex">
+    <div class="field">
+      <label for="editAgendamentoUnidade">Unidade</label>
+      <select id="editAgendamentoUnidade">
+        <option value="">Sem unidade / antigo</option>
+        <option value="franco">Franco da Rocha</option>
+        <option value="caieiras">Caieiras</option>
+      </select>
+    </div>
+    <div class="field-row">
+      <div class="field"><label for="editAgendamentoPet">Nome do pet</label><input type="text" id="editAgendamentoPet" required></div>
+      <div class="field"><label for="editAgendamentoDono">Nome do dono</label><input type="text" id="editAgendamentoDono" required></div>
+    </div>
+    <div class="field"><label for="editAgendamentoDataHora">Data e hora</label><input type="datetime-local" id="editAgendamentoDataHora" required></div>
+    <div class="field"><label for="editAgendamentoServicos">Serviços</label><select id="editAgendamentoServicos" multiple size="5"></select></div>
+    <label class="checkbox-row" for="editAgendamentoTransporte" style="margin-bottom:var(--sp-3);">
+      <input type="checkbox" id="editAgendamentoTransporte" onchange="document.getElementById('editAgendamentoValorTransporte').disabled = !this.checked;">
+      Transporte
+    </label>
+    <div class="field-row">
+      <div class="field"><label for="editAgendamentoValorTransporte">Valor transporte</label><input type="number" id="editAgendamentoValorTransporte" min="0" step="0.01" disabled></div>
+      <div class="field"><label for="editAgendamentoTotal">Valor total</label><input type="number" id="editAgendamentoTotal" min="0" step="0.01"></div>
+    </div>
+    <div class="field-row">
+      <div class="field"><label for="editAgendamentoPagamentoStatus">Pagamento</label>
+        <select id="editAgendamentoPagamentoStatus" class="status-select payment-select a-pagar" onchange="aplicarEstiloPagamento('editAgendamentoPagamentoStatus')">
+          <option value="A pagar">A pagar</option>
+          <option value="Pago">Pago</option>
+        </select>
+      </div>
+      <div class="field"><label for="editAgendamentoFormaPagamento">Forma de pagamento</label>
+        <select id="editAgendamentoFormaPagamento">
+          <option value="">Selecione</option>
+          <option value="Crédito">Crédito</option>
+          <option value="Débito">Débito</option>
+          <option value="Pix">Pix</option>
+          <option value="Dinheiro">Dinheiro</option>
+        </select>
+      </div>
+    </div>
+    <div class="field"><label for="editAgendamentoStatus">Status</label>
+      <select id="editAgendamentoStatus" required>
+        <option value="Pendente">Pendente</option>
+        <option value="Em processo">Em processo</option>
+        <option value="Pronto">Pronto</option>
+        <option value="Entregue">Entregue</option>
+      </select>
+    </div>
+    <div class="field"><label for="editAgendamentoObs">Observação</label><textarea id="editAgendamentoObs" rows="2" placeholder="Observações do agendamento"></textarea></div>
+    <div class="modal-actions">
+      <button type="button" class="btn btn-outline" onclick="fecharModalAgendamento()">Cancelar</button>
+      <button type="submit" class="btn btn-primary">Salvar</button>
+    </div>
+  </form>
+</div>
+
+<!-- Modal selecionar pet (2º / 3º pet) -->
+<div id="modalSelecionarPet" class="quick-modal-overlay" style="display:none;">
+  <div class="quick-modal-box">
+    <h3>Selecionar pet</h3>
+    <div class="field"><input type="text" id="selecionarPetFiltro" class="input" placeholder="Digite o nome do pet"></div>
+    <div id="selecionarPetConteudo"></div>
+    <div style="text-align:right;margin-top:var(--sp-4);">
+      <button type="button" class="btn btn-outline" onclick="fecharSelecionarPet()">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal selecionar dono -->
+<div id="modalSelecionarDono" class="quick-modal-overlay" style="display:none;">
+  <div class="quick-modal-box">
+    <h3>Selecionar dono</h3>
+    <div class="field"><input type="text" id="selecionarDonoFiltro" class="input" placeholder="Digite o nome do dono"></div>
+    <div id="selecionarDonoConteudo"></div>
+    <div id="selecionarDonoPets" style="margin-top:var(--sp-3);"></div>
+    <div style="text-align:right;margin-top:var(--sp-4);">
+      <button type="button" class="btn btn-outline" onclick="fecharSelecionarDono()">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<div class="page-content" style="padding-top:0;max-width:1320px;margin:0 auto;">
+  <div class="backup-buttons-container" style="display:flex;gap:var(--sp-3);flex-wrap:wrap;margin:0 var(--sp-7) var(--sp-8);">
+    <button class="btn btn-outline" onclick="exportarBackupCompleto()">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5M12 15V3"/></svg>
+      Exportar backup
+    </button>
+    <input type="file" id="importarBackupInput" onchange="importarBackupCompleto(this)" style="display:none;">
+    <button class="btn btn-outline" onclick="document.getElementById('importarBackupInput').click()">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M17 8l-5-5-5 5M12 3v12"/></svg>
+      Importar backup
+    </button>
+  </div>
+</div>
+
+<script src="ui-kit.js"></script>
+<script>
+    function safeJsonParse(value, fallback) {
+      if (value === null || value === undefined || value === "") return fallback;
+      try {
+        const parsed = JSON.parse(value);
+        return parsed !== null && parsed !== undefined ? parsed : fallback;
+      } catch (error) {
+        return fallback;
+      }
+    }
+
+    function carregarDadosAgenda() {
+      const chavesPreferenciais = ["agendamentos", "agenda", "agendamento"];
+      let agendamentosCarregados = [];
+
+      for (const chave of chavesPreferenciais) {
+        const valor = localStorage.getItem(chave);
+        if (valor === null) continue;
+        const dados = safeJsonParse(valor, []);
+        if (Array.isArray(dados)) {
+          agendamentosCarregados = dados;
+          if (chave !== "agendamentos") {
+            localStorage.setItem("agendamentos", JSON.stringify(dados));
+          }
+          break;
+        }
+      }
+
+      pets = safeJsonParse(localStorage.getItem("pets"), []);
+      servicos = safeJsonParse(localStorage.getItem("servicos"), []);
+      agendamentos = Array.isArray(agendamentosCarregados) ? agendamentosCarregados : [];
+      if (!Array.isArray(agendamentos)) agendamentos = [];
+      if (Array.isArray(agendamentos) && agendamentos.length > 0) {
+        localStorage.setItem("agendamentos", JSON.stringify(agendamentos));
+      }
+      return { pets, servicos, agendamentos };
+    }
+
+    // Carregar dados do localStorage
+    let pets = safeJsonParse(localStorage.getItem("pets"), []);
+    let servicos = safeJsonParse(localStorage.getItem("servicos"), []);
+    let agendamentos = safeJsonParse(localStorage.getItem("agendamentos"), []);
+    let unidadeSelecionada = localStorage.getItem("unidadeAgendamentoSelecionada") || "franco";
+
+    function nomeUnidade(unidade) {
+      return unidade === "franco" ? "Franco da Rocha" : unidade === "caieiras" ? "Caieiras" : "Sem unidade / antigo";
+    }
+    function unidadeDoAgendamento(a) {
+      const raw = String(a && a.unidade != null ? a.unidade : "").trim().toLowerCase();
+      if (["franco", "franco da rocha", "franco-da-rocha", "franco_da_rocha"].includes(raw)) return "franco";
+      if (["caieiras", "caieira"].includes(raw)) return "caieiras";
+      return "sem-unidade";
+    }
+    function selecionarUnidade(unidade) {
+      unidadeSelecionada = unidade;
+      localStorage.setItem("unidadeAgendamentoSelecionada", unidade);
+      const novo = document.getElementById("agendamentoUnidade");
+      if (novo && (unidade === "franco" || unidade === "caieiras")) novo.value = unidade;
+      atualizarResumoUnidades(); atualizarKpis(); filtrarAgendamentos();
+    }
+    function atualizarResumoUnidades() {
+      const counts = { franco: 0, caieiras: 0, "sem-unidade": 0 };
+      agendamentos.forEach(a => counts[unidadeDoAgendamento(a)]++);
+      const ids = { franco: "countFranco", caieiras: "countCaieiras", "sem-unidade": "countSemUnidade" };
+      Object.keys(ids).forEach(u => { const el=document.getElementById(ids[u]); if(el) el.textContent=`${counts[u]} ${counts[u]===1?"agendamento":"agendamentos"}`; });
+      document.querySelectorAll(".unit-tab").forEach(tab => { const active=tab.dataset.unit===unidadeSelecionada; tab.classList.toggle("active",active); tab.setAttribute("aria-pressed",String(active)); });
+    }
+
+    function aplicarEstiloPagamento(selectId) {
+      const select = document.getElementById(selectId);
+      if (!select) return;
+      select.classList.remove("pago", "a-pagar");
+      if (select.value === "Pago") {
+        select.classList.add("pago");
+      } else if (select.value === "A pagar") {
+        select.classList.add("a-pagar");
+      }
+    }
+
+    function atualizarListaServicos() {
+      const select = document.getElementById("listaServicos");
+      select.innerHTML = "";
+
+      const portes = ["Gato","Pequeno", "Médio", "Grande", "Adicional"];
+      portes.forEach(porte => {
+        const optgroup = document.createElement("optgroup");
+        if (porte === "Adicional") {
+          optgroup.label = "Serviços Adicionais";
+        } else if (porte === "Gato") {
+          optgroup.label = "Serviços para Gato";
+        } else {
+          optgroup.label = `Porte ${porte}`;
+        }
+        servicos.filter(s => s.porte === porte && (!s.adicionais || s.adicionais.length === 0)).forEach((s, i) => {
+          const idxServico = servicos.indexOf(s);
+          const opt = document.createElement("option");
+          opt.value = idxServico;
+          opt.text = `${s.nome}${s.pacote ? " (Pacote)" : ""}${s.preco !== null && s.preco !== undefined ? " - R$ " + s.preco.toFixed(2) : ""}`;
+          optgroup.appendChild(opt);
+        });
+        if (optgroup.children.length > 0) select.appendChild(optgroup);
+      });
+
+      const adicionaisServicos = servicos.filter(s => s.adicionais && s.adicionais.length > 0);
+      if (adicionaisServicos.length > 0) {
+        const optgroupAdic = document.createElement("optgroup");
+        optgroupAdic.label = "Serviços Compostos";
+        adicionaisServicos.forEach((s, i) => {
+          const opt = document.createElement("option");
+          opt.value = servicos.indexOf(s);
+          opt.text = `${s.nome} (${s.adicionais.join(", ")})${s.pacote ? " (Pacote)" : ""}${s.preco !== null && s.preco !== undefined ? " - R$ " + s.preco.toFixed(2) : ""}`;
+          optgroupAdic.appendChild(opt);
+        });
+        select.appendChild(optgroupAdic);
+      }
+    }
+
+    atualizarListaServicos();
+    aplicarEstiloPagamento("agendamentoPagamentoStatus");
+    aplicarEstiloPagamento("editAgendamentoPagamentoStatus");
+
+    function agendar() {
+      pets = safeJsonParse(localStorage.getItem("pets"), []);
+      servicos = safeJsonParse(localStorage.getItem("servicos"), []);
+      agendamentos = safeJsonParse(localStorage.getItem("agendamentos"), []);
+
+      const nomePet = document.getElementById("agendamentoNomePet").value.trim();
+      const nomePet2 = document.getElementById("agendamentoNomePet2").value.trim();
+      const nomePet3 = document.getElementById("agendamentoNomePet3").value.trim();
+      const nomeDono = document.getElementById("agendamentoNomeDono").value.trim();
+      const unidade = document.getElementById("agendamentoUnidade").value;
+      const dataHora = document.getElementById("dataHora").value;
+      const opcoesSelecionadas = Array.from(document.getElementById("listaServicos").selectedOptions);
+
+      const transporte = document.getElementById("transporteCheck").checked;
+      let valorTransporte = 0;
+      if (transporte) {
+        valorTransporte = parseFloat(document.getElementById("valorTransporte").value);
+        if (isNaN(valorTransporte) || valorTransporte < 0) {
+          toast("Informe um valor válido para o transporte.", "error");
+          return false;
+        }
+      }
+
+      const pagamentoStatus = document.getElementById("agendamentoPagamentoStatus").value || "A pagar";
+      const formaPagamento = document.getElementById("agendamentoFormaPagamento").value || "";
+
+      if (!unidade || !nomePet || !nomeDono || !dataHora || opcoesSelecionadas.length === 0) {
+        toast("Preencha todos os campos e selecione pelo menos um serviço.", "error");
+        return false;
+      }
+
+      const petsParaAgendar = [nomePet, nomePet2, nomePet3].filter(Boolean);
+      const petsEncontrados = [];
+      let erroValidacao = "";
+
+      // Valida todos os pets antes de alterar qualquer dado. Isso evita
+      // agendamentos/pacotes parcialmente gravados quando um dos pets é inválido.
+      for (const nomePetAtual of petsParaAgendar) {
+        const pet = pets.find(p =>
+          (p.pet || "").toLowerCase() === nomePetAtual.toLowerCase() &&
+          (p.dono || "").toLowerCase() === nomeDono.toLowerCase()
+        );
+
+        if (!pet) {
+          erroValidacao = `O pet "${nomePetAtual}" do dono "${nomeDono}" não foi encontrado.`;
+          break;
+        }
+
+        if (
+          pet.pacote &&
+          typeof pet.pacote === "object" &&
+          pet.pacote.ativo &&
+          Number(pet.pacote.feitos || 0) >= Number(pet.pacote.total || 0)
+        ) {
+          erroValidacao = `O pet "${pet.pet}" do cliente "${pet.dono}" já utilizou todos os banhos do pacote.`;
+          break;
+        }
+
+        petsEncontrados.push(pet);
+      }
+
+      if (erroValidacao) {
+        toast(erroValidacao, "error");
+        return false;
+      }
+
+      const servicosAgendados = opcoesSelecionadas
+        .map(opt => servicos[parseInt(opt.value, 10)])
+        .filter(Boolean);
+
+      if (servicosAgendados.length === 0) {
+        toast("Os serviços selecionados não estão mais disponíveis.", "error");
+        atualizarListaServicos();
+        return false;
+      }
+
+      let total = servicosAgendados.reduce((sum, s) => sum + (Number(s.preco) || 0), 0);
+      if (transporte) total += valorTransporte;
+
+      const obs = document.getElementById("agendamentoObs").value.trim();
+
+      petsEncontrados.forEach(pet => {
+        agendamentos.push({
+          unidade,
+          pet: pet.pet,
+          dono: pet.dono,
+          telefone: pet.telefone || "",
+          dataHora,
+          servicos: servicosAgendados,
+          total,
+          transporte,
+          valorTransporte,
+          status: "Pendente",
+          obs,
+          pagamentoStatus,
+          formaPagamento
+        });
+      });
+
+      // Só depois que todos os agendamentos foram criados, atualiza os pacotes.
+      const petsLS = safeJsonParse(localStorage.getItem("pets"), []);
+      petsEncontrados.forEach(pet => {
+        const idx = petsLS.findIndex(p =>
+          (p.pet || "").toLowerCase() === (pet.pet || "").toLowerCase() &&
+          (p.dono || "").toLowerCase() === (pet.dono || "").toLowerCase()
+        );
+        if (
+          idx !== -1 &&
+          petsLS[idx].pacote &&
+          typeof petsLS[idx].pacote === "object" &&
+          petsLS[idx].pacote.ativo
+        ) {
+          petsLS[idx].pacote.feitos = Number(petsLS[idx].pacote.feitos || 0) + 1;
+          if (!Array.isArray(petsLS[idx].pacote.historico)) petsLS[idx].pacote.historico = [];
+          petsLS[idx].pacote.historico.push(dataHora);
+        }
+      });
+
+      localStorage.setItem("pets", JSON.stringify(petsLS));
+      localStorage.setItem("agendamentos", JSON.stringify(agendamentos));
+      pets = petsLS;
+
+      filtrarAgendamentos();
+      atualizarKpis();
+      toast(petsEncontrados.length > 1 ? "Agendamentos realizados!" : "Agendamento realizado!", "success");
+
+      document.getElementById("agendamentoNomePet").value = "";
+      document.getElementById("agendamentoNomePet2").value = "";
+      document.getElementById("agendamentoNomePet3").value = "";
+      document.getElementById("agendamentoNomeDono").value = "";
+      document.getElementById("dataHora").value = "";
+      document.getElementById("transporteCheck").checked = false;
+      document.getElementById("valorTransporte").value = "";
+      document.getElementById("valorTransporte").disabled = true;
+      document.getElementById("agendamentoPagamentoStatus").value = "A pagar";
+      aplicarEstiloPagamento("agendamentoPagamentoStatus");
+      document.getElementById("agendamentoFormaPagamento").value = "";
+      const lista = document.getElementById("listaServicos");
+      for (let i = 0; i < lista.options.length; i++) lista.options[i].selected = false;
+      document.getElementById("agendamentoObs").value = "";
+      return true;
+    }
+
+    function handleAgendar() {
+      const btn = document.getElementById("btnAgendar");
+      comLoading(btn, "Agendando...", () => agendar());
+    }
+
+    function formatarData(dataHora) {
+      if (!dataHora) return "";
+      const d = new Date(dataHora);
+      return d.toLocaleDateString() + " " + d.toLocaleTimeString().slice(0,5);
+    }
+
+    function obterInfoPacote(agendamento, petInfo) {
+      if (!petInfo || !petInfo.pacote || !petInfo.pacote.ativo) return null;
+
+      const pacote = petInfo.pacote;
+      const tipo = (pacote.tipo || "").toLowerCase();
+      const total = tipo.includes("quinzenal") ? 2 : (tipo.includes("mensal") ? 4 : Number(pacote.total || 0));
+      const dataInicio = pacote.renovadoEm ? new Date(pacote.renovadoEm + "T00:00:00") : null;
+      const historico = Array.isArray(pacote.historico) ? pacote.historico : [];
+      const historicoNoCiclo = historico.filter(item => {
+        if (!item) return false;
+        const data = new Date(item);
+        if (Number.isNaN(data.getTime())) return false;
+        if (dataInicio && data < dataInicio) return false;
+        if (agendamento && agendamento.dataHora) {
+          const dataAgendamento = new Date(agendamento.dataHora);
+          if (Number.isNaN(dataAgendamento.getTime())) return false;
+          return data <= dataAgendamento;
+        }
+        return true;
+      });
+
+      const banhoNumero = historicoNoCiclo.length || null;
+      const restantes = Math.max(0, total - (banhoNumero || 0));
+
+      return {
+        banhoNumero,
+        tipo: pacote.tipo || "-",
+        restantes,
+        total
+      };
+    }
+
+    function statusClassOf(status) {
+      return status === "Entregue" ? "entregue" :
+        status === "Em processo" ? "em-processo" :
+        status === "Pronto" ? "pronto" :
+        "pendente";
+    }
+
+    function atualizarKpis() {
+      const todos = safeJsonParse(localStorage.getItem("agendamentos"), [])
+        .filter(a => unidadeDoAgendamento(a) === unidadeSelecionada);
+      const hoje = todos.filter(a => {
+        if (!a.dataHora) return false;
+        const data = new Date(a.dataHora);
+        const agora = new Date();
+        return !Number.isNaN(data.getTime()) &&
+          data.getFullYear() === agora.getFullYear() &&
+          data.getMonth() === agora.getMonth() &&
+          data.getDate() === agora.getDate();
+      }).length;
+
+      const porStatus = { "Pendente": 0, "Em processo": 0, "Pronto": 0, "Entregue": 0 };
+      todos.forEach(a => { if (porStatus[a.status] !== undefined) porStatus[a.status]++; });
+
+      const kpis = [
+        { id: "hoje", label: "Hoje", valor: hoje, filtro: "hoje", icon: '<path d="M12 8v4l3 3"/><circle cx="12" cy="12" r="9"/>' },
+        { id: "pendentes", label: "Pendentes", valor: porStatus["Pendente"], filtro: "Pendente", icon: '<circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/>' },
+        { id: "processo", label: "Em processo", valor: porStatus["Em processo"], filtro: "Em processo", icon: '<path d="M21 12a9 9 0 1 1-6.22-8.56"/><path d="M21 3v6h-6"/>' },
+        { id: "prontos", label: "Prontos", valor: porStatus["Pronto"], filtro: "Pronto", icon: '<path d="M20 6 9 17l-5-5"/>' },
+        { id: "entregues", label: "Entregues", valor: porStatus["Entregue"], filtro: "Entregue", icon: '<path d="m9 12 2 2 4-4"/><circle cx="12" cy="12" r="9"/>' }
+      ];
+
+      const filtroStatusAtual = document.getElementById("filtroStatus").value;
+      const inicioAtual = document.getElementById("filtroDataInicio").value;
+      const fimAtual = document.getElementById("filtroDataFim").value;
+      const hojeLocal = new Date();
+      const hojeISO = `${hojeLocal.getFullYear()}-${String(hojeLocal.getMonth() + 1).padStart(2, "0")}-${String(hojeLocal.getDate()).padStart(2, "0")}`;
+
+      document.getElementById("kpiGrid").innerHTML = kpis.map(k => {
+        const ativo = k.filtro === "hoje"
+          ? inicioAtual === hojeISO && fimAtual === hojeISO
+          : filtroStatusAtual === k.filtro;
+        return `
+          <button type="button" class="stat-card kpi-card${ativo ? " active" : ""}"
+                  data-kpi="${k.filtro}" aria-pressed="${ativo}"
+                  title="Filtrar agenda por ${k.label.toLowerCase()}">
+            <span>
+              <span class="stat-value">${k.valor}</span>
+              <span class="stat-label">${k.label}</span>
+            </span>
+            <span class="stat-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${k.icon}</svg></span>
+          </button>`;
+      }).join("");
+
+      document.querySelectorAll("#kpiGrid .kpi-card").forEach(btn => {
+        btn.addEventListener("click", () => aplicarFiltroKpi(btn.dataset.kpi));
+      });
+    }
+
+    function aplicarFiltroKpi(tipo) {
+      const status = document.getElementById("filtroStatus");
+      const inicio = document.getElementById("filtroDataInicio");
+      const fim = document.getElementById("filtroDataFim");
+
+      if (tipo === "hoje") {
+        const agora = new Date();
+        const hojeISO = `${agora.getFullYear()}-${String(agora.getMonth() + 1).padStart(2, "0")}-${String(agora.getDate()).padStart(2, "0")}`;
+        const jaAtivo = inicio.value === hojeISO && fim.value === hojeISO && status.value === "";
+        status.value = "";
+        inicio.value = jaAtivo ? "" : hojeISO;
+        fim.value = jaAtivo ? "" : hojeISO;
+        agendaView = "day";
+        agendaCursor = new Date();
+        agendaCursor.setHours(0, 0, 0, 0);
+      } else {
+        const jaAtivo = status.value === tipo && !inicio.value && !fim.value;
+        status.value = jaAtivo ? "" : tipo;
+        inicio.value = "";
+        fim.value = "";
+        // Um filtro de status pode abranger vários dias. A lista é a visão mais
+        // segura para mostrar todos os resultados, sem esconder atendimentos
+        // fora do dia atual.
+        if (!jaAtivo) agendaView = "list";
+      }
+
+      localStorage.setItem("agendaView", agendaView);
+      filtrarAgendamentos();
+      atualizarKpis();
+      atualizarResumoUnidades();
+
+      // Mantém o comportamento anterior: ao usar um KPI do topo,
+      // leva o usuário diretamente para onde os agendamentos foram exibidos.
+      requestAnimationFrame(() => {
+        const agendaSection = document.getElementById("agendaSection");
+        if (agendaSection) {
+          agendaSection.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+      });
+    }
+    window.aplicarFiltroKpi = aplicarFiltroKpi;
+
+    let agendaView = localStorage.getItem("agendaView") || "day";
+    let agendaCursor = new Date();
+    agendaCursor.setHours(0,0,0,0);
+
+    function escapeHtml(value) {
+      return String(value ?? "").replace(/[&<>'"]/g, ch => ({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"}[ch]));
+    }
+
+    function isoLocalDate(d) {
+      return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+    }
+
+    function inicioSemana(d) {
+      const x = new Date(d); x.setHours(0,0,0,0);
+      const day = x.getDay();
+      x.setDate(x.getDate() - (day === 0 ? 6 : day - 1));
+      return x;
+    }
+
+    function formatarPeriodoAgenda() {
+      const op = { month:"long", year:"numeric" };
+      if (agendaView === "day") return agendaCursor.toLocaleDateString("pt-BR", {weekday:"long", day:"2-digit", month:"long", year:"numeric"});
+      if (agendaView === "week") {
+        const ini = inicioSemana(agendaCursor), fim = new Date(ini); fim.setDate(fim.getDate()+6);
+        return `${ini.toLocaleDateString("pt-BR",{day:"2-digit",month:"short"})} – ${fim.toLocaleDateString("pt-BR",{day:"2-digit",month:"short",year:"numeric"})}`;
+      }
+      return agendaCursor.toLocaleDateString("pt-BR", op);
+    }
+
+    function eventosDaLista(lista) {
+      return [...lista].sort((a,b) => (new Date(a.dataHora||0)) - (new Date(b.dataHora||0)));
+    }
+
+    function statusBadge(status) {
+      return `<span class="status-select ${statusClassOf(status)}" style="display:inline-block;">${escapeHtml(status || "Pendente")}</span>`;
+    }
+
+    function servicosResumo(a) {
+      return (a.servicos || []).map(s => s.nome).join(" + ") || "Serviço";
+    }
+
+    function renderEventoCompact(a) {
+      const dt = a.dataHora ? new Date(a.dataHora) : null;
+      const idx = a._realIndex;
+      const status = a.status || "Pendente";
+      return `<article class="calendar-event ${statusClassOf(status)}" onclick="editarAgendamento(${idx})" title="Abrir agendamento de ${escapeHtml(a.pet)}">
+        <div class="calendar-event-time">${dt && !Number.isNaN(dt.getTime()) ? dt.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"}) : "Sem horário"}</div>
+        <div class="calendar-event-pet">🐶 ${escapeHtml(a.pet)}</div>
+        <div class="calendar-event-service">${escapeHtml(servicosResumo(a))}</div>
+        <div class="calendar-event-owner">${escapeHtml(a.dono || "Cliente não informado")}</div>
+        <div class="calendar-event-status">${escapeHtml(status)}</div>
+      </article>`;
+    }
+
+    function renderEventoDetalhado(a) {
+      const dt = a.dataHora ? new Date(a.dataHora) : null;
+      const idx = a._realIndex;
+      const pet = escapeHtml(a.pet || "Pet não informado"), dono = escapeHtml(a.dono || "Cliente não informado"), serv = escapeHtml(servicosResumo(a));
+      const status = a.status || "Pendente";
+      return `<article class="agenda-event-card">
+        <div class="event-main">
+          <div><div class="event-title">🐶 ${pet}</div><div class="event-sub">${dono} · ${serv}</div></div>
+          ${statusBadge(status)}
+        </div>
+        <div class="event-meta">
+          <span>🏢 ${escapeHtml(nomeUnidade(unidadeDoAgendamento(a)))}</span>
+          <span>💰 R$ ${Number(a.total||0).toFixed(2)}</span>
+          <span>💳 ${escapeHtml(a.pagamentoStatus || "A pagar")}</span>
+          ${a.transporte ? `<span>🚗 Transporte</span>` : ""}
+        </div>
+        ${a.obs ? `<div class="event-sub" style="margin-top:8px;">Obs: ${escapeHtml(a.obs)}</div>` : ""}
+        <div class="agenda-event-actions">
+          <select class="status-select ${statusClassOf(status)}" onchange="alterarStatusAgendamento(${idx}, this.value); renderAgendaAtual();">
+            ${["Pendente","Em processo","Pronto","Entregue"].map(opt=>`<option value="${opt}"${status===opt?" selected":""}>${opt}</option>`).join("")}
+          </select>
+          <button class="btn btn-outline btn-sm" type="button" onclick="editarAgendamento(${idx})">Editar</button>
+          <button class="btn btn-danger btn-sm" type="button" onclick="excluirAgendamento(${idx})">Excluir</button>
+        </div>
+      </article>`;
+    }
+
+    function renderAgendaDia(lista) {
+      const alvo = isoLocalDate(agendaCursor);
+      const eventos = eventosDaLista(lista.filter(a => a.dataHora && isoLocalDate(new Date(a.dataHora)) === alvo));
+      document.getElementById("agendaPeriodo").textContent = formatarPeriodoAgenda();
+      if (!eventos.length) return `<div class="agenda-day-empty card">Nenhum agendamento neste dia para os filtros atuais.</div>`;
+      return `<div class="agenda-day-list">${eventos.map(a=>{
+        const dt=new Date(a.dataHora);
+        return `<div class="agenda-day-row"><div class="agenda-day-hour">${dt.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})}</div>${renderEventoDetalhado(a)}</div>`;
+      }).join("")}</div>`;
+    }
+
+    function renderAgendaSemana(lista) {
+      const ini = inicioSemana(agendaCursor);
+      document.getElementById("agendaPeriodo").textContent = formatarPeriodoAgenda();
+      const dias = Array.from({length:7},(_,i)=>{const d=new Date(ini);d.setDate(d.getDate()+i);return d;});
+      const nomes = ["Seg","Ter","Qua","Qui","Sex","Sáb","Dom"];
+      const heads = dias.map((d,i)=>`<div class="calendar-day-head">${nomes[i]} · ${d.getDate()}</div>`).join("");
+      const cells = dias.map(d=>{
+        const key=isoLocalDate(d), events=eventosDaLista(lista.filter(a=>a.dataHora && isoLocalDate(new Date(a.dataHora))===key));
+        const hoje=key===isoLocalDate(new Date());
+        return `<div class="calendar-cell${hoje?" today":""}" onclick="irParaDia('${key}')"><div class="calendar-date"><span>${hoje?`<span class="today-dot">${d.getDate()}</span>`:d.getDate()}</span><span>${events.length||""}</span></div>${events.slice(0,5).map(renderEventoCompact).join("")}${events.length>5?`<div class="calendar-more">+ ${events.length-5} atendimento(s)</div>`:""}</div>`;
+      }).join("");
+      return `<div class="calendar-shell"><div class="calendar-week">${heads}</div><div class="calendar-grid">${cells}</div></div>`;
+    }
+
+    function renderAgendaMes(lista) {
+      document.getElementById("agendaPeriodo").textContent = formatarPeriodoAgenda();
+      const primeiro = new Date(agendaCursor.getFullYear(),agendaCursor.getMonth(),1), ini=inicioSemana(primeiro);
+      const dias=Array.from({length:42},(_,i)=>{const d=new Date(ini);d.setDate(d.getDate()+i);return d;});
+      const nomes=["Seg","Ter","Qua","Qui","Sex","Sáb","Dom"];
+      const heads=nomes.map(n=>`<div class="calendar-day-head">${n}</div>`).join("");
+      const cells=dias.map(d=>{
+        const key=isoLocalDate(d), events=eventosDaLista(lista.filter(a=>a.dataHora && isoLocalDate(new Date(a.dataHora))===key));
+        const muted=d.getMonth()!==agendaCursor.getMonth(), hoje=key===isoLocalDate(new Date());
+        return `<div class="calendar-cell${muted?" muted":""}${hoje?" today":""}" onclick="irParaDia('${key}')"><div class="calendar-date"><span>${hoje?`<span class="today-dot">${d.getDate()}</span>`:d.getDate()}</span><span>${events.length||""}</span></div>${events.slice(0,3).map(renderEventoCompact).join("")}${events.length>3?`<div class="calendar-more">+ ${events.length-3} atendimento(s)</div>`:""}</div>`;
+      }).join("");
+      return `<div class="calendar-shell"><div class="calendar-week">${heads}</div><div class="calendar-grid">${cells}</div></div>`;
+    }
+
+    function renderAgendaLista() {
+      document.getElementById("agendaPeriodo").textContent = "Lista completa";
+      document.getElementById("agendaVisual").style.display="none";
+      document.getElementById("listaAgendamentos").style.display="block";
+      document.querySelectorAll(".agenda-view-btn").forEach(btn => {
+        const active = btn.dataset.view === "list";
+        btn.classList.toggle("active", active);
+        btn.setAttribute("aria-selected", String(active));
+      });
+    }
+
+    function renderAgendaAtual(listaAtual) {
+      const visual=document.getElementById("agendaVisual"), listaEl=document.getElementById("listaAgendamentos");
+      if (!visual || !listaEl) return;
+      document.querySelectorAll(".agenda-view-btn").forEach(btn => {
+        const active = btn.dataset.view === agendaView;
+        btn.classList.toggle("active", active);
+        btn.setAttribute("aria-selected", String(active));
+      });
+      if (agendaView === "list") { renderAgendaLista(); return; }
+      visual.style.display="block"; listaEl.style.display="none";
+      const lista = listaAtual || (window.__agendamentosFiltrados || []);
+      visual.innerHTML = agendaView === "day" ? renderAgendaDia(lista) : agendaView === "week" ? renderAgendaSemana(lista) : renderAgendaMes(lista);
+      document.querySelectorAll(".agenda-view-btn").forEach(btn=>btn.classList.toggle("active",btn.dataset.view===agendaView));
+    }
+
+    function irParaDia(iso) {
+      const [y,m,d]=iso.split("-").map(Number); agendaCursor=new Date(y,m-1,d); agendaView="day"; localStorage.setItem("agendaView",agendaView); renderAgendaAtual(); }
+    window.irParaDia=irParaDia;
+
+    function moverPeriodo(delta) {
+      if (agendaView === "day") agendaCursor.setDate(agendaCursor.getDate()+delta);
+      else if (agendaView === "week") agendaCursor.setDate(agendaCursor.getDate()+delta*7);
+      else agendaCursor.setMonth(agendaCursor.getMonth()+delta);
+      renderAgendaAtual();
+    }
+
+    function mostrarAgendamentos(lista) {
+      if (!lista) {
+        lista = safeJsonParse(localStorage.getItem("agendamentos"), []);
+      }
+
+      const container = document.getElementById("listaAgendamentos");
+      const pets = safeJsonParse(localStorage.getItem("pets"), []);
+
+      const listaOrdenada = [...lista]
+        .map((item) => {
+          if (item && Object.prototype.hasOwnProperty.call(item, "_realIndex")) return item;
+          const realIndex = agendamentos.indexOf(item);
+          return { ...item, _realIndex: realIndex };
+        })
+        .sort((a, b) => {
+          const da = a.dataHora ? new Date(a.dataHora).getTime() : Number.POSITIVE_INFINITY;
+          const db = b.dataHora ? new Date(b.dataHora).getTime() : Number.POSITIVE_INFINITY;
+          return da - db;
+        });
+
+      window.__agendamentosFiltrados = listaOrdenada;
+
+      if (listaOrdenada.length === 0) {
+        const semNenhum = agendamentos.length === 0;
+        container.innerHTML = `
+          <div class="empty-state card">
+            <svg width="42" height="42" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+            <h3>${semNenhum ? "Agenda livre" : "Nenhum agendamento encontrado"}</h3>
+            <p>${semNenhum ? "Você ainda não tem agendamentos. Crie o primeiro acima." : "Nenhum agendamento encontrado para este período ou filtro."}</p>
+            <button class="btn btn-primary btn-sm" onclick="document.getElementById('formAgendarCard').scrollIntoView({behavior:'smooth'});">+ Novo agendamento</button>
+          </div>`;
+        window.__agendamentosFiltrados = [];
+        if (agendaView === "list") { container.style.display = "block"; document.getElementById("agendaVisual").style.display = "none"; }
+        else { container.style.display = "none"; document.getElementById("agendaVisual").style.display = "block"; renderAgendaAtual([]); }
+        return;
+      }
+
+      container.innerHTML = listaOrdenada.map((a) => {
+        const petInfo = pets.find(p =>
+          p.pet.toLowerCase() === a.pet.toLowerCase() &&
+          p.dono.toLowerCase() === a.dono.toLowerCase()
+        );
+        const raca = petInfo && petInfo.raca ? petInfo.raca : "-";
+        const infoPacote = obterInfoPacote(a, petInfo);
+
+        const statusClass = statusClassOf(a.status);
+        const statusOptions = ["Pendente", "Em processo", "Pronto", "Entregue"];
+        const statusSelect = `
+          <select class="status-select ${statusClass}" onchange="alterarStatusAgendamento(${a._realIndex}, this.value)">
+            ${statusOptions.map(opt => `<option value="${opt}"${a.status === opt ? " selected" : ""}>${opt}</option>`).join("")}
+          </select>
+        `;
+        const paymentClass = ((a.pagamentoStatus || "A pagar") === "Pago") ? "pago" : "a-pagar";
+        const paymentSelect = `
+          <select class="status-select payment-select ${paymentClass}" onchange="alterarPagamentoAgendamento(${a._realIndex}, this.value)">
+            <option value="A pagar"${(a.pagamentoStatus || "A pagar") === "A pagar" ? " selected" : ""}>A pagar</option>
+            <option value="Pago"${(a.pagamentoStatus || "A pagar") === "Pago" ? " selected" : ""}>Pago</option>
+          </select>
+        `;
+        const dt = a.dataHora ? new Date(a.dataHora) : null;
+
+        return `
+        <article class="ag-card">
+          <div class="ag-time">
+            <span class="ag-date">${dt ? dt.toLocaleDateString() : "-"}</span>
+            <span class="ag-hour">${dt ? dt.toLocaleTimeString().slice(0,5) : "-"}</span>
+          </div>
+          <div class="ag-body">
+            <div class="ag-pet">${a.pet}</div>
+            <div class="unit-badge">${nomeUnidade(unidadeDoAgendamento(a))}</div>
+            <div class="ag-dono">Dono: ${a.dono} · Tel: ${a.telefone ? a.telefone : (petInfo && petInfo.telefone ? petInfo.telefone : "-")} · Raça: ${raca}</div>
+            <div class="ag-meta">
+              <span><strong>Serviços:</strong> ${(a.servicos || []).map(s => `${s.nome || "Serviço"}${s.preco !== null && s.preco !== undefined ? " (R$ " + Number(s.preco || 0).toFixed(2) + ")" : ""}`).join(", ") || "Serviço não informado"}</span>
+              ${a.transporte ? `<span><strong>Transporte:</strong> R$ ${Number(a.valorTransporte || 0).toFixed(2)}</span>` : ""}
+              ${infoPacote ? `<span><strong>Pacote:</strong> banho ${infoPacote.banhoNumero !== null ? infoPacote.banhoNumero : "-"}${infoPacote.total ? ` / ${infoPacote.total}` : ""} · restantes: ${infoPacote.restantes}</span>` : ""}
+            </div>
+            ${a.obs ? `<div class="ag-obs">Obs: ${a.obs}</div>` : ""}
+          </div>
+          <div class="ag-side">
+            <div class="ag-total">R$ ${Number(a.total || 0).toFixed(2)}</div>
+            ${paymentSelect}
+            ${a.formaPagamento ? `<div class="payment-method-chip">${a.formaPagamento}</div>` : ""}
+            ${statusSelect}
+            <div class="row-actions">
+              <button class="btn btn-outline btn-sm" onclick="editarAgendamento(${a._realIndex})">Editar</button>
+              <button class="btn btn-danger btn-sm" onclick="excluirAgendamento(${a._realIndex})">Excluir</button>
+            </div>
+          </div>
+        </article>`;
+      }).join("");
+      if (agendaView === "list") { container.style.display = "block"; document.getElementById("agendaVisual").style.display = "none"; }
+      renderAgendaAtual(listaOrdenada);
+    }
+
+    async function excluirAgendamento(index) {
+      const ag = agendamentos[index];
+      const ok = await confirmarAcao({
+        titulo: "Excluir agendamento?",
+        texto: ag ? `O agendamento de "${ag.pet}" (${ag.dono}) será removido permanentemente.` : "Esta ação não poderá ser desfeita.",
+        textoBotao: "Excluir"
+      });
+      if (ok) {
+        const agendamentoRemovido = agendamentos[index];
+        agendamentos.splice(index, 1);
+        localStorage.setItem("agendamentos", JSON.stringify(agendamentos));
+
+        let pets = safeJsonParse(localStorage.getItem("pets"), []);
+        const idxPet = pets.findIndex(p =>
+          p.pet.toLowerCase() === agendamentoRemovido.pet.toLowerCase() &&
+          p.dono.toLowerCase() === agendamentoRemovido.dono.toLowerCase() &&
+          p.pacote && p.pacote.ativo
+        );
+        if (idxPet !== -1 && pets[idxPet].pacote && Array.isArray(pets[idxPet].pacote.historico)) {
+          const historicoIndex = pets[idxPet].pacote.historico.indexOf(agendamentoRemovido.dataHora);
+          if (historicoIndex !== -1) pets[idxPet].pacote.historico.splice(historicoIndex, 1);
+          pets[idxPet].pacote.feitos = pets[idxPet].pacote.historico.length;
+          localStorage.setItem("pets", JSON.stringify(pets));
+        }
+
+        filtrarAgendamentos();
+        atualizarKpis();
+        toast("Agendamento excluído.", "success");
+      }
+    }
+    window.excluirAgendamento = excluirAgendamento;
+
+    function alterarStatusAgendamento(index, novoStatus) {
+      agendamentos[index].status = novoStatus;
+      localStorage.setItem("agendamentos", JSON.stringify(agendamentos));
+      filtrarAgendamentos();
+      atualizarKpis();
+      toast("Status atualizado para \"" + novoStatus + "\".", "success");
+    }
+
+    function alterarPagamentoAgendamento(index, novoStatus) {
+      agendamentos[index].pagamentoStatus = novoStatus;
+      localStorage.setItem("agendamentos", JSON.stringify(agendamentos));
+      filtrarAgendamentos();
+    }
+
+    function editarAgendamento(index) {
+      const ag = agendamentos[index];
+      if (!ag) return;
+
+      document.getElementById("editAgendamentoIndex").value = index;
+      document.getElementById("editAgendamentoUnidade").value = ag.unidade || "";
+      document.getElementById("editAgendamentoPet").value = ag.pet;
+      document.getElementById("editAgendamentoDono").value = ag.dono;
+      document.getElementById("editAgendamentoDataHora").value = ag.dataHora.slice(0,16);
+
+      const selectServicos = document.getElementById("editAgendamentoServicos");
+      selectServicos.innerHTML = "";
+
+      const portes = ["Gato", "Pequeno", "Médio", "Grande", "Adicional"];
+      portes.forEach(porte => {
+        const optgroup = document.createElement("optgroup");
+        if (porte === "Adicional") {
+          optgroup.label = "Serviços Adicionais";
+        } else if (porte === "Gato") {
+          optgroup.label = "Serviços para Gato";
+        } else {
+          optgroup.label = `Porte ${porte}`;
+        }
+
+        servicos
+          .filter(s => s.porte === porte && (!s.adicionais || s.adicionais.length === 0))
+          .forEach((s) => {
+            const idxServico = servicos.indexOf(s);
+            const opt = document.createElement("option");
+            opt.value = idxServico;
+            opt.text = `${s.nome}${s.pacote ? " (Pacote)" : ""}${s.preco !== null && s.preco !== undefined ? " - R$ " + s.preco.toFixed(2) : ""}`;
+            if (ag.servicos && ag.servicos.some(sv => sv.nome === s.nome && sv.porte === s.porte)) opt.selected = true;
+            optgroup.appendChild(opt);
+          });
+
+        if (optgroup.children.length > 0) selectServicos.appendChild(optgroup);
+      });
+
+      const adicionaisServicos = servicos.filter(s => s.adicionais && s.adicionais.length > 0);
+      if (adicionaisServicos.length > 0) {
+        const optgroupAdic = document.createElement("optgroup");
+        optgroupAdic.label = "Serviços Compostos";
+        adicionaisServicos.forEach((s) => {
+          const opt = document.createElement("option");
+          opt.value = servicos.indexOf(s);
+          opt.text = `${s.nome} (${s.adicionais.join(", ")})${s.pacote ? " (Pacote)" : ""}${s.preco !== null && s.preco !== undefined ? " - R$ " + s.preco.toFixed(2) : ""}`;
+          if (ag.servicos && ag.servicos.some(sv => sv.nome === s.nome && sv.porte === s.porte)) opt.selected = true;
+          optgroupAdic.appendChild(opt);
+        });
+        selectServicos.appendChild(optgroupAdic);
+      }
+
+      document.getElementById("editAgendamentoTransporte").checked = !!ag.transporte;
+      document.getElementById("editAgendamentoValorTransporte").disabled = !ag.transporte;
+      document.getElementById("editAgendamentoValorTransporte").value = ag.transporte ? ag.valorTransporte : "";
+
+      document.getElementById("editAgendamentoTotal").value = ag.total !== undefined ? ag.total : "";
+      document.getElementById("editAgendamentoPagamentoStatus").value = ag.pagamentoStatus || "A pagar";
+      document.getElementById("editAgendamentoFormaPagamento").value = ag.formaPagamento || "";
+      aplicarEstiloPagamento("editAgendamentoPagamentoStatus");
+
+      document.getElementById("editAgendamentoStatus").value = ag.status || "Pendente";
+      document.getElementById("editAgendamentoObs").value = ag.obs || "";
+
+      document.getElementById("modalEditarAgendamento").classList.add("ativo");
+    }
+
+    function fecharModalAgendamento() {
+      document.getElementById("modalEditarAgendamento").classList.remove("ativo");
+    }
+
+    document.getElementById("modalEditarAgendamento").addEventListener("mousedown", function(e) {
+      if (e.target === this) fecharModalAgendamento();
+    });
+
+    document.getElementById("formEditarAgendamento").onsubmit = function(e) {
+      e.preventDefault();
+      const index = document.getElementById("editAgendamentoIndex").value;
+      const unidade = document.getElementById("editAgendamentoUnidade").value;
+      const pet = document.getElementById("editAgendamentoPet").value.trim();
+      const dono = document.getElementById("editAgendamentoDono").value.trim();
+      const dataHora = document.getElementById("editAgendamentoDataHora").value;
+      const opcoesSelecionadas = Array.from(document.getElementById("editAgendamentoServicos").selectedOptions);
+      const transporte = document.getElementById("editAgendamentoTransporte").checked;
+      let valorTransporte = 0;
+
+      if (transporte) {
+        valorTransporte = parseFloat(document.getElementById("editAgendamentoValorTransporte").value);
+        if (isNaN(valorTransporte) || valorTransporte < 0) {
+          toast("Informe um valor válido para o transporte.", "error");
+          return;
+        }
+      }
+
+      if (!pet || !dono || !dataHora || opcoesSelecionadas.length === 0) {
+        toast("Preencha todos os campos e selecione pelo menos um serviço.", "error");
+        return;
+      }
+
+      const servicosAgendados = opcoesSelecionadas.map(opt => servicos[parseInt(opt.value)]);
+
+      let total = parseFloat(document.getElementById("editAgendamentoTotal").value);
+      if (isNaN(total) || total < 0) {
+        total = servicosAgendados.reduce((sum, s) => sum + (s.preco || 0), 0);
+        if (transporte) total += valorTransporte;
+      }
+
+      const status = document.getElementById("editAgendamentoStatus").value;
+      const pagamentoStatus = document.getElementById("editAgendamentoPagamentoStatus").value || "A pagar";
+      const formaPagamento = document.getElementById("editAgendamentoFormaPagamento").value || "";
+      const obs = document.getElementById("editAgendamentoObs").value.trim();
+
+      const petsAll = safeJsonParse(localStorage.getItem("pets"), []);
+      let telefoneAg = "";
+      const petInfoEdit = petsAll.find(pObj =>
+        pObj.pet.toLowerCase() === pet.toLowerCase() &&
+        pObj.dono.toLowerCase() === dono.toLowerCase()
+      );
+      if (petInfoEdit && petInfoEdit.telefone) telefoneAg = petInfoEdit.telefone;
+      else if (agendamentos[index] && agendamentos[index].telefone) telefoneAg = agendamentos[index].telefone;
+
+      agendamentos[index] = {
+        ...agendamentos[index],
+        unidade: unidade || undefined,
+        pet,
+        dono,
+        telefone: telefoneAg,
+        dataHora,
+        servicos: servicosAgendados,
+        total,
+        transporte,
+        valorTransporte,
+        status,
+        obs,
+        pagamentoStatus,
+        formaPagamento
+      };
+      localStorage.setItem("agendamentos", JSON.stringify(agendamentos));
+      fecharModalAgendamento();
+      filtrarAgendamentos();
+      atualizarKpis();
+      toast("Agendamento atualizado!", "success");
+    };
+
+    function filtrarAgendamentos() {
+      agendamentos = safeJsonParse(localStorage.getItem("agendamentos"), []);
+      const petFiltro = document.getElementById("filtroPet").value.trim().toLowerCase();
+      const donoFiltro = document.getElementById("filtroDono").value.trim().toLowerCase();
+      const statusFiltro = document.getElementById("filtroStatus").value;
+      const dataInicioVal = document.getElementById("filtroDataInicio").value;
+      const dataFimVal = document.getElementById("filtroDataFim").value;
+
+      const dataInicioObj = dataInicioVal ? new Date(dataInicioVal + "T00:00:00") : null;
+      const dataFimObj = dataFimVal ? new Date(dataFimVal + "T23:59:59") : null;
+
+      const filtrados = agendamentos
+        .map((a, index) => ({ ...a, _realIndex: index }))
+        .filter(a => {
+          const petOk = !petFiltro || (a.pet || "").toLowerCase().includes(petFiltro);
+          const donoOk = !donoFiltro || (a.dono || "").toLowerCase().includes(donoFiltro);
+          const statusOk = !statusFiltro || a.status === statusFiltro;
+          const unidadeOk = unidadeDoAgendamento(a) === unidadeSelecionada;
+
+          let dataOk = true;
+          if ((dataInicioObj || dataFimObj) && a.dataHora) {
+            const agDate = new Date(a.dataHora);
+            if (Number.isNaN(agDate.getTime())) {
+              dataOk = false;
+            } else {
+              if (dataInicioObj) dataOk = dataOk && (agDate >= dataInicioObj);
+              if (dataFimObj) dataOk = dataOk && (agDate <= dataFimObj);
+            }
+          }
+
+          return petOk && donoOk && statusOk && unidadeOk && dataOk;
+        });
+
+      mostrarAgendamentos(filtrados);
+      atualizarResumoUnidades();
+
+      localStorage.setItem("filtrosAgendamento", JSON.stringify({
+        pet: document.getElementById("filtroPet").value,
+        dono: document.getElementById("filtroDono").value,
+        status: document.getElementById("filtroStatus").value,
+        dataInicio: document.getElementById("filtroDataInicio").value,
+        dataFim: document.getElementById("filtroDataFim").value,
+        unidade: unidadeSelecionada
+      }));
+    }
+
+    document.querySelectorAll(".agenda-view-btn").forEach(btn => {
+      btn.setAttribute("aria-selected", String(btn.dataset.view === agendaView));
+      btn.addEventListener("click", () => {
+        agendaView = btn.dataset.view;
+        localStorage.setItem("agendaView", agendaView);
+        document.querySelectorAll(".agenda-view-btn").forEach(b => {
+          const active = b.dataset.view === agendaView;
+          b.classList.toggle("active", active);
+          b.setAttribute("aria-selected", String(active));
+        });
+        renderAgendaAtual();
+      });
+    });
+    document.getElementById("agendaAnterior").addEventListener("click", () => moverPeriodo(-1));
+    document.getElementById("agendaProximo").addEventListener("click", () => moverPeriodo(1));
+    document.getElementById("agendaHoje").addEventListener("click", () => { agendaCursor = new Date(); agendaCursor.setHours(0,0,0,0); renderAgendaAtual(); });
+
+    window.onload = function() {
+      carregarDadosAgenda();
+      const filtros = safeJsonParse(localStorage.getItem("filtrosAgendamento"), {});
+      if (filtros.unidade === "franco" || filtros.unidade === "caieiras" || filtros.unidade === "sem-unidade") unidadeSelecionada = filtros.unidade;
+      const novo = document.getElementById("agendamentoUnidade");
+      if (novo && (unidadeSelecionada === "franco" || unidadeSelecionada === "caieiras")) novo.value = unidadeSelecionada;
+      if (filtros.pet !== undefined) document.getElementById("filtroPet").value = filtros.pet;
+      if (filtros.dono !== undefined) document.getElementById("filtroDono").value = filtros.dono;
+      if (filtros.status !== undefined) document.getElementById("filtroStatus").value = filtros.status;
+      if (filtros.dataInicio !== undefined) document.getElementById("filtroDataInicio").value = filtros.dataInicio;
+      if (filtros.dataFim !== undefined) document.getElementById("filtroDataFim").value = filtros.dataFim;
+      // Segurança para dados legados: se a unidade salva não possui registros novos,
+      // mas existem agendamentos antigos sem unidade, abrimos a visão legada em vez de deixar a agenda vazia.
+      const contagemAtual = agendamentos.filter(a => unidadeDoAgendamento(a) === unidadeSelecionada).length;
+      const contagemLegados = agendamentos.filter(a => unidadeDoAgendamento(a) === "sem-unidade").length;
+      if (contagemAtual === 0 && contagemLegados > 0 && unidadeSelecionada !== "caieiras") {
+        unidadeSelecionada = "sem-unidade";
+        localStorage.setItem("unidadeAgendamentoSelecionada", unidadeSelecionada);
+      }
+      atualizarResumoUnidades();
+      atualizarKpis();
+      filtrarAgendamentos();
+    };
+
+    document.getElementById("btnLimparFiltros").onclick = function() {
+      document.getElementById("filtroPet").value = "";
+      document.getElementById("filtroDono").value = "";
+      document.getElementById("filtroStatus").value = "";
+      document.getElementById("filtroDataInicio").value = "";
+      document.getElementById("filtroDataFim").value = "";
+      localStorage.removeItem("filtrosAgendamento");
+      filtrarAgendamentos();
+    };
+
+    function exportarBackupCompleto(filename = 'backup-petshop.json') {
+      const dados = {};
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        dados[key] = localStorage.getItem(key);
+      }
+      const blob = new Blob([JSON.stringify(dados, null, 2)], {type: "application/json"});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast("Backup exportado com sucesso.", "success");
+    }
+
+    function importarBackupCompleto(input) {
+      if (!input.files.length) return;
+      const file = input.files[0];
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        try {
+          const dados = JSON.parse(e.target.result);
+          for (const key in dados) {
+            localStorage.setItem(key, dados[key]);
+          }
+          toast("Backup importado com sucesso!", "success");
+          setTimeout(() => location.reload(), 700);
+        } catch (err) {
+          toast("Arquivo inválido!", "error");
+        }
+      };
+      reader.readAsText(file);
+    }
+
+    // --- Seleção de pet para 2º e 3º pet ---
+    let campoAlvoSelecionarPet = null;
+
+    function abrirSelecionarPet1() { abrirSelecionarPet('agendamentoNomePet'); }
+    function abrirSelecionarPet2() { abrirSelecionarPet('agendamentoNomePet2'); }
+    function abrirSelecionarPet3() { abrirSelecionarPet('agendamentoNomePet3'); }
+
+    function abrirSelecionarPet(campoId) {
+      campoAlvoSelecionarPet = campoId;
+      const modal = document.getElementById('modalSelecionarPet');
+      const filtro = document.getElementById('selecionarPetFiltro');
+      if (filtro) filtro.value = '';
+      renderSelecionarPetList();
+      modal.style.display = 'flex';
+      setTimeout(() => { if (filtro) filtro.focus(); }, 50);
+    }
+
+    function renderSelecionarPetList() {
+      const conteudo = document.getElementById('selecionarPetConteudo');
+      const filtro = document.getElementById('selecionarPetFiltro');
+      const query = filtro && filtro.value ? filtro.value.trim().toLowerCase() : '';
+      const petsLS = safeJsonParse(localStorage.getItem('pets'), []);
+      if (!petsLS.length) {
+        conteudo.innerHTML = '<div class="text-muted" style="padding:8px 0;">Nenhum pet cadastrado.</div>';
+        return;
+      }
+      const listaFiltrada = petsLS.map((p,i) => ({p,i})).filter(item => {
+        if (!query) return true;
+        return (item.p.pet || '').toLowerCase().includes(query) || (item.p.dono || '').toLowerCase().includes(query);
+      });
+      if (listaFiltrada.length === 0) {
+        conteudo.innerHTML = '<div class="text-muted" style="padding:8px 0;">Nenhum pet encontrado para essa pesquisa.</div>';
+        return;
+      }
+      conteudo.innerHTML = listaFiltrada.map(item => `
+        <div class="pick-item">
+          <div>
+            <div style="font-weight:700;color:var(--ink-900);">${item.p.pet}</div>
+            <div style="font-size:.82rem;color:var(--ink-500);">Dono: ${item.p.dono} ${item.p.raca ? '| Raça: '+item.p.raca : ''}</div>
+          </div>
+          <button type="button" class="btn btn-secondary btn-sm" onclick="preencherPet(${item.i})">Selecionar</button>
+        </div>
+      `).join('');
+    }
+
+    function preencherPet(idx) {
+      const petsLS = safeJsonParse(localStorage.getItem('pets'), []);
+      if (!petsLS[idx]) return;
+      const pet = petsLS[idx];
+      if (campoAlvoSelecionarPet) {
+        const el = document.getElementById(campoAlvoSelecionarPet);
+        if (el) el.value = pet.pet;
+        const donoEl = document.getElementById('agendamentoNomeDono');
+        if (donoEl) donoEl.value = pet.dono;
+      }
+      fecharSelecionarPet();
+    }
+
+    function fecharSelecionarPet() {
+      const modal = document.getElementById('modalSelecionarPet');
+      modal.style.display = 'none';
+      campoAlvoSelecionarPet = null;
+    }
+
+    window.addEventListener('load', function() {
+      const modal = document.getElementById('modalSelecionarPet');
+      if (!modal) return;
+      modal.addEventListener('click', function(e) {
+        if (e.target === modal) fecharSelecionarPet();
+      });
+      document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape' && modal.style.display === 'flex') fecharSelecionarPet();
+      });
+      const filtro = document.getElementById('selecionarPetFiltro');
+      if (filtro) {
+        filtro.addEventListener('input', function() {
+          renderSelecionarPetList();
+        });
+      }
+    });
+
+    // --- Seleção de DONO e preenchimento automático dos pets ---
+    function abrirSelecionarDono() {
+      const modal = document.getElementById('modalSelecionarDono');
+      const filtro = document.getElementById('selecionarDonoFiltro');
+      if (filtro) filtro.value = '';
+      renderSelecionarDonoList();
+      modal.style.display = 'flex';
+      setTimeout(() => { if (filtro) filtro.focus(); }, 50);
+    }
+
+    function fecharSelecionarDono() {
+      const modal = document.getElementById('modalSelecionarDono');
+      modal.style.display = 'none';
+    }
+
+    function renderSelecionarDonoList() {
+      const conteudo = document.getElementById('selecionarDonoConteudo');
+      const filtro = document.getElementById('selecionarDonoFiltro');
+      const query = filtro && filtro.value ? filtro.value.trim().toLowerCase() : '';
+      const petsLS = safeJsonParse(localStorage.getItem('pets'), []);
+      const donosMap = {};
+      petsLS.forEach((p, i) => {
+        const dono = (p.dono || '').trim();
+        if (!dono) return;
+        if (!donosMap[dono]) donosMap[dono] = [];
+        donosMap[dono].push(i);
+      });
+      const donos = Object.entries(donosMap).map(([d, idxs]) => ({d, idxs}));
+      const filtrados = donos.filter(item => {
+        if (!query) return true;
+        return item.d.toLowerCase().includes(query) || item.idxs.some(i => (petsLS[i].pet||'').toLowerCase().includes(query));
+      });
+      if (filtrados.length === 0) {
+        conteudo.innerHTML = '<div class="text-muted" style="padding:8px 0;">Nenhum dono encontrado.</div>';
+        return;
+      }
+      conteudo.innerHTML = filtrados.map(item => `
+        <div class="pick-item">
+          <div>
+            <div style="font-weight:800;color:var(--ink-900);">${item.d}</div>
+            <div style="font-size:.82rem;color:var(--ink-500);">Pets: ${item.idxs.map(i=>petsLS[i].pet).join(', ')}</div>
+          </div>
+          <button type="button" data-owner="${encodeURIComponent(item.d)}" class="btn btn-secondary btn-sm btn-open-pets">Abrir pets</button>
+        </div>
+      `).join('');
+      const botoes = conteudo.querySelectorAll('.btn-open-pets');
+      botoes.forEach(btn => {
+        btn.addEventListener('click', function() {
+          const dono = decodeURIComponent(this.getAttribute('data-owner'));
+          abrirListaPetsDono(dono);
+        });
+      });
+    }
+
+    function abrirListaPetsDono(dono) {
+      const petsLS = safeJsonParse(localStorage.getItem('pets'), []);
+      const petsDoDono = petsLS.map((p,i) => ({p,i})).filter(item => (item.p.dono||'').toLowerCase() === dono.toLowerCase());
+      const container = document.getElementById('selecionarDonoPets');
+      if (!container) return;
+      if (!petsDoDono.length) {
+        container.innerHTML = '<div class="text-muted">Nenhum pet cadastrado para este dono.</div>';
+        return;
+      }
+      container.innerHTML = `
+        <div style="margin-bottom:8px;font-weight:700;color:var(--ink-900);">Escolha os pets de ${dono}:</div>
+        <div id="listaPetsDoDono">${petsDoDono.map(item => `
+          <label class="checkbox-row" style="padding:6px 0;">
+            <input type="checkbox" data-index="${item.i}">
+            <span style="font-weight:700;">${item.p.pet}</span>
+            <span style="font-size:.82rem;color:var(--ink-500);">${item.p.raca ? ' | Raça: '+item.p.raca : ''}</span>
+            ${item.p.pacote && item.p.pacote.ativo ? `<span class="badge badge-warning">${Math.max(0,(item.p.pacote.total||0)-(item.p.pacote.feitos||0))} rest.</span>` : ''}
+          </label>
+        `).join('')}</div>
+        <div style="margin-top:var(--sp-3);text-align:right;display:flex;gap:8px;justify-content:flex-end;">
+          <button type="button" class="btn btn-outline btn-sm" onclick="document.getElementById('selecionarDonoPets').innerHTML='';">Limpar</button>
+          <button type="button" id="btnConfirmarPetsDono" class="btn btn-primary btn-sm">Preencher selecionados</button>
+        </div>
+      `;
+      document.getElementById('btnConfirmarPetsDono').addEventListener('click', function(){ confirmarSelecionadosDono(dono); });
+    }
+
+    function confirmarSelecionadosDono(donoNome) {
+      const checkboxes = Array.from(document.querySelectorAll('#selecionarDonoPets input[type="checkbox"][data-index]'));
+      const selecionados = checkboxes.filter(cb => cb.checked).map(cb => parseInt(cb.getAttribute('data-index')));
+      if (!selecionados.length) {
+        toast('Selecione ao menos um pet.', 'error');
+        return;
+      }
+      const petsLS = safeJsonParse(localStorage.getItem('pets'), []);
+      const petFields = ['agendamentoNomePet','agendamentoNomePet2','agendamentoNomePet3'];
+      const donoEl = document.getElementById('agendamentoNomeDono');
+      if (donoEl) donoEl.value = donoNome;
+      for (let i=0;i<petFields.length;i++) {
+        const el = document.getElementById(petFields[i]);
+        if (!el) continue;
+        const petIdx = selecionados[i];
+        el.value = typeof petIdx !== 'undefined' ? (petsLS[petIdx] ? petsLS[petIdx].pet : '') : '';
+      }
+      if (selecionados.length > 3) toast(`Você selecionou ${selecionados.length} pets. Apenas os 3 primeiros foram preenchidos.`, "info");
+      document.getElementById('selecionarDonoPets').innerHTML = '';
+      fecharSelecionarDono();
+    }
+
+    window.addEventListener('load', function() {
+      const modalDono = document.getElementById('modalSelecionarDono');
+      if (!modalDono) return;
+      modalDono.addEventListener('click', function(e){ if (e.target === modalDono) fecharSelecionarDono(); });
+      document.addEventListener('keydown', function(e){ if (e.key === 'Escape' && modalDono.style.display === 'flex') fecharSelecionarDono(); });
+      const filtroDono = document.getElementById('selecionarDonoFiltro');
+      if (filtroDono) filtroDono.addEventListener('input', renderSelecionarDonoList);
+    });
+
+    window.addEventListener('beforeunload', function() {
+      try {
+        localStorage.setItem("filtrosAgendamento", JSON.stringify({
+          pet: document.getElementById("filtroPet").value,
+          dono: document.getElementById("filtroDono").value,
+          status: document.getElementById("filtroStatus").value,
+          dataInicio: document.getElementById("filtroDataInicio").value,
+          dataFim: document.getElementById("filtroDataFim").value
+        }));
+      } catch (e) {}
+    });
+</script>
+</body>
+</html>

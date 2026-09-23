@@ -1,0 +1,638 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Clientes Pacote - Lane Pets</title>
+  <link rel="stylesheet" href="design-system.css?v=3">
+  <style>
+    .pacote-toolbar { display:grid; grid-template-columns:minmax(260px,1fr) 180px auto; gap:var(--sp-3); align-items:end; }
+    .pacote-toolbar .field { margin-bottom:0; }
+    .table-wrap { overflow:auto; border:1px solid var(--border); border-radius:var(--r-lg); background:var(--surface); }
+    #tabelaPacote { width:100%; min-width:1450px; border-collapse:separate; border-spacing:0; }
+    #tabelaPacote th { position:sticky; top:0; z-index:2; background:var(--surface-muted); color:var(--ink-700); font-size:.74rem; text-transform:uppercase; letter-spacing:.04em; padding:12px 14px; border-bottom:1px solid var(--border); text-align:left; white-space:nowrap; }
+    #tabelaPacote td { padding:13px 14px; border-bottom:1px solid var(--border); vertical-align:top; font-size:.84rem; color:var(--ink-700); }
+    #tabelaPacote tbody tr:last-child td { border-bottom:0; }
+    #tabelaPacote tbody tr:hover { background:var(--surface-muted); }
+    #tabelaPacote tbody tr.pacote { background:var(--surface); }
+    .historico-banho { min-width:230px; max-width:300px; }
+    .historico-banho .data-banho { padding:5px 0; border-bottom:1px dashed var(--border); }
+    .historico-banho .data-banho:last-child { border-bottom:0; }
+    .cortesia { padding:5px 8px; margin-bottom:5px; border-radius:var(--r-sm); background:var(--accent-100); color:var(--ink-700); }
+    .btn-ver-mais { width:100%; margin-top:7px; }
+    .backup-buttons-container { display:flex; gap:var(--sp-3); flex-wrap:wrap; margin-top:var(--sp-5); }
+    .modal-overlay { display:none; position:fixed; inset:0; background:rgba(18,33,31,.58); z-index:1000; align-items:center; justify-content:center; padding:20px; backdrop-filter:blur(2px); }
+    .modal-overlay.ativo { display:flex; }
+    .modal-box { width:min(720px,100%); max-height:90vh; overflow:auto; background:var(--surface); border:1px solid var(--border); border-radius:var(--r-lg); box-shadow:var(--shadow-lg); padding:var(--sp-6); }
+    .modal-box.wide { width:min(900px,100%); }
+    .modal-head { display:flex; align-items:flex-start; justify-content:space-between; gap:var(--sp-4); margin-bottom:var(--sp-5); }
+    .modal-head h2 { font-size:1.2rem; }
+    .modal-head p { margin:4px 0 0; color:var(--ink-500); font-size:.82rem; }
+    .modal-actions { display:flex; justify-content:flex-end; gap:var(--sp-3); margin-top:var(--sp-5); flex-wrap:wrap; }
+    .history-row { display:grid; grid-template-columns:1fr auto; gap:var(--sp-2); align-items:center; margin-bottom:8px; }
+    .history-month { padding:12px; border:1px solid var(--border); border-radius:var(--r-md); margin-bottom:var(--sp-3); background:var(--surface-muted); }
+    .history-month h3 { font-size:.9rem; margin-bottom:8px; }
+    .empty-cell { text-align:center; padding:36px!important; color:var(--ink-500); }
+    @media(max-width:900px){ .pacote-toolbar{grid-template-columns:1fr;} .page-content{padding:var(--sp-5) var(--sp-4) var(--sp-8);} }
+  </style>
+  <script src="js/config.js"></script>
+  <script src="js/api.js"></script>
+</head>
+<body>
+<div class="app-shell">
+  <aside class="sidebar">
+    <div class="sidebar-brand"><a class="brand-home" href="cliente.html" title="Ir para a página inicial do LanePets">
+      <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#F2994A" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="7" cy="8" r="2"/><circle cx="12" cy="5.5" r="2"/><circle cx="17" cy="8" r="2"/><path d="M12 13c-3.3 0-6 2.1-6 4.7 0 1.6 1.5 2.3 3 1.8.9-.3 1.9-.5 3-.5s2.1.2 3 .5c1.5.5 3-.2 3-1.8 0-2.6-2.7-4.7-6-4.7Z"/></svg>
+      <div><div class="brand-name">Lane Pets</div><span class="brand-sub">Franco + Caieiras</span></div><svg class="brand-home-ico" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg></a><button class="sidebar-close hide-desktop" aria-label="Fechar menu"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+    </div>
+    <nav class="sidebar-nav" aria-label="Navegação principal">
+      <a class="nav-item" href="index.html">⌂ <span>Cadastro</span></a>
+      <a class="nav-item" href="clientes.html">♙ <span>Clientes</span></a>
+      <a class="nav-item active" href="clientes_pacote.html" aria-current="page">▣ <span>Pacotes</span></a>
+      <a class="nav-item" href="agendamentos.html">▦ <span>Agendamentos</span></a><a class="nav-item" href="dashboard_financeiro.html">◫ <span>Dashboard</span></a>
+      <a class="nav-item" href="Produtos.html">◇ <span>Produtos</span></a>
+      <a class="nav-item" href="entradas_e_saidas.html">$ <span>Entradas e Saídas</span></a>
+      <a class="nav-item" href="relatorio.html">▥ <span>Relatório</span></a>
+    </nav>
+    <div class="sidebar-foot">Lane Pets © 2026</div>
+  </aside>
+  <div class="main-area">
+    <header class="topbar">
+      <div class="topbar-left"><button class="menu-toggle hide-desktop" aria-label="Abrir menu">☰</button><div><div class="topbar-title">Clientes Pacote</div><div class="topbar-breadcrumb hide-mobile">Clientes / Controle de pacotes e histórico</div></div></div>
+      <div class="topbar-right"><div class="topbar-user"><div class="avatar">LP</div><span>Lane Pets</span></div></div>
+    </header>
+    <main class="page-content">
+      <div class="page-header">
+        <div><h1>Clientes Pacote</h1><p>Acompanhe os pacotes ativos, banhos utilizados, cortesias e histórico de cada pet.</p></div>
+      </div>
+      <section class="card" style="margin-bottom:var(--sp-5);">
+        <div class="section-title">Filtros de clientes</div>
+        <div class="pacote-toolbar">
+          <div class="field"><label for="filtro">Pesquisar cliente</label><input class="input" type="text" id="filtro" placeholder="Dono, pet, raça, telefone ou endereço..."></div>
+          <div class="field"><label for="filtroTipo">Tipo de pet</label><select class="input" id="filtroTipo"><option value="">Todos os tipos</option><option value="Cão">Cão</option><option value="Gato">Gato</option><option value="Outro">Outro</option></select></div>
+          <button id="btnPesquisar" class="btn btn-primary" type="button">Pesquisar</button>
+        </div>
+      </section>
+      <section class="card">
+        <div class="page-header" style="margin-bottom:var(--sp-4);align-items:center;"><div><h2 class="section-title" style="margin-bottom:2px;">Pacotes ativos</h2><p style="margin:0;color:var(--ink-500);font-size:.82rem;">Histórico recente exibido na tabela; use “Ver histórico completo” para consultar tudo.</p></div></div>
+        <div class="table-wrap">
+          <table id="tabelaPacote">
+            <thead><tr><th>Nome do Dono</th><th>Nome do Pet</th><th>Raça</th><th>Telefone</th><th>Endereço</th><th>Tipo</th><th>Tipo do Pacote</th><th>Banhos Feitos</th><th>Banhos Restantes</th><th>Histórico de Banhos</th><th>Ações</th><th>Cortesias</th><th>Pacote Renovado em</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </section>
+      <div class="backup-buttons-container"><button class="btn btn-outline" onclick="exportarBackupCompleto()">Exportar Backup</button><input type="file" id="importarBackupInput" onchange="importarBackupCompleto(this)" style="display:none;"><button class="btn btn-outline" onclick="document.getElementById('importarBackupInput').click()">Importar Backup</button></div>
+    </main>
+  </div>
+</div>
+
+<div id="modalPacote" class="modal-overlay">
+  <form id="formPacote" class="modal-box" autocomplete="off">
+    <div class="modal-head"><div><h2>Editar pacote</h2><p>Atualize os dados sem perder o histórico já registrado.</p></div><button type="button" class="btn btn-outline" onclick="fecharModalPacote()">Fechar</button></div>
+    <input type="hidden" id="pacoteIndex">
+    <div class="field"><label for="pacoteTipo">Tipo do pacote</label><select class="input" id="pacoteTipo" required><option value="">Selecione</option><option value="Mensal">Mensal</option><option value="Mensal Cronogramatico">Mensal cronogramatico</option><option value="Quinzenal">Quinzenal</option><option value="Semanal">Semanal</option><option value="Outro">Outro</option></select></div>
+    <div class="field-row"><div class="field"><label for="pacoteTotal">Total de banhos</label><input class="input" type="number" id="pacoteTotal" min="1" required></div><div class="field"><label for="pacoteFeitos">Banhos feitos</label><input class="input" type="number" id="pacoteFeitos" min="0" required></div></div>
+    <div class="field"><label for="pacoteRenovadoEm">Pacote renovado em</label><input class="input" type="date" id="pacoteRenovadoEm"></div>
+    <fieldset class="form-section"><legend>Cortesias</legend><div class="grid grid-3">
+      <label class="checkbox-row"><input type="checkbox" id="cortesiaHidratacao" onchange="document.getElementById('dataCortesiaHidratacao').disabled = !this.checked"><span>Hidratação</span><input class="input" type="datetime-local" id="dataCortesiaHidratacao" disabled></label>
+      <label class="checkbox-row"><input type="checkbox" id="cortesiaTosa" onchange="document.getElementById('dataCortesiaTosa').disabled = !this.checked"><span>Tosa Higiênica</span><input class="input" type="datetime-local" id="dataCortesiaTosa" disabled></label>
+      <label class="checkbox-row"><input type="checkbox" id="cortesiaSubpelos" onchange="document.getElementById('dataCortesiaSubpelos').disabled = !this.checked"><span>Remoção de Subpelos</span><input class="input" type="datetime-local" id="dataCortesiaSubpelos" disabled></label>
+    </div></fieldset>
+    <div class="modal-actions"><button type="button" class="btn btn-outline" onclick="fecharModalPacote()">Cancelar</button><button type="submit" class="btn btn-primary">Salvar alterações</button></div>
+  </form>
+</div>
+
+<div id="modalHistoricoCompleto" class="modal-overlay"><div class="modal-box wide historico-completo-content"><div class="modal-head"><div><h2>Histórico completo de banhos</h2><p>Todos os registros do pacote selecionado.</p></div><button type="button" class="btn btn-outline" onclick="fecharHistoricoCompleto()">Fechar</button></div><div id="historicoCompletoConteudo"></div></div></div>
+
+<div id="modalHistorico" class="modal-overlay"><form id="formHistorico" class="modal-box"><div class="modal-head"><div><h2>Editar histórico de banhos</h2><p>Altere, remova ou adicione datas ao histórico.</p></div><button type="button" class="btn btn-outline" onclick="fecharModalHistorico()">Fechar</button></div><input type="hidden" id="historicoPetIndex"><div id="historicoLista"></div><div class="field"><label for="novaDataHistorico">Adicionar nova data</label><input class="input" type="datetime-local" id="novaDataHistorico"><button type="button" class="btn btn-outline" style="margin-top:8px;align-self:flex-start;" onclick="adicionarDataHistorico()">Adicionar data</button></div><div class="modal-actions"><button type="button" class="btn btn-outline" onclick="fecharModalHistorico()">Cancelar</button><button type="submit" class="btn btn-primary">Salvar histórico</button></div></form></div>
+
+  <script src="ui-kit.js"></script>
+  <script>
+    // Função para carregar e exibir os clientes pacote
+      // Função para formatar data no formato DD/MM/YYYY HH:mm
+      function formatarData(dataStr) {
+        const data = new Date(dataStr);
+        const dia = String(data.getDate()).padStart(2, '0');
+        const mes = String(data.getMonth() + 1).padStart(2, '0');
+        const ano = data.getFullYear();
+        const hora = String(data.getHours()).padStart(2, '0');
+        const min = String(data.getMinutes()).padStart(2, '0');
+        return `${dia}/${mes}/${ano} ${hora}:${min}`;
+      }
+
+      // Função para contar banhos por mês
+      function contarBanhosPorMes(historico) {
+        const contagem = {};
+        historico.forEach(dataStr => {
+          const data = new Date(dataStr);
+          const mesAno = `${data.getMonth() + 1}/${data.getFullYear()}`;
+          contagem[mesAno] = (contagem[mesAno] || 0) + 1;
+        });
+        return contagem;
+      }
+
+      function calcularStatusPacote(pet) {
+        const pacote = pet && pet.pacote;
+        if (!pacote || !pacote.ativo) return { feitos: 0, restantes: 0, total: 0 };
+
+        const tipo = (pacote.tipo || "").toLowerCase();
+        const total = tipo.includes("quinzenal") ? 2 : (tipo.includes("mensal") ? 4 : Number(pacote.total || 0));
+        const dataInicio = pacote.renovadoEm ? new Date(pacote.renovadoEm + "T00:00:00") : null;
+        const historico = Array.isArray(pacote.historico) ? pacote.historico : [];
+        const feitos = historico.filter(item => {
+          if (!item) return false;
+          const data = new Date(item);
+          if (Number.isNaN(data.getTime())) return false;
+          if (dataInicio && data < dataInicio) return false;
+          return true;
+        }).length;
+
+        return {
+          feitos,
+          restantes: Math.max(0, total - feitos),
+          total
+        };
+      }
+
+      // backup genérico
+      function exportarBackupCompleto(filename = 'backup-petshop.json') {
+        const dados = {};
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          dados[key] = localStorage.getItem(key);
+        }
+        const blob = new Blob([JSON.stringify(dados, null, 2)], {type: "application/json"});
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = filename;
+        a.click();
+        URL.revokeObjectURL(url);
+      }
+
+      function importarBackupCompleto(input) {
+        if (!input.files.length) return;
+        const file = input.files[0];
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          try {
+            const dados = JSON.parse(e.target.result);
+            for (const key in dados) {
+              localStorage.setItem(key, dados[key]);
+            }
+            toast("Backup importado com sucesso!", "success");
+            location.reload();
+          } catch (err) {
+            toast("Arquivo inválido!", "error");
+          }
+        };
+        reader.readAsText(file);
+      }
+
+      function carregarPacotes() {
+        const todosPets = JSON.parse(localStorage.getItem("pets")) || [];
+        const filtroInput = document.getElementById("filtro");
+        const filtroTipo = document.getElementById("filtroTipo") ? document.getElementById("filtroTipo").value : "";
+        const filtro = filtroInput ? filtroInput.value.toLowerCase().trim() : "";
+
+        // Filtra apenas clientes pacote ativos
+      let pacotes = todosPets
+        .map((p, i) => ({ ...p, realIndex: i }))
+        .filter(p => p.pacote && p.pacote.ativo)
+        .filter(p =>
+          (p.dono.toLowerCase().includes(filtro) ||
+          p.pet.toLowerCase().includes(filtro) ||
+          (p.raca || "").toLowerCase().includes(filtro) ||
+          (p.telefone || "").toLowerCase().includes(filtro) ||
+          (p.endereco || "").toLowerCase().includes(filtro)) &&
+          (filtroTipo === "" || (p.tipo || "").toLowerCase() === filtroTipo.toLowerCase())
+        );
+
+      // Ordena alfabeticamente por nome do dono e pet
+      pacotes.sort((a, b) => {
+        const donoA = (a.dono || "").toLowerCase();
+        const donoB = (b.dono || "").toLowerCase();
+        if (donoA < donoB) return -1;
+        if (donoA > donoB) return 1;
+        const petA = (a.pet || "").toLowerCase();
+        const petB = (b.pet || "").toLowerCase();
+        if (petA < petB) return -1;
+        if (petA > petB) return 1;
+        return 0;
+      });
+
+      const tbody = document.querySelector("#tabelaPacote tbody");
+      tbody.innerHTML = "";
+
+      if (pacotes.length === 0) {
+        const row = document.createElement("tr");
+        const cell = document.createElement("td");
+        cell.colSpan = 12;
+        cell.textContent = "Nenhum cliente pacote cadastrado.";
+        row.appendChild(cell);
+        tbody.appendChild(row);
+        return;
+      }
+
+      pacotes.forEach((p) => {
+        const row = document.createElement("tr");
+        row.className = "pacote";
+        const tipoPacote = p.pacote?.tipo || "-";
+        const statusPacote = calcularStatusPacote(p);
+        const total = statusPacote.total;
+        const feitos = statusPacote.feitos;
+        const restantes = statusPacote.restantes;
+        
+        // Ordena o histórico por data (mais recente primeiro)
+        const historicoOrdenado = (p.pacote?.historico || []).sort((a, b) => new Date(b) - new Date(a));
+        
+        // Separa os últimos 4 banhos do histórico completo
+        const ultimosBanhos = historicoOrdenado.slice(0, 4);
+        const temMaisHistorico = historicoOrdenado.length > 4;
+        
+        // Monta o HTML dos últimos banhos
+        const historico = ultimosBanhos
+          .map(d => `<div class="data-banho">${formatarData(d)}</div>`)
+          .join('') +
+          (temMaisHistorico ? 
+            `<div class="ver-mais">
+               <button type="button" onclick="event.stopPropagation(); verHistoricoCompleto(${p.realIndex});" class="btn-ver-mais">
+                 Ver histórico completo (${historicoOrdenado.length - 4} banhos anteriores)
+               </button>
+             </div>` : '');
+        
+        const cortesias = (p.pacote?.cortesias || [])
+          .sort((a, b) => new Date(b.data) - new Date(a.data)) // Ordena cortesias por data
+          .map(c => `<div class="cortesia"><strong>${c.tipo}:</strong> ${formatarData(c.data)}</div>`)
+          .join('');
+        const renovadoEm = p.pacote?.renovadoEm
+          ? p.pacote.renovadoEm.split('-').reverse().join('/')
+          : "-";
+        row.innerHTML = `
+          <td>${p.dono}</td>
+          <td>${p.pet}</td>
+          <td>${p.raca || "-"}</td>
+          <td>${p.telefone}</td>
+          <td>${p.endereco || "-"}</td>
+          <td>${p.tipo || "-"}</td>
+          <td>${tipoPacote}</td>
+          <td>${feitos}</td>
+          <td>${restantes}</td>
+          <td class="historico-banho" onclick="event.stopPropagation();">${historico || "-"}</td>
+          <td>
+            <button onclick="abrirModalPacote(${p.realIndex})">Editar Pacote</button>
+          </td>
+          <td class="historico-banho">${cortesias || "-"}</td>
+          <td>${renovadoEm}</td>
+        `;
+        tbody.appendChild(row);
+      });
+    }
+
+    function abrirModalPacote(index) {
+      const pets = JSON.parse(localStorage.getItem("pets")) || [];
+      const p = pets[index];
+      document.getElementById("pacoteIndex").value = index;
+      document.getElementById("pacoteTipo").value = p.pacote?.tipo || "";
+      document.getElementById("pacoteTotal").value = p.pacote?.total || 0;
+      document.getElementById("pacoteFeitos").value = p.pacote?.feitos || 0;
+      // No abrirModalPacote, preencha o campo de renovação
+      document.getElementById("pacoteRenovadoEm").value = p.pacote?.renovadoEm ? p.pacote.renovadoEm.slice(0,10) : "";
+
+      // Preenche cortesias
+      const cortesias = p.pacote?.cortesias || [];
+      const hidra = cortesias.find(c => c.tipo === "Hidratação");
+      const tosa = cortesias.find(c => c.tipo === "Tosa Higiênica");
+      const subpelos = cortesias.find(c => c.tipo === "Remoção de Subpelos");
+
+      document.getElementById("cortesiaHidratacao").checked = !!hidra;
+      document.getElementById("dataCortesiaHidratacao").disabled = !hidra;
+      document.getElementById("dataCortesiaHidratacao").value = hidra ? hidra.data : "";
+
+      document.getElementById("cortesiaTosa").checked = !!tosa;
+      document.getElementById("dataCortesiaTosa").disabled = !tosa;
+      document.getElementById("dataCortesiaTosa").value = tosa ? tosa.data : "";
+
+      document.getElementById("cortesiaSubpelos").checked = !!subpelos;
+      document.getElementById("dataCortesiaSubpelos").disabled = !subpelos;
+      document.getElementById("dataCortesiaSubpelos").value = subpelos ? subpelos.data : "";
+
+      document.getElementById("modalPacote").classList.add("ativo");
+    }
+
+    function fecharModalPacote() {
+      document.getElementById("modalPacote").classList.remove("ativo");
+    }
+
+    // Fecha o modal ao clicar fora do formulário
+    document.getElementById("modalPacote").addEventListener("mousedown", function(e) {
+      if (e.target === this) fecharModalPacote();
+    });
+
+    document.getElementById("formPacote").onsubmit = function(e) {
+      e.preventDefault();
+      const index = document.getElementById("pacoteIndex").value;
+      const tipo = document.getElementById("pacoteTipo").value;
+      const total = parseInt(document.getElementById("pacoteTotal").value);
+      const feitos = parseInt(document.getElementById("pacoteFeitos").value);
+      // Salve a data de renovação
+      const renovadoEm = document.getElementById("pacoteRenovadoEm").value;
+
+      if (!tipo || isNaN(total) || total < 1 || isNaN(feitos) || feitos < 0 || feitos > total) {
+        toast("Preencha corretamente os campos do pacote.", "error");
+        return;
+      }
+
+      // Coleta cortesias
+      const cortesias = [];
+      if (document.getElementById("cortesiaHidratacao").checked) {
+        const data = document.getElementById("dataCortesiaHidratacao").value;
+        if (!data) { toast("Informe a data da cortesia Hidratação.", "error"); return; }
+        cortesias.push({ tipo: "Hidratação", data });
+      }
+      if (document.getElementById("cortesiaTosa").checked) {
+        const data = document.getElementById("dataCortesiaTosa").value;
+        if (!data) { toast("Informe a data da cortesia Tosa Higiênica.", "error"); return; }
+        cortesias.push({ tipo: "Tosa Higiênica", data });
+      }
+      if (document.getElementById("cortesiaSubpelos").checked) {
+        const data = document.getElementById("dataCortesiaSubpelos").value;
+        if (!data) { toast("Informe a data da cortesia Remoção de Subpelos.", "error"); return; }
+        cortesias.push({ tipo: "Remoção de Subpelos", data });
+      }
+
+      const pets = JSON.parse(localStorage.getItem("pets")) || [];
+      // Mantém o histórico e o campo ativo se já existirem
+      let historico = [];
+      let ativo = true;
+      if (pets[index].pacote) {
+        historico = Array.isArray(pets[index].pacote.historico) ? pets[index].pacote.historico : [];
+        ativo = pets[index].pacote.ativo !== undefined ? pets[index].pacote.ativo : true;
+      }
+      pets[index].pacote = { ativo, tipo, total, feitos, historico, cortesias, renovadoEm };
+      localStorage.setItem("pets", JSON.stringify(pets));
+      fecharModalPacote();
+      carregarPacotes();
+    };
+
+    document.getElementById("btnPesquisar").addEventListener("click", carregarPacotes);
+    document.getElementById("filtro").addEventListener("keydown", function(e) {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        carregarPacotes();
+      }
+    });
+
+    // Função para atualizar o histórico de banhos ao agendar
+    function atualizarHistoricoBanho(petNome, donoNome, dataHora) {
+      const pets = JSON.parse(localStorage.getItem("pets")) || [];
+      const idx = pets.findIndex(p =>
+        p.pet.toLowerCase() === petNome.toLowerCase() &&
+        p.dono.toLowerCase() === donoNome.toLowerCase() &&
+        p.pacote && p.pacote.ativo
+      );
+      if (idx !== -1) {
+        if (!Array.isArray(pets[idx].pacote.historico)) pets[idx].pacote.historico = [];
+        pets[idx].pacote.historico.push(dataHora);
+        // Atualiza feitos se ainda não atingiu o total
+        if (typeof pets[idx].pacote.feitos === "number" && pets[idx].pacote.feitos < pets[idx].pacote.total) {
+          pets[idx].pacote.feitos += 1;
+        }
+        localStorage.setItem("pets", JSON.stringify(pets));
+      }
+    }
+
+    // Integração automática: escuta agendamentos e atualiza histórico
+    function integrarHistoricoBanhos() {
+      const agendamentos = JSON.parse(localStorage.getItem("agendamentos") || "[]");
+      const pets = JSON.parse(localStorage.getItem("pets") || "[]");
+      // Limpa histórico de todos os pets pacote
+      pets.forEach(p => {
+        if (p.pacote && p.pacote.ativo) {
+          p.pacote.historico = [];
+          p.pacote.feitos = 0;
+        }
+      });
+      // Para cada agendamento, se for cliente pacote, adiciona ao histórico
+      agendamentos.forEach(a => {
+        const idx = pets.findIndex(p =>
+          p.pet.toLowerCase() === a.pet.toLowerCase() &&
+          p.dono.toLowerCase() === a.dono.toLowerCase() &&
+          p.pacote && p.pacote.ativo
+        );
+        if (idx !== -1) {
+          if (!Array.isArray(pets[idx].pacote.historico)) pets[idx].pacote.historico = [];
+          // Evita duplicidade
+          if (!pets[idx].pacote.historico.includes(a.dataHora)) {
+            pets[idx].pacote.historico.push(a.dataHora);
+            pets[idx].pacote.feitos += 1;
+          }
+        }
+      });
+      localStorage.setItem("pets", JSON.stringify(pets));
+    }
+
+    // Ao carregar a página, integra histórico e mostra a tabela
+    window.onload = function() {
+      carregarPacotes();
+    }
+
+    // Função para abrir o modal de edição do histórico
+    function abrirModalHistorico(index) {
+      const pets = JSON.parse(localStorage.getItem("pets")) || [];
+      const p = pets[index];
+      document.getElementById("historicoPetIndex").value = index;
+      atualizarListaHistorico(p.pacote?.historico || []);
+      document.getElementById("modalHistorico").style.display = "flex";
+    }
+
+    // Atualiza a lista de datas no modal
+    function atualizarListaHistorico(lista) {
+      const div = document.getElementById("historicoLista");
+      if (!lista || lista.length === 0) {
+        div.innerHTML = "<div style='color:#888'>Nenhuma data registrada.</div>";
+        return;
+      }
+      div.innerHTML = lista.map((data, i) =>
+        `<div style="margin-bottom:6px;">
+          <input type="datetime-local" value="${data.slice(0,16)}" data-index="${i}" onchange="editarDataHistorico(this)">
+          <button type="button" onclick="removerDataHistorico(${i})" style="background:#DC143C;color:#fff;padding:2px 8px;margin-left:5px;">Remover</button>
+        </div>`
+      ).join('');
+    }
+
+    // Edita uma data existente
+    function editarDataHistorico(input) {
+      const idx = parseInt(input.getAttribute("data-index"));
+      const pets = JSON.parse(localStorage.getItem("pets")) || [];
+      const petIdx = parseInt(document.getElementById("historicoPetIndex").value);
+      if (!pets[petIdx].pacote.historico) pets[petIdx].pacote.historico = [];
+      pets[petIdx].pacote.historico[idx] = input.value;
+      localStorage.setItem("pets", JSON.stringify(pets));
+      atualizarListaHistorico(pets[petIdx].pacote.historico);
+    }
+
+    // Remove uma data do histórico
+    function removerDataHistorico(idx) {
+      const pets = JSON.parse(localStorage.getItem("pets")) || [];
+      const petIdx = parseInt(document.getElementById("historicoPetIndex").value);
+      if (!pets[petIdx].pacote.historico) pets[petIdx].pacote.historico = [];
+      pets[petIdx].pacote.historico.splice(idx, 1);
+      localStorage.setItem("pets", JSON.stringify(pets));
+      atualizarListaHistorico(pets[petIdx].pacote.historico);
+    }
+
+    // Adiciona uma nova data ao histórico
+    function adicionarDataHistorico() {
+      const novaData = document.getElementById("novaDataHistorico").value;
+      if (!novaData) {
+        toast("Informe uma data e hora.", "error");
+        return;
+      }
+      const pets = JSON.parse(localStorage.getItem("pets")) || [];
+      const petIdx = parseInt(document.getElementById("historicoPetIndex").value);
+      if (!pets[petIdx].pacote.historico) pets[petIdx].pacote.historico = [];
+      pets[petIdx].pacote.historico.push(novaData);
+      localStorage.setItem("pets", JSON.stringify(pets));
+      atualizarListaHistorico(pets[petIdx].pacote.historico);
+      document.getElementById("novaDataHistorico").value = "";
+    }
+
+    // Salva o histórico editado e fecha o modal
+    document.getElementById("formHistorico").onsubmit = function(e) {
+      e.preventDefault();
+      const pets = JSON.parse(localStorage.getItem("pets")) || [];
+      const petIdx = parseInt(document.getElementById("historicoPetIndex").value);
+      // Atualiza o campo feitos conforme o histórico
+      pets[petIdx].pacote.feitos = pets[petIdx].pacote.historico.length;
+      localStorage.setItem("pets", JSON.stringify(pets));
+      fecharModalHistorico();
+      carregarPacotes();
+    };
+
+    function fecharModalHistorico() {
+      document.getElementById("modalHistorico").style.display = "none";
+    }
+
+    // Fecha o modal ao clicar fora do formulário
+    document.getElementById("modalHistorico").addEventListener("mousedown", function(e) {
+      if (e.target === this) fecharModalHistorico();
+    });
+
+    // Adiciona evento para fechar o modal de histórico completo ao clicar fora
+    document.getElementById("modalHistoricoCompleto").addEventListener("click", function(e) {
+      if (e.target === this) {
+        fecharHistoricoCompleto();
+      }
+    });
+
+    // Impede que cliques dentro do conteúdo do modal fechem o modal
+    document.querySelector(".historico-completo-content").addEventListener("click", function(e) {
+      e.stopPropagation();
+    });
+
+    // Função para ver histórico completo
+    function verHistoricoCompleto(index) {
+      if (event) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+      
+      const pets = JSON.parse(localStorage.getItem("pets")) || [];
+      const pet = pets[index];
+      const historico = pet.pacote?.historico || [];
+      
+      const modal = document.getElementById('modalHistoricoCompleto');
+      modal.style.display = 'flex';
+      
+      // Agrupa banhos por mês
+      const banhosPorMes = {};
+      historico.sort((a, b) => new Date(b) - new Date(a)).forEach(data => {
+        const dataObj = new Date(data);
+        const mesAno = `${dataObj.getMonth() + 1}/${dataObj.getFullYear()}`;
+        if (!banhosPorMes[mesAno]) {
+          banhosPorMes[mesAno] = [];
+        }
+        banhosPorMes[mesAno].push(data);
+      });
+
+      // Monta o HTML do histórico completo
+      const conteudo = document.getElementById('historicoCompletoConteudo');
+      conteudo.innerHTML = `
+        <h3 style="margin-bottom:20px">
+          Pet: ${pet.pet} | Dono: ${pet.dono}
+        </h3>
+        ${Object.entries(banhosPorMes).map(([mesAno, datas]) => `
+          <div class="historico-mes">
+            <h3>Mês ${mesAno} - ${datas.length} banho(s)</h3>
+            ${datas.map(data => `
+              <div class="data-banho" style="margin:5px 0;">
+                ${formatarData(data)}
+              </div>
+            `).join('')}
+          </div>
+        `).join('')}
+      `;
+
+      document.getElementById('modalHistoricoCompleto').style.display = 'flex';
+    }
+
+    // Função para fechar o histórico completo
+    function fecharHistoricoCompleto() {
+      const modal = document.getElementById('modalHistoricoCompleto');
+      modal.style.display = 'none';
+    }
+
+    // Configuração dos eventos do modal ao carregar a página
+    window.addEventListener('load', function() {
+      const modal = document.getElementById('modalHistoricoCompleto');
+      const modalContent = modal.querySelector('.historico-completo-content');
+
+      // Fecha o modal ao clicar fora
+      modal.addEventListener('click', function(e) {
+        if (e.target === modal) {
+          fecharHistoricoCompleto();
+        }
+      });
+
+      // Previne que cliques dentro do conteúdo fechem o modal
+      modalContent.addEventListener('click', function(e) {
+        e.stopPropagation();
+      });
+
+      // Fecha o modal com a tecla ESC
+      document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape' && modal.style.display === 'flex') {
+          fecharHistoricoCompleto();
+        }
+      });
+    });
+
+    // Fecha o modal de histórico completo ao clicar fora
+    document.getElementById("modalHistoricoCompleto").addEventListener("mousedown", function(e) {
+      if (e.target === this) fecharHistoricoCompleto();
+    });
+
+    // Adicione botão de editar histórico na tabela
+    const oldCarregarPacotes = carregarPacotes;
+    carregarPacotes = function() {
+      oldCarregarPacotes();
+      // Adiciona botão "Editar Histórico" em cada linha
+      const tbody = document.querySelector("#tabelaPacote tbody");
+      Array.from(tbody.rows).forEach((row, i) => {
+        // Só adiciona se não for a linha de "Nenhum cliente pacote cadastrado."
+        if (row.querySelector("button[onclick^='abrirModalPacote']")) {
+          const idx = row.querySelector("button[onclick^='abrirModalPacote']").getAttribute("onclick").match(/\d+/)[0];
+          const btn = document.createElement("button");
+          btn.textContent = "Editar Histórico";
+          btn.className = "btn btn-secondary btn-sm";
+          btn.style.marginLeft = "8px";
+          btn.onclick = function() { abrirModalHistorico(idx); };
+          row.cells[10].appendChild(btn);
+        }
+      });
+    };
+  </script>
+</body>
+</html>

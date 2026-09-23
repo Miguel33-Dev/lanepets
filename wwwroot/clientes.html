@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Clientes | Lane Pets Caieiras</title>
+<link rel="stylesheet" href="design-system.css?v=3">
+<style>
+  #boxClientesCadastrados { font-size: .85rem; color: var(--ink-500); font-weight: 600; margin-bottom: var(--sp-4); }
+  #boxClientesCadastrados #numClientes { color: var(--brand-700); font-weight: 800; }
+  tr.pacote td:first-child { position: relative; }
+  tr.pacote td:first-child::before { content: ""; position: absolute; left: 0; top: 8px; bottom: 8px; width: 3px; background: var(--accent-500); border-radius: 2px; }
+</style>
+  <script src="js/config.js"></script>
+  <script src="js/api.js"></script>
+</head>
+<body>
+<div class="app-shell">
+  <aside class="sidebar">
+    <div class="sidebar-brand"><a class="brand-home" href="cliente.html" title="Ir para a página inicial do LanePets">
+      <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#F2994A" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="7" cy="8" r="2"/><circle cx="12" cy="5.5" r="2"/><circle cx="17" cy="8" r="2"/>
+        <path d="M12 13c-3.3 0-6 2.1-6 4.7 0 1.6 1.5 2.3 3 1.8.9-.3 1.9-.5 3-.5s2.1.2 3 .5c1.5.5 3-.2 3-1.8 0-2.6-2.7-4.7-6-4.7Z"/>
+      </svg>
+      <div><div class="brand-name">Lane Pets</div><span class="brand-sub">Franco + Caieiras</span></div><svg class="brand-home-ico" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg></a><button class="sidebar-close hide-desktop" aria-label="Fechar menu">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <nav class="sidebar-nav">
+      <a class="nav-item" href="index.html">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg>
+        Cadastro
+      </a>
+      <a class="nav-item active" href="clientes.html">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        Clientes
+      </a>
+      <a class="nav-item" href="clientes_pacote.html">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="14" rx="2"/><path d="M8 7V5a4 4 0 0 1 8 0v2"/></svg>
+        Pacotes
+      </a>
+      <a class="nav-item" href="agendamentos.html">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+        Agendamentos
+      </a><a class="nav-item" href="dashboard_financeiro.html">◫ <span>Dashboard</span></a>
+      <a class="nav-item" href="Produtos.html">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21 8-9-5-9 5 9 5 9-5Z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v8"/></svg>
+        Produtos
+      </a>
+      <a class="nav-item" href="entradas_e_saidas.html">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+        Entradas e Saídas
+      </a>
+      <a class="nav-item" href="relatorio.html">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M18 17V9M13 17V5M8 17v-3"/></svg>
+        Relatório
+      </a>
+    </nav>
+    <div class="sidebar-foot">Lane Pets © 2026</div>
+  </aside>
+
+  <div class="main-area">
+    <header class="topbar">
+      <div class="topbar-left">
+        <button class="menu-toggle hide-desktop" aria-label="Abrir menu">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+        </button>
+        <div>
+          <div class="topbar-title">Clientes</div>
+          <div class="topbar-breadcrumb hide-mobile">Início / Clientes cadastrados</div>
+        </div>
+      </div>
+      <div class="topbar-right"><div class="topbar-user"><div class="avatar">LP</div><span>Lane Pets</span></div></div>
+    </header>
+
+    <main class="page-content">
+      <div class="page-header">
+        <div>
+          <h1>Clientes cadastrados</h1>
+          <p>Consulte, edite e gerencie os tutores e pets cadastrados no sistema.</p>
+        </div>
+        <button class="btn btn-primary" onclick="window.location.href='index.html'">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+          Novo cliente
+        </button>
+      </div>
+
+      <div class="card">
+        <div class="toolbar">
+          <div class="search-box">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+            <input type="text" id="filtro" class="input" placeholder="Buscar por dono, pet, raça, telefone ou endereço...">
+          </div>
+          <select id="filtroTipo" class="input">
+            <option value="">Todos os tipos</option>
+            <option value="Cão">Cão</option>
+            <option value="Gato">Gato</option>
+            <option value="Outro">Outro</option>
+          </select>
+          <button id="btnPesquisar" class="btn btn-secondary">Pesquisar</button>
+        </div>
+
+        <div id="boxClientesCadastrados">Clientes cadastrados: <span id="numClientes">0</span></div>
+
+        <div class="table-wrap">
+          <table id="tabelaClientes" class="data-table">
+            <thead>
+              <tr>
+                <th>Nome do dono</th>
+                <th>Nome do pet</th>
+                <th>Raça</th>
+                <th>Telefone</th>
+                <th>Endereço</th>
+                <th>Tipo</th>
+                <th>Ações</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<div id="modalEditar" class="modal-overlay">
+  <form id="formEditar" class="modal-box" autocomplete="off">
+    <div class="modal-head">
+      <h2>Editar cliente</h2>
+      <button type="button" class="modal-close" onclick="fecharModal()" aria-label="Fechar">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <input type="hidden" id="editIndex">
+    <div class="field-row">
+      <div class="field"><label for="editDono">Nome do dono</label><input type="text" id="editDono" required></div>
+      <div class="field"><label for="editPet">Nome do pet</label><input type="text" id="editPet" required></div>
+    </div>
+    <div class="field"><label for="editPetExtra">Adicionar mais um pet <span class="hint">(opcional)</span></label><input type="text" id="editPetExtra" placeholder="Nome do novo pet"></div>
+    <div class="field-row">
+      <div class="field"><label for="editRaca">Raça</label><input type="text" id="editRaca"></div>
+      <div class="field"><label for="editTelefone">Telefone</label><input type="tel" id="editTelefone" required></div>
+    </div>
+    <div class="field"><label for="editEndereco">Endereço</label><input type="text" id="editEndereco" required></div>
+    <div class="field"><label for="editTipo">Tipo</label>
+      <select id="editTipo" required>
+        <option value="">Selecione o tipo</option>
+        <option value="Cão">Cão</option>
+        <option value="Gato">Gato</option>
+        <option value="Outro">Outro</option>
+      </select>
+    </div>
+    <label class="checkbox-row" for="editPacote"><input type="checkbox" id="editPacote"> Cliente pacote</label>
+    <div class="modal-actions">
+      <button type="button" class="btn btn-outline" onclick="fecharModal()">Cancelar</button>
+      <button type="submit" class="btn btn-primary">Salvar</button>
+    </div>
+  </form>
+</div>
+
+<div class="page-content" style="padding-top:0;max-width:1320px;margin:0 auto;">
+  <div class="backup-buttons-container" style="display:flex;gap:var(--sp-3);flex-wrap:wrap;margin:0 var(--sp-7) var(--sp-8);">
+    <button class="btn btn-outline" onclick="exportarBackupCompleto()">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5M12 15V3"/></svg>
+      Exportar backup
+    </button>
+    <input type="file" id="importarBackupInput" onchange="importarBackupCompleto(this)" style="display:none;">
+    <button class="btn btn-outline" onclick="document.getElementById('importarBackupInput').click()">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M17 8l-5-5-5 5M12 3v12"/></svg>
+      Importar backup
+    </button>
+  </div>
+</div>
+
+<script src="ui-kit.js"></script>
+<script>
+    function abrirModalEditar() {
+      const modal = document.getElementById("modalEditar");
+      modal.classList.add("ativo");
+    }
+    window.fecharModal = function() {
+      const modal = document.getElementById("modalEditar");
+      modal.classList.remove("ativo");
+    };
+
+    function exibirNumeroClientes() {
+      const pets = JSON.parse(localStorage.getItem("pets")) || [];
+      document.getElementById("numClientes").textContent = pets.length;
+    }
+
+    function exportarBackupCompleto(filename = 'backup-petshop.json') {
+      const dados = {};
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        dados[key] = localStorage.getItem(key);
+      }
+      const blob = new Blob([JSON.stringify(dados, null, 2)], {type: "application/json"});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast("Backup exportado com sucesso.", "success");
+    }
+
+    function importarBackupCompleto(input) {
+      if (!input.files.length) return;
+      const file = input.files[0];
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        try {
+          const dados = JSON.parse(e.target.result);
+          for (const key in dados) {
+            localStorage.setItem(key, dados[key]);
+          }
+          toast("Backup importado com sucesso!", "success");
+          setTimeout(() => location.reload(), 700);
+        } catch (err) {
+          toast("Arquivo inválido!", "error");
+        }
+      };
+      reader.readAsText(file);
+    }
+
+    function carregarTabela() {
+      const todosPets = JSON.parse(localStorage.getItem("pets")) || [];
+      const filtroInput = document.getElementById("filtro");
+      const filtroTipo = document.getElementById("filtroTipo") ? document.getElementById("filtroTipo").value : "";
+      const filtro = filtroInput ? filtroInput.value.toLowerCase().trim() : "";
+
+      let petsFiltrados = todosPets
+        .map((p, i) => ({ ...p, realIndex: i }))
+        .filter(p =>
+          (p.dono.toLowerCase().includes(filtro) ||
+          p.pet.toLowerCase().includes(filtro) ||
+          (p.raca || "").toLowerCase().includes(filtro) ||
+          p.telefone.toLowerCase().includes(filtro) ||
+          (p.endereco || "").toLowerCase().includes(filtro)) &&
+          (filtroTipo === "" || (p.tipo || "").toLowerCase() === filtroTipo.toLowerCase())
+        );
+
+      petsFiltrados.sort((a, b) => {
+        const donoA = (a.dono || "").toLowerCase();
+        const donoB = (b.dono || "").toLowerCase();
+        if (donoA < donoB) return -1;
+        if (donoA > donoB) return 1;
+        const petA = (a.pet || "").toLowerCase();
+        const petB = (b.pet || "").toLowerCase();
+        if (petA < petB) return -1;
+        if (petA > petB) return 1;
+        return 0;
+      });
+
+      const tbody = document.querySelector("#tabelaClientes tbody");
+      tbody.innerHTML = "";
+
+      if (petsFiltrados.length === 0) {
+        const row = document.createElement("tr");
+        const cell = document.createElement("td");
+        cell.colSpan = 7;
+        const semNenhum = todosPets.length === 0;
+        cell.innerHTML = `
+          <div class="empty-state" style="padding:var(--sp-7) var(--sp-4);">
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            <h3>${semNenhum ? "Você ainda não possui clientes cadastrados." : "Nenhum cliente encontrado."}</h3>
+            <p>${semNenhum ? "Cadastre seu primeiro cliente para começar." : "Tente ajustar os filtros de busca."}</p>
+            ${semNenhum ? '<button class="btn btn-primary btn-sm" onclick="window.location.href=\'index.html\'">+ Novo cliente</button>' : ''}
+          </div>`;
+        row.appendChild(cell);
+        tbody.appendChild(row);
+        exibirNumeroClientes();
+        return;
+      }
+
+      petsFiltrados.forEach((p) => {
+        const row = document.createElement("tr");
+        if (p.pacote && p.pacote.ativo) row.classList.add("pacote");
+        const badgeTipo = p.tipo ? `<span class="badge badge-info">${p.tipo}</span>` : "-";
+        row.innerHTML = `
+          <td>${p.dono}</td>
+          <td>${p.pet}</td>
+          <td>${p.raca || "-"}</td>
+          <td>${p.telefone}</td>
+          <td>${p.endereco || "-"}</td>
+          <td>${badgeTipo}</td>
+          <td>
+            <div class="row-actions">
+                <button class="btn btn-outline btn-sm" onclick="editarCliente(${p.realIndex})">Editar</button>
+                <button class="btn btn-danger btn-sm" onclick="excluirCliente(${p.realIndex})">Excluir</button>
+            </div>
+          </td>
+        `;
+        tbody.appendChild(row);
+      });
+      exibirNumeroClientes();
+    }
+
+    window.excluirCliente = async function(index) {
+      const ok = await confirmarAcao({ titulo: "Excluir cliente?", texto: "Esta ação não poderá ser desfeita.", textoBotao: "Excluir" });
+      if (ok) {
+        const pets = JSON.parse(localStorage.getItem("pets")) || [];
+        pets.splice(index, 1);
+        localStorage.setItem("pets", JSON.stringify(pets));
+        carregarTabela();
+        toast("Cliente excluído.", "success");
+      }
+    };
+
+    window.editarCliente = function(index) {
+      const pets = JSON.parse(localStorage.getItem("pets")) || [];
+      const pet = pets[index];
+
+      document.getElementById("editIndex").value = index;
+      document.getElementById("editDono").value = pet.dono;
+      document.getElementById("editPet").value = pet.pet;
+      document.getElementById("editPetExtra").value = pet.petExtra || "";
+      document.getElementById("editRaca").value = pet.raca || "";
+      document.getElementById("editTelefone").value = pet.telefone;
+      document.getElementById("editEndereco").value = pet.endereco || "";
+      document.getElementById("editTipo").value = pet.tipo || "";
+      document.getElementById("editPacote").checked = !!(pet.pacote && pet.pacote.ativo);
+
+      abrirModalEditar();
+    };
+
+    document.getElementById("formEditar").onsubmit = function(e) {
+      e.preventDefault();
+
+      const index = document.getElementById("editIndex").value;
+      const pets = JSON.parse(localStorage.getItem("pets")) || [];
+
+      let pacoteData = pets[index].pacote || {};
+      pacoteData.ativo = document.getElementById("editPacote").checked;
+
+      pets[index] = {
+        dono: document.getElementById("editDono").value,
+        pet: document.getElementById("editPet").value,
+        tipo: document.getElementById("editTipo").value,
+        raca: document.getElementById("editRaca").value || undefined,
+        telefone: document.getElementById("editTelefone").value,
+        endereco: document.getElementById("editEndereco").value || undefined,
+        pacote: pacoteData.ativo ? pacoteData : undefined
+      };
+
+      const novoPet = document.getElementById("editPetExtra").value.trim();
+      if (novoPet) {
+        pets.push({
+          dono: document.getElementById("editDono").value,
+          pet: novoPet,
+          tipo: document.getElementById("editTipo").value,
+          raca: "",
+          telefone: document.getElementById("editTelefone").value,
+          endereco: document.getElementById("editEndereco").value || undefined
+        });
+      }
+
+      localStorage.setItem("pets", JSON.stringify(pets));
+      fecharModal();
+      carregarTabela();
+      toast("Cliente atualizado com sucesso.", "success");
+    };
+
+    document.getElementById("btnPesquisar").addEventListener("click", carregarTabela);
+
+    document.getElementById("filtro").addEventListener("keydown", function(e) {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        carregarTabela();
+      }
+    });
+    document.getElementById("filtroTipo").addEventListener("change", carregarTabela);
+
+    window.onload = function() {
+      carregarTabela();
+      exibirNumeroClientes();
+    };
+
+    document.getElementById("modalEditar").addEventListener("mousedown", function(e) {
+      if (e.target === this) fecharModal();
+    });
+</script>
+</body>
+</html>

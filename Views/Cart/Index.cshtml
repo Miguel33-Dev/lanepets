@@ -1,0 +1,86 @@
+@model PetshopCSharp.Models.CartViewModel
+@{
+    ViewData["Title"] = "Carrinho";
+}
+
+<div class="container py-5">
+    <div class="card form-card cart-card">
+        <div class="text-center mb-4">
+            <div class="display-6 mb-2">🛒</div>
+            <h3 class="text-success fw-bold mb-1">Seu Carrinho</h3>
+            <p class="text-muted mb-0">Revise os itens antes de finalizar sua compra.</p>
+        </div>
+
+        @if (Model.Items.Count == 0)
+        {
+            <div class="text-center py-4 empty-cart">
+                <p class="text-muted mb-3">Seu carrinho está vazio.</p>
+                <a asp-controller="Produto" asp-action="Index" class="btn btn-success">Continuar comprando</a>
+            </div>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table align-middle cart-table">
+                    <thead class="table-success">
+                        <tr>
+                            <th>Produto</th>
+                            <th>Preço</th>
+                            <th>Qtd.</th>
+                            <th>Total</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var item in Model.Items)
+                        {
+                            <tr>
+                                <td>
+                                    <div class="fw-semibold text-success">@item.Nome</div>
+                                </td>
+                                <td>@item.Preco.ToString("C2")</td>
+                                <td>
+                                    <div class="d-flex align-items-center gap-2">
+                                        <form asp-action="UpdateQuantity" method="post">
+                                            @Html.AntiForgeryToken()
+                                            <input type="hidden" name="productId" value="@item.ProductId" />
+                                            <input type="hidden" name="quantity" value="@(item.Quantidade - 1)" />
+                                            <button type="submit" class="btn btn-outline-secondary btn-sm" title="Diminuir quantidade">−</button>
+                                        </form>
+
+                                        <span class="quantity-badge">@item.Quantidade</span>
+
+                                        <form asp-action="UpdateQuantity" method="post">
+                                            @Html.AntiForgeryToken()
+                                            <input type="hidden" name="productId" value="@item.ProductId" />
+                                            <input type="hidden" name="quantity" value="@(item.Quantidade + 1)" />
+                                            <button type="submit" class="btn btn-outline-secondary btn-sm" title="Aumentar quantidade">+</button>
+                                        </form>
+                                    </div>
+                                </td>
+                                <td>@item.Total.ToString("C2")</td>
+                                <td>
+                                    <form asp-action="Remove" method="post">
+                                        @Html.AntiForgeryToken()
+                                        <input type="hidden" name="productId" value="@item.ProductId" />
+                                        <button type="submit" class="btn btn-outline-danger btn-sm">Remover</button>
+                                    </form>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="cart-summary d-flex justify-content-between align-items-center border-top pt-3 mt-3">
+                <h5 class="mb-0 fw-bold text-success">Total:</h5>
+                <h4 class="mb-0 text-success">@Model.Total.ToString("C2")</h4>
+            </div>
+
+            <div class="d-flex gap-2 justify-content-end mt-4 flex-wrap">
+                <a asp-controller="Produto" asp-action="Index" class="btn btn-outline-success">Continuar comprando</a>
+                <a asp-action="Checkout" class="btn btn-success">Finalizar compra</a>
+            </div>
+        }
+    </div>
+</div>

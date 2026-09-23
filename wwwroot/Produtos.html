@@ -1,0 +1,580 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Produtos | Lane Pets Caieiras</title>
+  <link rel="stylesheet" href="design-system.css?v=3">
+  <style>
+    .produto-form-actions,
+    .produto-filter-actions,
+    .produto-backup-actions { display:flex; align-items:center; justify-content:flex-start; gap:var(--sp-3); flex-wrap:wrap; }
+    .produto-section-head { display:flex; align-items:center; justify-content:space-between; gap:var(--sp-3); margin-bottom:var(--sp-5); }
+    .produto-section-head .section-title { margin-bottom:0; }
+    .empty-cell { padding:var(--sp-8) !important; color:var(--ink-500); }
+    .produto-actions { display:flex; gap:var(--sp-2); flex-wrap:wrap; }
+    @media (max-width:640px) {
+      .produto-form-actions .btn,
+      .produto-filter-actions .btn,
+      .produto-backup-actions .btn { width:100%; }
+      .produto-section-head { align-items:flex-start; }
+    }
+  </style>
+  <script src="js/config.js"></script>
+  <script src="js/api.js"></script>
+</head>
+<body>
+<div class="app-shell">
+  <aside class="sidebar">
+    <div class="sidebar-brand"><a class="brand-home" href="cliente.html" title="Ir para a página inicial do LanePets">
+      <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#F2994A" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="7" cy="8" r="2"/><circle cx="12" cy="5.5" r="2"/><circle cx="17" cy="8" r="2"/>
+        <path d="M12 13c-3.3 0-6 2.1-6 4.7 0 1.6 1.5 2.3 3 1.8.9-.3 1.9-.5 3-.5s2.1.2 3 .5c1.5.5 3-.2 3-1.8 0-2.6-2.7-4.7-6-4.7Z"/>
+      </svg>
+      <div><div class="brand-name">Lane Pets</div><span class="brand-sub">Franco + Caieiras</span></div><svg class="brand-home-ico" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg></a><button class="sidebar-close hide-desktop" aria-label="Fechar menu">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+
+    <nav class="sidebar-nav" aria-label="Navegação principal">
+      <a class="nav-item" href="index.html">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg>
+        Cadastro
+      </a>
+      <a class="nav-item" href="clientes.html">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        Clientes
+      </a>
+      <a class="nav-item" href="clientes_pacote.html">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="14" rx="2"/><path d="M8 7V5a4 4 0 0 1 8 0v2"/></svg>
+        Pacotes
+      </a>
+      <a class="nav-item" href="agendamentos.html">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+        Agendamentos
+      </a><a class="nav-item" href="dashboard_financeiro.html">◫ <span>Dashboard</span></a>
+      <a class="nav-item active" href="Produtos.html" aria-current="page">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21 8-9-5-9 5 9 5 9-5Z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v8"/></svg>
+        Produtos
+      </a>
+      <a class="nav-item" href="entradas_e_saidas.html">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+        Entradas e Saídas
+      </a>
+      <a class="nav-item" href="relatorio.html">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M18 17V9M13 17V5M8 17v-3"/></svg>
+        Relatório
+      </a>
+    </nav>
+    <div class="sidebar-foot">Lane Pets © 2026</div>
+  </aside>
+
+  <div class="main-area">
+    <header class="topbar">
+      <div class="topbar-left">
+        <button class="menu-toggle hide-desktop" aria-label="Abrir menu">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+        </button>
+        <div>
+          <div class="topbar-title">Produtos</div>
+          <div class="topbar-breadcrumb hide-mobile">Início / Cadastro e controle de produtos</div>
+        </div>
+      </div>
+      <div class="topbar-right">
+        <div class="topbar-user"><div class="avatar">LP</div><span>Lane Pets</span></div>
+      </div>
+    </header>
+
+    <main class="page-content">
+      <div class="page-header">
+        <div>
+          <h1>Produtos</h1>
+          <p>Cadastre, consulte e mantenha os preços dos produtos do pet shop.</p>
+        </div>
+        <button type="button" class="btn btn-primary" id="btnNovoProduto">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+          Novo produto
+        </button>
+      </div>
+
+      <section class="card" id="formProdutoCard">
+        <h2 class="section-title">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--brand-700)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v16H4z"/><path d="M8 8h8M8 12h8M8 16h5"/></svg>
+          Cadastro de produto
+        </h2>
+
+        <form id="formProduto" autocomplete="off">
+          <div class="grid grid-2">
+            <div class="field">
+              <label for="codigoProduto">Código</label>
+              <input type="text" id="codigoProduto" placeholder="Código do produto" required>
+            </div>
+            <div class="field">
+              <label for="nomeProduto">Nome</label>
+              <input type="text" id="nomeProduto" placeholder="Nome do produto" required>
+            </div>
+            <div class="field">
+              <label for="categoriaProduto">Categoria</label>
+              <select id="categoriaProduto" required>
+                <option value="">Selecione a categoria</option>
+                <option value="Brinquedo">Brinquedo</option>
+                <option value="Acessório">Acessório</option>
+                <option value="Roupa">Roupa</option>
+                <option value="Ração">Ração</option>
+                <option value="Higiene">Higiene</option>
+              </select>
+            </div>
+            <div class="field-row">
+              <div class="field">
+                <label for="valorCompraProduto">Valor de compra</label>
+                <input type="number" id="valorCompraProduto" placeholder="0,00" min="0" step="0.01" required>
+              </div>
+              <div class="field">
+                <label for="valorVendaProduto">Valor de venda</label>
+                <input type="number" id="valorVendaProduto" placeholder="0,00" min="0" step="0.01" required>
+              </div>
+            </div>
+          </div>
+          <div class="produto-form-actions">
+            <button type="submit" class="btn btn-primary" id="btnCadastrarProduto">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+              Cadastrar produto
+            </button>
+          </div>
+        </form>
+      </section>
+
+      <section class="card">
+        <div class="produto-section-head">
+          <h2 class="section-title" style="margin-bottom:0;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--brand-700)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
+            Produtos cadastrados
+          </h2>
+          <span id="contadorProdutos" class="badge badge-neutral">0</span>
+        </div>
+
+        <div class="grid grid-2" style="margin-bottom:var(--sp-5);">
+          <div class="field" style="margin-bottom:0;">
+            <label for="filtro">Pesquisar</label>
+            <input type="text" id="filtro" placeholder="Código ou nome..." autocomplete="off">
+          </div>
+          <div class="field" style="margin-bottom:0;">
+            <label for="filtroCategoria">Categoria</label>
+            <select id="filtroCategoria">
+              <option value="">Todas as categorias</option>
+              <option value="Brinquedo">Brinquedo</option>
+              <option value="Acessório">Acessório</option>
+              <option value="Roupa">Roupa</option>
+              <option value="Ração">Ração</option>
+              <option value="Higiene">Higiene</option>
+            </select>
+          </div>
+        </div>
+        <div class="produto-form-actions" style="justify-content:flex-start;margin-top:0;">
+          <button type="button" class="btn btn-secondary" id="btnPesquisar">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
+            Pesquisar
+          </button>
+          <button type="button" class="btn btn-outline" id="btnLimparFiltro">Limpar filtros</button>
+        </div>
+
+        <div class="table-wrap" style="margin-top:var(--sp-5);">
+          <table class="data-table" id="tabelaProdutos">
+            <thead>
+              <tr>
+                <th>Código</th>
+                <th>Produto</th>
+                <th>Categoria</th>
+                <th>Compra</th>
+                <th>Venda</th>
+                <th>% Lucro</th>
+                <th>Ações</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2 class="section-title">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--brand-700)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5M12 15V3"/></svg>
+          Backup
+        </h2>
+        <p class="text-muted">Exporte ou importe o backup completo do sistema sem alterar as chaves atuais do localStorage.</p>
+        <div class="produto-form-actions" style="justify-content:flex-start;">
+          <button type="button" class="btn btn-outline" onclick="exportarBackupCompleto()">
+            Exportar backup
+          </button>
+          <input type="file" id="importarBackupInput" accept=".json,application/json" onchange="importarBackupCompleto(this)" hidden>
+          <button type="button" class="btn btn-outline" onclick="document.getElementById('importarBackupInput').click()">
+            Importar backup
+          </button>
+        </div>
+      </section>
+    </main>
+  </div>
+</div>
+
+<div id="modalEditar" class="modal-overlay" aria-hidden="true">
+  <form id="formEditar" class="modal-box" autocomplete="off">
+    <div class="modal-head">
+      <h2>Editar produto</h2>
+      <button type="button" class="modal-close" id="btnFecharModal" aria-label="Fechar">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+
+    <input type="hidden" id="editProdutoIndex">
+    <div class="field">
+      <label for="editCodigoProduto">Código</label>
+      <input type="text" id="editCodigoProduto" required>
+    </div>
+    <div class="field">
+      <label for="editNomeProduto">Nome</label>
+      <input type="text" id="editNomeProduto" required>
+    </div>
+    <div class="field">
+      <label for="editCategoriaProduto">Categoria</label>
+      <select id="editCategoriaProduto" required>
+        <option value="">Selecione a categoria</option>
+        <option value="Brinquedo">Brinquedo</option>
+        <option value="Acessório">Acessório</option>
+        <option value="Roupa">Roupa</option>
+        <option value="Ração">Ração</option>
+        <option value="Higiene">Higiene</option>
+      </select>
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label for="editValorCompraProduto">Valor de compra</label>
+        <input type="number" id="editValorCompraProduto" min="0" step="0.01" required>
+      </div>
+      <div class="field">
+        <label for="editValorVendaProduto">Valor de venda</label>
+        <input type="number" id="editValorVendaProduto" min="0" step="0.01" required>
+      </div>
+    </div>
+
+    <div class="modal-actions">
+      <button type="button" class="btn btn-outline" id="btnCancelarModal">Cancelar</button>
+      <button type="submit" class="btn btn-primary" id="btnSalvarProduto">Salvar alterações</button>
+    </div>
+  </form>
+</div>
+
+<script src="ui-kit.js"></script>
+<script>
+  let produtos = JSON.parse(localStorage.getItem('produtos') || '[]');
+
+  function salvarProdutos() {
+    localStorage.setItem('produtos', JSON.stringify(produtos));
+  }
+
+  function formatarMoeda(valor) {
+    return Number(valor).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+
+  function obterValoresProduto(prefixo = '') {
+    const codigo = document.getElementById(prefixo + 'codigoProduto').value.trim();
+    const nome = document.getElementById(prefixo + 'nomeProduto').value.trim();
+    const categoria = document.getElementById(prefixo + 'categoriaProduto').value;
+    const compraTexto = document.getElementById(prefixo + 'valorCompraProduto').value;
+    const vendaTexto = document.getElementById(prefixo + 'valorVendaProduto').value;
+    const valorCompra = Number(compraTexto);
+    const valorVenda = Number(vendaTexto);
+
+    if (!codigo || !nome || !categoria || compraTexto === '' || vendaTexto === '') {
+      toast('Preencha todos os campos antes de continuar.', 'error');
+      return null;
+    }
+
+    if (!Number.isFinite(valorCompra) || valorCompra < 0 || !Number.isFinite(valorVenda) || valorVenda < 0) {
+      toast('Informe valores de compra e venda válidos.', 'error');
+      return null;
+    }
+
+    return { codigo, nome, categoria, valorCompra, valorVenda };
+  }
+
+  function cadastrarProduto() {
+    const dados = obterValoresProduto();
+
+    if (!dados) return false;
+
+    const existe = produtos.some(p => String(p.codigo || '').toLowerCase() === dados.codigo.toLowerCase());
+    if (existe) {
+      toast('Já existe um produto cadastrado com este código.', 'error');
+      return false;
+    }
+
+    produtos.push(dados);
+    salvarProdutos();
+    carregarTabela();
+
+    document.getElementById('codigoProduto').value = '';
+    document.getElementById('nomeProduto').value = '';
+    document.getElementById('categoriaProduto').value = '';
+    document.getElementById('valorCompraProduto').value = '';
+    document.getElementById('valorVendaProduto').value = '';
+    document.getElementById('codigoProduto').focus();
+
+    toast('Produto cadastrado com sucesso.', 'success');
+    return true;
+  }
+
+  function carregarTabela() {
+    const filtro = document.getElementById('filtro').value.trim().toLowerCase();
+    const filtroCategoria = document.getElementById('filtroCategoria').value;
+    const tbody = document.querySelector('#tabelaProdutos tbody');
+    const contador = document.getElementById('contadorProdutos');
+
+    const produtosFiltrados = produtos
+      .map((produto, index) => ({ produto, index }))
+      .filter(item => {
+        const produto = item.produto;
+        const codigo = String(produto.codigo || '').toLowerCase();
+        const nome = String(produto.nome || '').toLowerCase();
+        if (filtro && !codigo.includes(filtro) && !nome.includes(filtro)) return false;
+        if (filtroCategoria && produto.categoria !== filtroCategoria) return false;
+        return true;
+      });
+
+    contador.textContent = `${produtosFiltrados.length} ${produtosFiltrados.length === 1 ? 'produto' : 'produtos'}`;
+    tbody.innerHTML = '';
+
+    if (produtosFiltrados.length === 0) {
+      const linha = document.createElement('tr');
+      const celula = document.createElement('td');
+      celula.colSpan = 7;
+      celula.style.textAlign = 'center';
+      celula.className = 'empty-cell';
+      celula.textContent = produtos.length
+        ? 'Nenhum produto corresponde aos filtros informados.'
+        : 'Nenhum produto cadastrado ainda.';
+      linha.appendChild(celula);
+      tbody.appendChild(linha);
+      return;
+    }
+
+    produtosFiltrados.forEach(({ produto, index }) => {
+      const linha = document.createElement('tr');
+
+      const tdCodigo = document.createElement('td');
+      tdCodigo.textContent = produto.codigo || '-';
+
+      const tdNome = document.createElement('td');
+      tdNome.textContent = produto.nome || '-';
+
+      const tdCategoria = document.createElement('td');
+      tdCategoria.innerHTML = `<span class="badge badge-neutral"></span>`;
+      tdCategoria.querySelector('.badge').textContent = produto.categoria || '-';
+
+      const tdCompra = document.createElement('td');
+      tdCompra.textContent = 'R$ ' + formatarMoeda(produto.valorCompra);
+
+      const tdVenda = document.createElement('td');
+      tdVenda.textContent = 'R$ ' + formatarMoeda(produto.valorVenda);
+
+      const tdLucro = document.createElement('td');
+      const valorCompra = Number(produto.valorCompra) || 0;
+      const valorVenda = Number(produto.valorVenda) || 0;
+      const lucroPercentual = valorCompra > 0 ? ((valorVenda - valorCompra) / valorCompra) * 100 : 0;
+      tdLucro.innerHTML = `<span class="${lucroPercentual >= 0 ? 'badge badge-success' : 'badge badge-danger'}"></span>`;
+      tdLucro.querySelector('.badge').textContent = `${lucroPercentual.toFixed(2)} %`;
+
+      const tdAcoes = document.createElement('td');
+      tdAcoes.className = 'row-actions';
+
+      const btnEditar = document.createElement('button');
+      btnEditar.className = 'btn btn-outline btn-sm';
+      btnEditar.type = 'button';
+      btnEditar.textContent = 'Editar';
+      btnEditar.addEventListener('click', () => abrirModalEditar(index));
+
+      const btnExcluir = document.createElement('button');
+      btnExcluir.className = 'btn btn-danger btn-sm';
+      btnExcluir.type = 'button';
+      btnExcluir.textContent = 'Excluir';
+      btnExcluir.addEventListener('click', () => excluirProduto(index));
+
+      tdAcoes.appendChild(btnEditar);
+      tdAcoes.appendChild(btnExcluir);
+
+      [tdCodigo, tdNome, tdCategoria, tdCompra, tdVenda, tdLucro, tdAcoes].forEach(td => linha.appendChild(td));
+      tbody.appendChild(linha);
+    });
+  }
+
+  async function excluirProduto(index) {
+    const produto = produtos[index];
+    if (!produto) return;
+
+    const ok = await confirmarAcao({
+      titulo: 'Excluir produto?',
+      texto: `O produto "${produto.nome}" será removido permanentemente.`,
+      textoBotao: 'Excluir'
+    });
+
+    if (!ok) return;
+
+    produtos.splice(index, 1);
+    salvarProdutos();
+    carregarTabela();
+    toast('Produto excluído.', 'success');
+  }
+
+  function abrirModalEditar(index) {
+    const produto = produtos[index];
+    if (!produto) return;
+
+    document.getElementById('editProdutoIndex').value = index;
+    document.getElementById('editCodigoProduto').value = produto.codigo || '';
+    document.getElementById('editNomeProduto').value = produto.nome || '';
+    document.getElementById('editCategoriaProduto').value = produto.categoria || '';
+    document.getElementById('editValorCompraProduto').value = produto.valorCompra ?? '';
+    document.getElementById('editValorVendaProduto').value = produto.valorVenda ?? '';
+
+    const modal = document.getElementById('modalEditar');
+    modal.classList.add('ativo');
+    modal.setAttribute('aria-hidden', 'false');
+    setTimeout(() => document.getElementById('editCodigoProduto').focus(), 50);
+  }
+
+  function fecharModalEditar() {
+    const modal = document.getElementById('modalEditar');
+    modal.classList.remove('ativo');
+    modal.setAttribute('aria-hidden', 'true');
+  }
+
+  document.getElementById('formEditar').addEventListener('submit', function(e) {
+    e.preventDefault();
+
+    const index = Number(document.getElementById('editProdutoIndex').value);
+    const codigo = document.getElementById('editCodigoProduto').value.trim();
+    const nome = document.getElementById('editNomeProduto').value.trim();
+    const categoria = document.getElementById('editCategoriaProduto').value;
+    const compraTexto = document.getElementById('editValorCompraProduto').value;
+    const vendaTexto = document.getElementById('editValorVendaProduto').value;
+    const valorCompra = Number(compraTexto);
+    const valorVenda = Number(vendaTexto);
+
+    if (!codigo || !nome || !categoria || compraTexto === '' || vendaTexto === '') {
+      toast('Preencha todos os campos antes de salvar.', 'error');
+      return;
+    }
+
+    if (!Number.isFinite(valorCompra) || valorCompra < 0 || !Number.isFinite(valorVenda) || valorVenda < 0) {
+      toast('Informe valores de compra e venda válidos.', 'error');
+      return;
+    }
+
+    const existeOutro = produtos.some((item, i) =>
+      i !== index && String(item.codigo || '').toLowerCase() === codigo.toLowerCase()
+    );
+    if (existeOutro) {
+      toast('Já existe outro produto com este código.', 'error');
+      return;
+    }
+
+    if (!produtos[index]) {
+      toast('Produto não encontrado. Atualize a página e tente novamente.', 'error');
+      fecharModalEditar();
+      return;
+    }
+
+    produtos[index] = { codigo, nome, categoria, valorCompra, valorVenda };
+    salvarProdutos();
+    carregarTabela();
+    fecharModalEditar();
+    toast('Produto atualizado com sucesso.', 'success');
+  });
+
+  document.getElementById('formProduto').addEventListener('submit', function(e) {
+    e.preventDefault();
+    const btn = document.getElementById('btnCadastrarProduto');
+    comLoading(btn, 'Cadastrando...', () => cadastrarProduto());
+  });
+
+  document.getElementById('btnNovoProduto').addEventListener('click', function() {
+    document.getElementById('formProdutoCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    setTimeout(() => document.getElementById('codigoProduto').focus(), 250);
+  });
+
+  document.getElementById('btnPesquisar').addEventListener('click', carregarTabela);
+  document.getElementById('filtro').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      carregarTabela();
+    }
+  });
+  document.getElementById('filtroCategoria').addEventListener('change', carregarTabela);
+
+  document.getElementById('btnLimparFiltro').addEventListener('click', function() {
+    document.getElementById('filtro').value = '';
+    document.getElementById('filtroCategoria').value = '';
+    carregarTabela();
+  });
+
+  document.getElementById('btnFecharModal').addEventListener('click', fecharModalEditar);
+  document.getElementById('btnCancelarModal').addEventListener('click', fecharModalEditar);
+  document.getElementById('modalEditar').addEventListener('mousedown', function(e) {
+    if (e.target === this) fecharModalEditar();
+  });
+
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape' && document.getElementById('modalEditar').classList.contains('ativo')) {
+      fecharModalEditar();
+    }
+  });
+
+  function exportarBackupCompleto(filename = 'backup-petshop.json') {
+    const dados = {};
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      dados[key] = localStorage.getItem(key);
+    }
+    const blob = new Blob([JSON.stringify(dados, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast('Backup exportado com sucesso.', 'success');
+  }
+
+  function importarBackupCompleto(input) {
+    if (!input.files.length) return;
+
+    const file = input.files[0];
+    const reader = new FileReader();
+
+    reader.onload = function(e) {
+      try {
+        const dados = JSON.parse(e.target.result);
+        if (!dados || typeof dados !== 'object' || Array.isArray(dados)) {
+          throw new Error('Formato de backup inválido.');
+        }
+
+        Object.keys(dados).forEach(key => {
+          localStorage.setItem(key, dados[key]);
+        });
+
+        toast('Backup importado com sucesso. Recarregando...', 'success');
+        setTimeout(() => location.reload(), 650);
+      } catch (err) {
+        toast('Falha ao importar backup. Verifique o arquivo e tente novamente.', 'error');
+        console.error(err);
+      } finally {
+        input.value = '';
+      }
+    };
+
+    reader.readAsText(file, 'UTF-8');
+  }
+
+  window.addEventListener('load', carregarTabela);
+</script>
+</body>
+</html>
