@@ -111,7 +111,7 @@ Checar 'GET /api/admin/entradas-saidas -> 403' ((Chamar GET "/admin/entradas-sai
 Checar 'GET /api/admin/seguros -> 403'         ((Chamar GET "/admin/seguros?token=$tokenJoao" $null).status -eq 403)
 Checar 'GET /api/admin/depoimentos -> 403'     ((Chamar GET "/admin/depoimentos?token=$tokenJoao" $null).status -eq 403)
 Checar 'GET /api/admin/usuarios -> 403'        ((Chamar GET "/admin/usuarios?token=$tokenJoao" $null).status -eq 403)
-Checar 'GET /api/admin/dashboard -> 403'       ((Chamar GET "/admin/dashboard?token=$tokenJoao" $null).status -eq 403)
+Checar 'GET /api/admin/resumo -> 403'          ((Chamar GET "/admin/resumo?token=$tokenJoao" $null).status -eq 403)
 
 # ---------------------------------------------------------------------------
 Titulo '4. Liberando apenas Clientes e Pets'
@@ -222,6 +222,53 @@ Titulo '10. Auditoria'
 $auditoria = Chamar GET "/admin/usuarios/auditoria?token=$tokenGeral" $null
 Checar 'registros gravados' ($auditoria.corpo.data.registros.Count -gt 0)
 Checar 'a criacao de administrador foi registrada' (@($auditoria.corpo.data.registros | Where-Object { $_.acao -like 'Criou*' }).Count -gt 0)
+
+# ---------------------------------------------------------------------------
+Titulo '11. Perfil Funcionario (item 1 do roadmap)'
+$emailFunc = "funcionario$(Get-Random)@lanepets.test"
+$semUnidade = Chamar POST '/admin/usuarios' @{ token = $tokenGeral; nome = 'Func Teste'; email = $emailFunc; senha = 'senha123'; confirmarSenha = 'senha123'; perfil = 'Funcionario' }
+Checar 'funcionario sem unidade e recusado (400)' ($semUnidade.status -eq 400)
+
+$criadoFunc = Chamar POST '/admin/usuarios' @{ token = $tokenGeral; nome = 'Func Teste'; email = $emailFunc; senha = 'senha123'; confirmarSenha = 'senha123'; perfil = 'Funcionario'; unidade = 'franco'; acessoTotal = $true }
+Checar 'funcionario com unidade e criado' ($criadoFunc.status -eq 200) "-> $($criadoFunc.corpo.error)"
+$idFunc = $criadoFunc.corpo.data.id
+$daLista = (Chamar GET "/admin/usuarios?token=$tokenGeral" $null).corpo.data.usuarios | Where-Object { $_.id -eq $idFunc }
+Checar 'nasce SEM acesso total, mesmo pedindo' (-not $daLista.acessoTotal)
+Checar 'lista mostra perfil e unidade'         ($daLista.funcionario -and $daLista.unidade -eq 'franco')
+
+Checar 'nao recebe acesso total (403)' ((Chamar PUT "/admin/usuarios/$idFunc/permissoes" @{ token = $tokenGeral; acessoTotal = $true; modulos = @() }).status -eq 403)
+
+$pedido = @(
+    @{ chave = 'agendamentos'; visualizar = $true; criar = $true; editar = $true; excluir = $true },
+    @{ chave = 'produtos';     visualizar = $true; criar = $true; editar = $true; excluir = $true },
+    @{ chave = 'pagamentos';   visualizar = $true; criar = $false; editar = $false; excluir = $false },
+    @{ chave = 'relatorios';   visualizar = $true; criar = $false; editar = $false; excluir = $false },
+    @{ chave = 'dashboard';    visualizar = $true; criar = $false; editar = $false; excluir = $false }
+)
+Chamar PUT "/admin/usuarios/$idFunc/permissoes" @{ token = $tokenGeral; acessoTotal = $false; modulos = $pedido } | Out-Null
+$gravadas = (Chamar GET "/admin/usuarios/$idFunc/permissoes?token=$tokenGeral" $null).corpo.data.modulos
+$m = @{}; $gravadas | ForEach-Object { $m[$_.chave] = $_ }
+Checar 'agendamentos liberado por inteiro'          ($m['agendamentos'].visualizar -and $m['agendamentos'].excluir)
+Checar 'produtos fica so em visualizar (teto)'      ($m['produtos'].visualizar -and -not $m['produtos'].criar -and -not $m['produtos'].editar)
+Checar 'pagamentos descartado (fora do perfil)'     (-not $m['pagamentos'].visualizar)
+Checar 'relatorios descartado (fora do perfil)'     (-not $m['relatorios'].visualizar)
+
+$tokenFunc = Entrar $emailFunc 'senha123'
+Checar '/api/admin/me marca funcionario + unidade' ((Chamar GET "/admin/me?token=$tokenFunc" $null).corpo.data.usuario.unidade -eq 'Franco')
+Checar 'funcionario leva 403 em /admin/relatorio'       ((Chamar GET "/admin/relatorio?token=$tokenFunc" $null).status -eq 403)
+Checar 'funcionario leva 403 em /admin/entradas-saidas' ((Chamar GET "/admin/entradas-saidas?token=$tokenFunc" $null).status -eq 403)
+Checar 'funcionario leva 403 em /admin/usuarios'        ((Chamar GET "/admin/usuarios?token=$tokenFunc" $null).status -eq 403)
+
+$agsFunc = (Chamar GET "/agendamentos?token=$tokenFunc" $null).corpo.data.agendamentos
+Checar 'so recebe agendamentos da unidade dele' (@($agsFunc | Where-Object { $_.unidade -ne 'Franco' }).Count -eq 0)
+$estadoFunc = (Chamar GET "/admin/estado?token=$tokenFunc" $null).corpo.data
+Checar '/admin/estado sem agendamento de outra unidade' (@($estadoFunc.agendamentos | Where-Object { $_.unidade -and $_.unidade -notmatch 'franco' }).Count -eq 0)
+Checar '/api/unidades devolve so a dele' ((@((Chamar GET "/unidades?token=$tokenFunc" $null).corpo.data.unidades) -join ',') -eq 'Franco')
+
+$outraUnidade = Chamar POST '/admin/sync/agendamentos' @{ token = $tokenFunc; criados = @(@{ pet = 'Teste'; dono = 'Teste'; telefone = '11999999999'; dataHora = '2099-01-01T10:00'; unidade = 'caieiras'; status = 'Pendente' }); atualizados = @(); removidos = @() }
+Checar 'nao cria agendamento em outra unidade (403)' ($outraUnidade.status -eq 403)
+
+Chamar DELETE "/admin/usuarios/$idFunc`?token=$tokenGeral" $null | Out-Null
 
 # ---------------------------------------------------------------------------
 Titulo 'Limpeza'

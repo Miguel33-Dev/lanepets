@@ -56,13 +56,16 @@
   if (location.hash === '#cadastro') mostrarPainel('cadastro');
 
   /* Medidor de força da senha ------------------------------------------- */
-  const NIVEIS = ['Mínimo 8', 'Fraca', 'Boa', 'Forte'];
+  /* Mesma regra do servidor (Services/Validacao.cs, item 13): 8+ caracteres,
+     com pelo menos uma letra e um número. O servidor decide; isto é só aviso. */
+  const NIVEIS = ['Mín. 8, com letra e número', 'Falta letra ou número', 'Boa', 'Forte'];
+  const senhaValida = v => v.length >= 8 && /\p{L}/u.test(v) && /\d/.test(v) && v.trim() === v;
   $('#cad-senha').addEventListener('input', event => {
     const v = event.target.value;
     let nivel = 0;
     if (v.length >= 8) nivel = 1;
-    if (v.length >= 8 && /[A-Za-z]/.test(v) && /\d/.test(v)) nivel = 2;
-    if (v.length >= 10 && /[A-Za-z]/.test(v) && /\d/.test(v) && /[^A-Za-z0-9]/.test(v)) nivel = 3;
+    if (senhaValida(v)) nivel = 2;
+    if (senhaValida(v) && v.length >= 10 && /[^\p{L}\d]/u.test(v)) nivel = 3;
     $('#forca-senha').dataset.nivel = String(nivel);
     $('#forca-texto').textContent = NIVEIS[nivel];
   });
@@ -109,6 +112,7 @@
     balao: '<path d="M21 12.5a7.5 7.5 0 0 1-7.5 7.5c-1.2 0-2.4-.3-3.4-.8L4 21l1.8-5.6A7.5 7.5 0 1 1 21 12.5Z"/>',
     gato: '<path d="M5.6 10.2 6.6 4.2l4.3 3.1M18.4 10.2 17.4 4.2l-4.3 3.1"/><path d="M4.8 13.6a7.2 7.2 0 0 1 14.4 0v1.6a7.2 7.2 0 0 1-14.4 0Z"/><path d="M9.4 13.2h.01M14.6 13.2h.01"/><path d="M12 15.6v1.1M10.5 17.6a2.1 2.1 0 0 0 3 0"/>',
     seta: '<path d="M5 12h13"/><path d="m12.5 6 5.5 6-5.5 6"/>',
+    pessoa: '<circle cx="12" cy="8" r="3.6"/><path d="M4.5 20.5a7.5 7.5 0 0 1 15 0"/>',
     etiqueta: '<path d="M3.5 11.2V4.5a1 1 0 0 1 1-1h6.7a1 1 0 0 1 .7.3l8.1 8.1a1 1 0 0 1 0 1.4l-6.7 6.7a1 1 0 0 1-1.4 0L3.8 11.9a1 1 0 0 1-.3-.7Z"/><path d="M7.5 7.5h.01"/>'
   };
 
@@ -117,7 +121,7 @@
   /* Selos de status ------------------------------------------------------ */
   const CLASSE_STATUS = {
     'confirmado': 'ok', 'concluído': 'ok', 'concluido': 'ok', 'pago': 'ok', 'aprovado': 'ok', 'ativo': 'ok', 'entregue': 'ok',
-    'pendente': 'aguarda', 'em contato': 'info', 'em preparo': 'info', 'separado': 'info',
+    'pendente': 'aguarda', 'solicitado': 'aguarda', 'reembolsado': 'info', 'em andamento': 'info', 'em contato': 'info', 'em preparo': 'info', 'separado': 'info',
     'cancelado': 'erro', 'recusado': 'erro', 'inativo': 'erro'
   };
   const selo = valor => {
@@ -166,17 +170,18 @@
      Navegação entre as seções (sem recarregar a página)
      --------------------------------------------------------------------- */
   const ROTAS = {
-    'minha-conta':   ['Minha conta', 'Área do cliente / Visão geral'],
+    'minha-conta':   ['Início', 'Área do cliente / Visão geral'],
     'meus-pets':     ['Meus pets', 'Área do cliente / Pets'],
     'agendar':       ['Agendamentos', 'Área do cliente / Serviços'],
+    'historico':     ['Histórico de serviços', 'Área do cliente / Serviços'],
     'produtos':      ['Produtos', 'Área do cliente / Loja'],
     'meus-pedidos':  ['Meus Pedidos', 'Área do cliente / Histórico'],
     'pagamentos':    ['Pagamentos', 'Área do cliente / Financeiro'],
     'seguro':        ['Seguro Pet', 'Área do cliente / Proteção'],
     'avaliacoes':    ['Avaliações', 'Área do cliente / Experiência'],
-    'configuracoes': ['Configurações', 'Área do cliente / Conta']
+    'configuracoes': ['Minha Conta', 'Área do cliente / Conta']
   };
-  const APELIDOS = { agendamentos: 'agendar', pedidos: 'meus-pedidos', 'meus-pedidos': 'meus-pedidos', loja: 'produtos', pets: 'meus-pets', conta: 'minha-conta', perfil: 'minha-conta' };
+  const APELIDOS = { agendamentos: 'agendar', pedidos: 'meus-pedidos', 'meus-pedidos': 'meus-pedidos', loja: 'produtos', pets: 'meus-pets', conta: 'minha-conta', perfil: 'minha-conta', 'historico-servicos': 'historico' };
 
   function irPara(rota, atualizarHash = true) {
     rota = APELIDOS[rota] || rota;
@@ -268,6 +273,14 @@
         rota: 'seguro', acao: 'Ver seguro', ok: segurosCarregados && segurosAtivos.length > 0
       })
     ].join('');
+
+    /* Mesmo calculo, versao compacta para o painel "Resumo" dentro de
+       Minha Conta — reaproveita os numeros acima, nenhuma chamada nova. */
+    html('#cc-resumo-conta', `
+      <div class="cc-dado"><dt>Pets cadastrados</dt><dd>${conta.pets.length}</dd></div>
+      <div class="cc-dado"><dt>Agendamentos</dt><dd>${conta.agendamentos.length}${futuros ? ` (${futuros} ${futuros === 1 ? 'próximo' : 'próximos'})` : ''}</dd></div>
+      <div class="cc-dado"><dt>Pedidos</dt><dd>${conta.pedidos.length}${pedidosAbertos ? ` (${pedidosAbertos} em aberto)` : ''}</dd></div>
+      <div class="cc-dado"><dt>Seguro Pet</dt><dd>${esc(seguroValor)}</dd></div>`);
 
     /* O total investido continua visivel na secao Pagamentos, que ja o exibe
        junto do que esta pago e do que falta confirmar. */
@@ -401,6 +414,7 @@
           <div class="cc-destaque__linhas">
             <span>${ico(ICO.agenda, 16)} ${dataHora(proximo.dataHora)}</span>
             <span>${ico(ICO.local, 16)} ${esc(proximo.unidade || 'Unidade a confirmar')}</span>
+            ${proximo.responsavelNome ? `<span>${ico(ICO.pessoa, 16)} Atendimento com ${esc(proximo.responsavelNome)}</span>` : ''}
             <span>${ico(ICO.cartao, 16)} ${brl(proximo.total)} · ${esc(proximo.formaPagamento || 'A combinar')}</span>
           </div>
         </div>
@@ -418,11 +432,8 @@
     const marca = iniciais(conta.nome);
     const primeiroNome = String(conta.nome || '').split(' ')[0] || 'Cliente';
     texto('#cc-iniciais', marca);
-    texto('#cc-iniciais-grande', marca);
     texto('#cc-nome-topo', primeiroNome);
     texto('#boas-vindas', `Olá, ${primeiroNome}!`);
-    texto('#cc-perfil-nome', conta.nome || '—');
-    texto('#cc-perfil-meta', conta.email || 'Cliente LanePets');
 
     const campos = `
       <div class="cc-dado"><dt>Nome completo</dt><dd>${esc(conta.nome) || '—'}</dd></div>
@@ -431,7 +442,6 @@
       <div class="cc-dado"><dt>Endereço</dt><dd>${esc(conta.endereco) || 'Não informado'}</dd></div>
       <div class="cc-dado"><dt>Cliente desde</dt><dd>${conta.criadoEm ? dataCurta(conta.criadoEm) : '—'}</dd></div>
       <div class="cc-dado"><dt>Status da conta</dt><dd>${selo(conta.status || 'ativo')}</dd></div>`;
-    html('#cc-dados', campos);
     html('#cc-dados-2', campos);
     html('#cc-acesso', `
       <div class="cc-dado"><dt>E-mail de acesso</dt><dd>${esc(conta.email) || '—'}</dd></div>
@@ -478,7 +488,8 @@
 
   /* O retrato do card: foto quando existe, simbolo da especie quando nao. */
   const retratoPet = (p, tamanho = 34) => p.fotoUrl
-    ? `<img class="cc-pet__foto" src="${esc(p.fotoUrl)}" alt="Foto de ${esc(p.petNome)}" loading="lazy">`
+    ? `<img class="cc-pet__foto pet-foto-real" src="${esc(p.fotoUrl)}" alt="Foto de ${esc(p.petNome)}"
+         loading="lazy" data-tipo="${esc(p.tipo)}" data-tamanho="${tamanho}">`
     : `<span class="cc-pet__ico">${ico(iconePet(p.tipo), tamanho)}</span>`;
 
   function renderPets() {
@@ -536,7 +547,8 @@
     ].filter(par => par[1]);
     return `
       ${p.fotoUrl
-        ? `<img class="cc-pet__retrato-grande" src="${esc(p.fotoUrl)}" alt="Foto de ${esc(p.petNome)}">`
+        ? `<img class="cc-pet__retrato-grande pet-foto-real" src="${esc(p.fotoUrl)}" alt="Foto de ${esc(p.petNome)}"
+             data-tipo="${esc(p.tipo)}" data-tamanho="46">`
         : `<div class="cc-pet__retrato-grande cc-pet__retrato-grande--vazio">${ico(iconePet(p.tipo), 46)}</div>`}
       <div class="cc-resumo-bloco">
         ${linhaFicha('Nome', p.petNome)}
@@ -593,7 +605,8 @@
 
   const fichaVazia = () => ({
     nome: '', tipo: 'Cachorro', raca: '', sexo: '', dataNascimento: '', porte: '',
-    cor: '', peso: '', fotoUrl: '', observacoes: '', necessidadesEspeciais: '', infoAtendimento: ''
+    cor: '', peso: '', fotoUrl: '', removerFoto: false,
+    observacoes: '', necessidadesEspeciais: '', infoAtendimento: ''
   });
 
   /* Converte o pet que veio da API para o formato do formulario. */
@@ -610,6 +623,7 @@
     cor: p.cor || '',
     peso: Number(p.peso || 0) > 0 ? String(p.peso).replace('.', ',') : '',
     fotoUrl: p.fotoUrl || '',
+    removerFoto: false,
     observacoes: p.observacoes || '',
     necessidadesEspeciais: p.necessidadesEspeciais || '',
     infoAtendimento: p.infoAtendimento || ''
@@ -731,7 +745,9 @@
             <label>Foto do pet</label>
             <div class="cc-foto">
               <div class="cc-foto__previa" id="pw-foto-previa">
-                ${f.fotoUrl ? `<img src="${esc(f.fotoUrl)}" alt="Prévia da foto">` : ico(iconePet(f.tipo), 34)}
+                ${f.fotoUrl
+                  ? `<img class="pet-foto-real" src="${esc(f.fotoUrl)}" alt="Prévia da foto" data-tipo="${esc(f.tipo)}" data-tamanho="34">`
+                  : ico(iconePet(f.tipo), 34)}
               </div>
               <div class="cc-foto__acoes">
                 <input id="pw-foto" type="file" accept="image/jpeg,image/png,image/webp" hidden>
@@ -817,6 +833,7 @@
     escolher.onclick = () => entrada.click();
     remover.onclick = () => {
       petFluxo.ficha.fotoUrl = '';
+      petFluxo.ficha.removerFoto = true;
       entrada.value = '';
       $('#pw-foto-previa').innerHTML = ico(iconePet(petFluxo.ficha.tipo), 34);
       remover.hidden = true;
@@ -837,6 +854,7 @@
       try {
         const dataUri = await reduzirImagem(arquivo);
         petFluxo.ficha.fotoUrl = dataUri;
+        petFluxo.ficha.removerFoto = false;
         $('#pw-foto-previa').innerHTML = `<img src="${esc(dataUri)}" alt="Prévia da foto">`;
         remover.hidden = false;
         escolher.textContent = 'Trocar foto';
@@ -991,7 +1009,7 @@
     const corpo = JSON.stringify({
       nome: f.nome, tipo: f.tipo, raca: f.raca, sexo: f.sexo,
       dataNascimento: f.dataNascimento, peso: f.peso, cor: f.cor, porte: f.porte,
-      fotoUrl: f.fotoUrl, observacoes: f.observacoes,
+      fotoUrl: f.fotoUrl, removerFoto: !!f.removerFoto, observacoes: f.observacoes,
       necessidadesEspeciais: f.necessidadesEspeciais, infoAtendimento: f.infoAtendimento
     });
     try {
@@ -1076,13 +1094,20 @@
      horário no POST — a tela não é a dona dessas regras, só as apresenta.
      ======================================================================= */
 
-  /* Um agendamento so pode ser cancelado enquanto nao foi entregue. O
-     cancelamento nao apaga nada: o registro continua no banco com status
-     "Cancelado", que e como o painel e o dashboard ja o tratam. */
-  const cancelavel = a => {
-    const status = String(a.status || '').toLowerCase();
-    return status !== 'cancelado' && status !== 'entregue';
+  /* Item 4 (24/09): status do agendamento = Solicitado, Confirmado, Em
+     andamento, Concluído e Cancelado. Nomes antigos (se algum cache trouxer)
+     sao traduzidos. O cliente so cancela antes do atendimento comecar — a
+     mesma regra que o servidor aplica. Cancelar nao apaga nada. */
+  const STATUS_AG = {
+    'pendente': 'Solicitado', 'solicitado': 'Solicitado', 'confirmado': 'Confirmado',
+    'em processo': 'Em andamento', 'em andamento': 'Em andamento',
+    'pronto': 'Concluído', 'entregue': 'Concluído', 'concluido': 'Concluído', 'concluído': 'Concluído',
+    'cancelado': 'Cancelado'
   };
+  const statusAg = a => STATUS_AG[String((a && a.status) || '').trim().toLowerCase()] || String((a && a.status) || 'Solicitado');
+  const cancelavel = a => ['Solicitado', 'Confirmado'].includes(statusAg(a));
+  /* "Atendimento com Ana": o servidor manda so o primeiro nome. */
+  const responsavelDe = a => String((a && a.responsavelNome) || '').trim();
 
   /* Ícones próprios desta área (os demais vêm de ICO). */
   const ICO_AG = {
@@ -1109,20 +1134,14 @@
     return isNaN(d) ? 0 : d.getTime();
   };
 
-  /* Os status reais do sistema são os que o painel administrativo grava:
-     Pendente, Em processo, Pronto, Entregue e Cancelado. A tela do cliente
-     apenas os traduz em cor — não inventa estado nem muda regra de negócio. */
+  /* Cor de cada status (item 4). A tela só traduz em cor — não inventa estado. */
   const TOM_STATUS = {
-    'pendente': 'aguarda',
-    'em processo': 'info', 'em andamento': 'info',
-    'pronto': 'ok', 'confirmado': 'ok',
-    'entregue': 'neutro', 'concluido': 'neutro', 'concluído': 'neutro',
-    'cancelado': 'erro'
+    'Solicitado': 'aguarda', 'Confirmado': 'ok', 'Em andamento': 'info', 'Concluído': 'neutro', 'Cancelado': 'erro'
   };
-  const tomDe = a => TOM_STATUS[String(a.status || '').trim().toLowerCase()] || 'neutro';
+  const tomDe = a => TOM_STATUS[statusAg(a)] || 'neutro';
 
-  const ehCancelado = a => String(a.status || '').toLowerCase() === 'cancelado';
-  const ehConcluido = a => ['entregue', 'concluido', 'concluído'].includes(String(a.status || '').toLowerCase());
+  const ehCancelado = a => statusAg(a) === 'Cancelado';
+  const ehConcluido = a => statusAg(a) === 'Concluído';
 
   /* --------------------------------------------------------------------
      Filtros. Só classificam o que já veio do servidor; nada é recarregado.
@@ -1169,7 +1188,7 @@
       metrica({ icone: ICO_AG.relogio, rotulo: 'Hoje', valor: hoje, acento: true,
         nota: hoje === 1 ? '1 atendimento hoje' : `${hoje} atendimentos hoje` }),
       metrica({ icone: ICO_AG.check, rotulo: 'Concluídos', valor: concluidos, ok: true,
-        nota: concluidos === 1 ? '1 atendimento entregue' : `${concluidos} atendimentos entregues` }),
+        nota: concluidos === 1 ? '1 atendimento concluído' : `${concluidos} atendimentos concluídos` }),
       metrica({ icone: ICO_AG.alerta, rotulo: 'Cancelados', valor: cancelados,
         nota: cancelados === 1 ? '1 agendamento cancelado' : `${cancelados} agendamentos cancelados` })
     ].join('');
@@ -1237,9 +1256,9 @@
           <div class="ag-card__topo">
             <h3 class="ag-card__pet">${esc(a.pet || (pet ? pet.petNome : 'Pet'))}</h3>
             ${hoje ? '<span class="ag-hoje">Hoje</span>' : ''}
-            ${selo(a.status)}
+            ${selo(statusAg(a))}
           </div>
-          <div class="ag-card__servico">${esc(servicosDo(a))}</div>
+          <div class="ag-card__servico">${esc(servicosDo(a))}${responsavelDe(a) ? ` <span class="ag-card__resp">· Atendimento com ${esc(responsavelDe(a))}</span>` : ''}</div>
           <div class="ag-card__meta">
             <span>${ico(ICO_AG.calendario, 15)} ${dataCurta(a.dataHora)}</span>
             <span>${ico(ICO_AG.relogio, 15)} ${esc(horaDe(a.dataHora))}</span>
@@ -1357,6 +1376,7 @@
             <h4>Local</h4>
             <dl>
               ${linhaResumo('Unidade', esc(a.unidade || 'A confirmar'))}
+              ${responsavelDe(a) ? linhaResumo('Atendimento com', esc(responsavelDe(a))) : ''}
               ${unidade && unidade.endereco ? linhaResumo('Endereço', esc(unidade.endereco)) : ''}
               ${unidade && unidade.telefone ? linhaResumo('Telefone', esc(unidade.telefone)) : ''}
               ${unidade && unidade.horarioFuncionamento ? linhaResumo('Funcionamento', esc(unidade.horarioFuncionamento)) : ''}
@@ -1499,6 +1519,14 @@
   const etapaAtualAg = () => ETAPAS_AG[agFluxo.etapa];
   const servicoEscolhido = () => ((catalogo && catalogo.servicos) || []).find(s => String(s.id) === String(agFluxo.servicoId)) || null;
   const unidadeEscolhida = () => unidadePorNome(agFluxo.unidade);
+  /* Item 5 do roadmap: cada unidade pode oferecer so parte dos servicos.
+     Lista vazia = oferece todos (padrao das unidades antigas). */
+  const unidadeOferece = (u, servicoId) => {
+    const lista = (u && Array.isArray(u.servicos)) ? u.servicos : [];
+    return !servicoId || !lista.length || lista.map(String).includes(String(servicoId));
+  };
+  const algumaUnidadeOferece = servicoId =>
+    ((catalogo && catalogo.unidades) || []).some(u => unidadeOferece(u, servicoId));
   const petDoFluxoAg = () => (conta.pets || []).find(p => p.id === agFluxo.petId) || null;
   const extraTransporte = () => (TRANSPORTES.find(t => t.valor === agFluxo.transporte) || TRANSPORTES[0]).extra;
   const totalAg = () => {
@@ -1552,7 +1580,9 @@
       <div class="ag-escolhas">
         ${conta.pets.map(p => `
           <button type="button" class="ag-escolha${agFluxo.petId === p.id ? ' is-ativa' : ''}" data-ag-pet="${esc(p.id)}">
-            <span class="ag-escolha__ico">${p.fotoUrl ? `<img src="${esc(p.fotoUrl)}" alt="">` : ico(iconePet(p.tipo), 20)}</span>
+            <span class="ag-escolha__ico">${p.fotoUrl
+              ? `<img class="pet-foto-real" src="${esc(p.fotoUrl)}" alt="" data-tipo="${esc(p.tipo)}" data-tamanho="20">`
+              : ico(iconePet(p.tipo), 20)}</span>
             <span>
               <span class="ag-escolha__nome">${esc(p.petNome)}</span>
               <span class="ag-escolha__meta">${esc([p.tipo, p.raca].filter(Boolean).join(' · ') || 'Sem raça informada')}</span>
@@ -1567,15 +1597,16 @@
         <div class="cc-etapa__titulo">Escolha o serviço</div>
         <p class="ag-aviso">Serviços e preços cadastrados pela equipe LanePets.</p>
         <div class="ag-escolhas">
-          ${servicos.map(s => `
-            <button type="button" class="ag-escolha${String(agFluxo.servicoId) === String(s.id) ? ' is-ativa' : ''}" data-ag-servico="${esc(String(s.id))}">
+          ${servicos.map(s => { const livre = algumaUnidadeOferece(s.id); return `
+            <button type="button" class="ag-escolha${String(agFluxo.servicoId) === String(s.id) ? ' is-ativa' : ''}" data-ag-servico="${esc(String(s.id))}"${livre ? '' : ' disabled aria-disabled="true" style="opacity:.55;cursor:not-allowed"'}>
               <span class="ag-escolha__ico">${ico(ICO_AG.servico, 20)}</span>
               <span>
                 <span class="ag-escolha__nome">${esc(s.nome)}</span>
+                ${livre ? '' : '<span class="ag-escolha__meta">Indisponível nas unidades no momento</span>'}
                 ${s.porte ? `<span class="ag-escolha__meta">Porte ${esc(s.porte)}</span>` : ''}
                 <span class="ag-escolha__preco">${brl(s.preco)}</span>
               </span>
-            </button>`).join('')}
+            </button>`; }).join('')}
         </div>`;
     },
 
@@ -1586,16 +1617,17 @@
         <div class="cc-etapa__titulo">Escolha a unidade</div>
         <p class="ag-aviso">Onde o atendimento vai acontecer.</p>
         <div class="ag-escolhas ag-escolhas--largas">
-          ${unidades.map(u => `
-            <button type="button" class="ag-escolha${agFluxo.unidade === u.nome ? ' is-ativa' : ''}" data-ag-unidade="${esc(u.nome)}">
+          ${unidades.map(u => { const atende = unidadeOferece(u, agFluxo.servicoId); return `
+            <button type="button" class="ag-escolha${agFluxo.unidade === u.nome ? ' is-ativa' : ''}" data-ag-unidade="${esc(u.nome)}"${atende ? '' : ' disabled aria-disabled="true" style="opacity:.55;cursor:not-allowed"'}>
               <span class="ag-escolha__ico">${ico(ICO_AG.local, 20)}</span>
               <span>
                 <span class="ag-escolha__nome">${esc(u.nome)}</span>
+                ${atende ? '' : '<span class="ag-escolha__meta">Não oferece o serviço escolhido</span>'}
                 ${u.endereco ? `<span class="ag-escolha__meta">${esc(u.endereco)}</span>` : ''}
                 ${u.telefone ? `<span class="ag-escolha__meta">${esc(u.telefone)}</span>` : ''}
                 ${u.horarioFuncionamento ? `<span class="ag-escolha__meta">${esc(u.horarioFuncionamento)}</span>` : ''}
               </span>
-            </button>`).join('')}
+            </button>`; }).join('')}
         </div>`;
     },
 
@@ -1769,7 +1801,13 @@
     const d = alvo.dataset;
 
     if (d.agPet !== undefined)             { agFluxo.petId = d.agPet; }
-    else if (d.agServico !== undefined)    { agFluxo.servicoId = d.agServico; }
+    else if (d.agServico !== undefined)    {
+      agFluxo.servicoId = d.agServico;
+      const u = unidadeEscolhida();
+      if (u && !unidadeOferece(u, agFluxo.servicoId)) {
+        agFluxo.unidade = ''; agFluxo.data = ''; agFluxo.horario = ''; agFluxo.horariosLivres = null;
+      }
+    }
     else if (d.agUnidade !== undefined)    {
       /* Trocar de unidade invalida a data e os horários já consultados:
          a disponibilidade é por unidade. */
@@ -1794,7 +1832,9 @@
     switch (etapaAtualAg().id) {
       case 'pet':        return agFluxo.petId ? '' : 'Escolha o pet que vai ser atendido.';
       case 'servico':    return agFluxo.servicoId ? '' : 'Escolha o serviço desejado.';
-      case 'unidade':    return agFluxo.unidade ? '' : 'Escolha a unidade do atendimento.';
+      case 'unidade':
+        if (!agFluxo.unidade) return 'Escolha a unidade do atendimento.';
+        return unidadeOferece(unidadeEscolhida(), agFluxo.servicoId) ? '' : 'Esta unidade não oferece o serviço escolhido.';
       case 'quando':
         if (!agFluxo.data) return 'Escolha uma data no calendário.';
         if (!agFluxo.horario) return 'Escolha um horário disponível.';
@@ -1918,6 +1958,23 @@
     if (event.target.id === 'ag-filtro-select') { agFiltro = event.target.value; renderAgendamentos(); }
     else if (event.target.id === 'ag-filtro-pet') { agFiltroPet = event.target.value; renderAgendamentos(); }
     else if (event.target.id === 'ag-filtro-unidade') { agFiltroUnidade = event.target.value; renderAgendamentos(); }
+    else if (event.target.id === 'pg-filtro-tipo') { pgFiltroTipo = event.target.value; renderPagamentos(); }
+    else if (event.target.id === 'pg-filtro-situacao') { pgFiltroSituacao = event.target.value; renderPagamentos(); }
+  });
+
+  /* Busca em tempo real, sem esperar o Enter — mesmo comportamento das
+     buscas do painel administrativo (Clientes, Pedidos, Produtos). */
+  document.addEventListener('input', event => {
+    if (event.target.id === 'pg-busca') { pgBusca = event.target.value; renderPagamentos(); }
+  });
+
+  document.addEventListener('click', event => {
+    if (event.target.closest('[data-pg-limpar]')) {
+      pgBusca = ''; pgFiltroTipo = ''; pgFiltroSituacao = '';
+      const busca = $('#pg-busca'); if (busca) busca.value = '';
+      const sitSel = $('#pg-filtro-situacao'); if (sitSel) sitSel.value = '';
+      renderPagamentos();
+    }
   });
 
   /* "Tentar novamente" do estado de erro: relê a conta, sem recarregar a
@@ -1958,6 +2015,13 @@
   /* Nome distinto de propósito: cardPedido() ja existe nesta mesma IIFE para o
      card da VITRINE. Duas funcoes com o mesmo nome — a segunda vence — faziam a
      vitrine desenhar cards de historico. */
+  /* Pedido.Unidade guarda o id ("franco"). O nome vem do catalogo; uma
+     unidade desativada nao esta no catalogo, entao cai no proprio id. */
+  function nomeRetirada(id) {
+    const u = ((catalogo && catalogo.unidades) || []).find(x => x.id === id || x.nome === id);
+    return u ? u.nome : (String(id).charAt(0).toUpperCase() + String(id).slice(1));
+  }
+
   function cardHistorico(pedido, indice) {
     return `<article class="ped-card">
       <div class="ped-card__topo">
@@ -1972,11 +2036,14 @@
         <div class="ped-card__txt">
           <strong>${esc(pedido.produtoNome)}</strong>
           <span>${pedido.quantidade} ${Number(pedido.quantidade) === 1 ? 'unidade' : 'unidades'} · ${esc(pedido.formaPagamento || 'A combinar')}</span>
+          ${pedido.unidade ? `<span>Retirada: ${esc(nomeRetirada(pedido.unidade))}</span>` : ''}
         </div>
         <span class="cc-valor">${brl(pedido.total)}</span>
       </div>
       <div class="ped-card__acoes">
         <button class="botao claro" type="button" data-pedido="${indice}">Ver detalhes</button>
+        ${String(pedido.status || 'Pendente').toLowerCase() === 'pendente'
+          ? `<button class="botao claro" type="button" data-pedido-cancelar="${esc(pedido.id)}">Cancelar pedido</button>` : ''}
       </div>
     </article>`;
   }
@@ -2029,16 +2096,58 @@
       ['Total', brl(pedido.total)],
       ['Pagamento', esc(pedido.formaPagamento || 'A combinar')],
       ['Status', selo(pedido.status)],
-      ['Retirada', 'Combinada com a equipe na unidade']
+      ['Retirada', pedido.unidade ? esc(nomeRetirada(pedido.unidade)) : 'Combinada com a equipe na unidade']
     ].map(([rotulo, valor]) => `<div><dt>${rotulo}</dt><dd>${valor}</dd></div>`).join('');
 
     $('#modal-pedido').showModal();
   }
 
+  /* Item 16: busca + filtros no extrato de Pagamentos, mesmo padrao ja usado
+     em Agendamentos (filtro por pilula/select) e no Historico (filtro por pet):
+     estado em variavel de modulo, select populado uma vez, re-render no change/input. */
+  let pgBusca = '';
+  let pgFiltroTipo = '';
+  let pgFiltroSituacao = '';
+
+  /* Item 8 (25/09): o status vem da entidade Pagamento (Pendente, Aprovado,
+     Recusado, Cancelado, Reembolsado). "Pago" antigo conta como Aprovado. */
+  const STATUS_PAG = { pago: 'Aprovado', aprovado: 'Aprovado', pendente: 'Pendente', 'a pagar': 'Pendente',
+    recusado: 'Recusado', cancelado: 'Cancelado', cancelada: 'Cancelado', reembolsado: 'Reembolsado' };
+  const statusPag = v => STATUS_PAG[String(v || '').trim().toLowerCase()] || 'Pendente';
+  const situacaoPagamento = l => l.cancelado ? 'Cancelado' : statusPag(l.status);
+  const TIPO_ORIGEM = { agendamento: ['Serviço', 'agenda'], pedido: ['Produto', 'carrinho'], seguro: ['Seguro', 'escudo'] };
+
+  function lancamentosDaConta() {
+    /* Servidor novo: lista pronta de pagamentos, com o status real. */
+    if (Array.isArray(conta.pagamentos)) {
+      return conta.pagamentos.map(p => {
+        const [tipo, icone] = TIPO_ORIGEM[p.origem] || ['Pagamento', 'cartao'];
+        return {
+          tipo, icone: ICO[icone] || ICO.cartao,
+          buscaTexto: `${p.descricao || ''}`.toLowerCase(),
+          titulo: esc(p.descricao),
+          quando: p.dataReferencia, valor: Number(p.valor || 0),
+          forma: p.forma || 'A combinar',
+          status: statusPag(p.status),
+          cancelado: statusPag(p.status) === 'Cancelado',
+          reembolso: !!p.reembolsoPendente
+        };
+      }).sort((a, b) => new Date(b.quando) - new Date(a.quando));
+    }
+    return lancamentosDerivados();
+  }
+
   function renderPagamentos() {
-    const lancamentos = [
+    const lancamentos = lancamentosDaConta();
+    renderPagamentosLista(lancamentos);
+  }
+
+  /* Servidor antigo (sem pagamentos na conta): extrato derivado, como antes. */
+  function lancamentosDerivados() {
+    return [
       ...conta.agendamentos.map(a => ({
         tipo: 'Serviço', icone: ICO.agenda,
+        buscaTexto: `${a.pet || ''} ${servicosDo(a) || ''}`.toLowerCase(),
         titulo: `${esc(a.pet)} · ${esc(servicosDo(a))}`,
         quando: a.dataHora, valor: Number(a.total || 0),
         forma: a.formaPagamento || 'A combinar',
@@ -2047,6 +2156,7 @@
       })),
       ...conta.pedidos.map(p => ({
         tipo: 'Produto', icone: ICO.carrinho,
+        buscaTexto: `${p.produtoNome || ''}`.toLowerCase(),
         titulo: esc(p.produtoNome),
         quando: p.criadoEm, valor: Number(p.total || 0),
         forma: p.formaPagamento || 'A combinar',
@@ -2058,6 +2168,7 @@
          real do pagamento — nunca "pago" sem confirmacao da equipe. */
       ...segurosContratados.map(s => ({
         tipo: 'Seguro', icone: ICO.escudo,
+        buscaTexto: `${s.nomePlano || ''} ${s.nomePet || ''}`.toLowerCase(),
         titulo: `${esc(s.nomePlano)} · ${esc(s.nomePet || '')}`,
         quando: s.criadoEm, valor: Number(s.valor || s.valorMensal || 0),
         forma: s.metodoPagamento || 'A combinar',
@@ -2065,10 +2176,16 @@
         cancelado: String(s.status).toLowerCase() === 'cancelada'
       }))
     ].sort((a, b) => new Date(b.quando) - new Date(a.quando));
+  }
 
-    const validos = lancamentos.filter(l => !l.cancelado);
-    const pagos = validos.filter(l => String(l.status).toLowerCase() === 'pago');
-    const pendentes = validos.filter(l => String(l.status).toLowerCase() !== 'pago');
+  function renderPagamentosLista(lancamentos) {
+
+    /* O resumo (Total/Confirmados/A confirmar) sempre reflete a conta
+       inteira, nao o filtro — igual ao resumo de Agendamentos, que nao muda
+       quando o cliente troca de pilula. Quem filtra e so a lista abaixo. */
+    const validos = lancamentos.filter(l => !l.cancelado && statusPag(l.status) !== 'Reembolsado');
+    const pagos = validos.filter(l => statusPag(l.status) === 'Aprovado');
+    const pendentes = validos.filter(l => ['Pendente', 'Recusado'].includes(statusPag(l.status)));
 
     $('#cc-resumo-pagamentos').innerHTML = [
       metrica({ icone: ICO.cartao, rotulo: 'Total', valor: brl(validos.reduce((s, l) => s + l.valor, 0)), nota: `${validos.length} lançamento(s)` }),
@@ -2076,14 +2193,33 @@
       metrica({ icone: ICO.relogio, rotulo: 'A confirmar', valor: brl(pendentes.reduce((s, l) => s + l.valor, 0)), nota: `${pendentes.length} aguardando a equipe`, acento: true })
     ].join('');
 
-    $('#cc-pagamentos').innerHTML = lancamentos.length
-      ? '<div class="cc-lista">' + lancamentos.map(l => linha({
+    /* Opcoes do filtro de tipo: so os tipos que a conta realmente tem, na
+       mesma logica ja usada para pet/unidade em Agendamentos. */
+    const selTipo = $('#pg-filtro-tipo');
+    if (selTipo) {
+      const tipos = [...new Set(lancamentos.map(l => l.tipo))];
+      selTipo.innerHTML = '<option value="">Todos os tipos</option>'
+        + tipos.map(t => `<option value="${esc(t)}" ${pgFiltroTipo === t ? 'selected' : ''}>${esc(t)}</option>`).join('');
+      selTipo.parentElement.hidden = tipos.length < 2;
+    }
+
+    const termo = pgBusca.trim().toLowerCase();
+    const filtrados = lancamentos.filter(l =>
+      (!termo || l.buscaTexto.includes(termo)) &&
+      (!pgFiltroTipo || l.tipo === pgFiltroTipo) &&
+      (!pgFiltroSituacao || situacaoPagamento(l) === pgFiltroSituacao));
+
+    $('#cc-pagamentos').innerHTML = filtrados.length
+      ? '<div class="cc-lista">' + filtrados.map(l => linha({
           icone: l.icone,
           titulo: l.titulo,
           meta: `${l.tipo} · ${dataCurta(l.quando)}<br>${esc(l.forma)}`,
-          fim: `${selo(l.cancelado ? 'Cancelado' : l.status)}<span class="cc-valor">${brl(l.valor)}</span>`
+          fim: `${selo(l.cancelado ? 'Cancelado' : statusPag(l.status))}${l.reembolso ? '<span class="cc-nota" style="display:block">Reembolso em análise</span>' : ''}<span class="cc-valor">${brl(l.valor)}</span>`
         })).join('') + '</div>'
-      : vazio('Nenhum lançamento', 'Agendamentos e pedidos aparecem aqui com o valor e a forma de pagamento combinada.');
+      : (lancamentos.length
+          ? vazio('Nenhum lançamento encontrado', 'Tente ajustar a busca ou os filtros.',
+              '<button class="botao claro" type="button" data-pg-limpar>Limpar filtros</button>')
+          : vazio('Nenhum lançamento', 'Agendamentos e pedidos aparecem aqui com o valor e a forma de pagamento combinada.'));
   }
 
   /* =====================================================================
@@ -2597,9 +2733,10 @@
     else if (!UI.EMAIL_RE.test(email)) valido = UI.erro(cEmail, 'Digite um e-mail válido, como nome@email.com.');
     if (telefone.replace(/\D/g, '').length < 10) valido = UI.erro(cTel, 'Informe um telefone com DDD.');
     if (senha.length < 8) valido = UI.erro(cSenha, 'A senha precisa ter ao menos 8 caracteres.');
+    else if (!senhaValida(senha)) valido = UI.erro(cSenha, 'A senha precisa ter pelo menos uma letra e um número.');
     if (!senha2) valido = UI.erro(cSenha2, 'Repita a senha para confirmar.');
     else if (senha !== senha2) valido = UI.erro(cSenha2, 'As senhas não são iguais.');
-    else if (senha.length >= 8) UI.ok(cSenha2);
+    else if (senhaValida(senha)) UI.ok(cSenha2);
     if (pet.length < 2) valido = UI.erro(cPet, 'Informe o nome do seu pet.');
     if (!valido) { UI.alerta('#cad-aviso', 'Revise os campos destacados para criar sua conta.'); return; }
 
@@ -2644,6 +2781,7 @@
       renderPets();
       renderVisaoPets();
       renderAgendamentos();
+      renderHistorico();
       renderPedidos();
       renderPedidosRecentes();
       renderPagamentos();
@@ -2656,6 +2794,7 @@
          no catalogo. Com ele em maos a lista e repintada — a primeira pintura
          acima ja deixou a tela util antes da segunda chamada terminar. */
       renderAgendamentos();
+      renderHistorico();
 
       irPara(rotaDoHash(), false);
       renderAvaliacoes();
@@ -2790,11 +2929,14 @@
       <div class="loja-media">
         <span class="loja-selo loja-selo--${estoque.chave}">${estoque.texto}</span>
         <span class="pedido-card__marca">${svgP('<path d="m5 12.5 4.5 4.5L19 7.5"/>')}</span>
-        <span class="loja-simbolo">${svgP(ICO_PRODUTO[produto.categoria] || ICO_PADRAO)}</span>
+        ${produto.fotoUrl && /^data:image\//.test(produto.fotoUrl)
+          ? `<img src="${esc(produto.fotoUrl)}" alt="" loading="lazy">`
+          : `<span class="loja-simbolo">${svgP(ICO_PRODUTO[produto.categoria] || ICO_PADRAO)}</span>`}
       </div>
       <div class="loja-corpo">
         <span class="tag">${esc(produto.categoria || 'LanePets')}</span>
         <h3>${esc(produto.nome)}</h3>
+        ${produto.descricao ? `<p class="loja-desc">${esc(produto.descricao)}</p>` : ''}
         <div class="loja-preco"><strong>${brl(produto.valorVenda)}</strong></div>
       </div>
     </button>`;
@@ -2869,6 +3011,20 @@
     montarCategoriasPedido();
     desenharVitrine();
     ajustarQuantidade();
+    montarRetirada();
+  }
+
+  /* Item 5: o cliente escolhe onde retira o pedido. Com uma unidade ativa so,
+     o campo some e o servidor escolhe sozinho. */
+  function montarRetirada() {
+    const sel = $('#pedido-unidade');
+    if (!sel) return;
+    const unidades = (catalogo && catalogo.unidades) || [];
+    const atual = sel.value;
+    sel.innerHTML = (unidades.length > 1 ? '<option value="">Escolha a unidade</option>' : '')
+      + unidades.map(u => `<option value="${esc(u.id)}">${esc(u.nome)}${u.endereco ? ' — ' + esc(u.endereco) : ''}</option>`).join('');
+    if (atual && unidades.some(u => u.id === atual)) sel.value = atual;
+    sel.closest('.cc-campo').hidden = unidades.length < 2;
   }
 
   function ligarVitrinePedido() {
@@ -2917,21 +3073,165 @@
 
   /* "Ver detalhes" em qualquer card de pedido. Delegado porque a lista e
      redesenhada a cada atualizacao da conta. */
-  $('#lista-pedidos').addEventListener('click', evento => {
+  $('#lista-pedidos').addEventListener('click', async evento => {
+    /* Itens 6/7: cancelar pedido ainda Pendente. O estoque volta no servidor. */
+    const cancelar = evento.target.closest('[data-pedido-cancelar]');
+    if (cancelar) {
+      if (!window.confirm('Cancelar este pedido? Esta ação não pode ser desfeita.')) return;
+      const texto = cancelar.textContent;
+      cancelar.disabled = true; cancelar.textContent = 'Cancelando…';
+      try {
+        await api(`pedidos/${encodeURIComponent(cancelar.dataset.pedidoCancelar)}/cancelar`, { method: 'POST' });
+        await abrir();
+        irPara('meus-pedidos');
+        toast('Pedido cancelado.');
+      } catch (erro) {
+        console.error('[LanePets] cancelar pedido:', erro);
+        toast(erro.message);
+        cancelar.disabled = false; cancelar.textContent = texto;
+      }
+      return;
+    }
     const botao = evento.target.closest('[data-pedido]');
     if (botao) abrirPedido(Number(botao.dataset.pedido));
   });
 
   $('#criar-pedido').onclick = event => comBotao(event.currentTarget, 'Enviando…', async () => {
     aviso('#pedido-msg', '');
+    const retirada = $('#pedido-unidade') ? $('#pedido-unidade').value : '';
+    if (((catalogo && catalogo.unidades) || []).length > 1 && !retirada) {
+      aviso('#pedido-msg', 'Escolha a unidade onde você vai retirar o pedido.', true);
+      return;
+    }
     try {
       await api('pedidos', { method: 'POST', body: JSON.stringify({
-        produtoId: $('#produto').value, quantidade: Number($('#quantidade').value), formaPagamento: $('#pedido-pagamento').value
+        produtoId: $('#produto').value, quantidade: Number($('#quantidade').value), formaPagamento: $('#pedido-pagamento').value,
+        unidade: retirada || null
       }) });
       aviso('#pedido-msg', 'Pedido recebido!');
       await abrir();
       irPara('meus-pedidos');
     } catch (e) { aviso('#pedido-msg', e.message, true); }
+  });
+
+  /* =====================================================================
+     HISTORICO DE SERVICOS (item 2 do roadmap, 24/09)
+
+     Visao propria dos atendimentos ja realizados. Usa os mesmos
+     agendamentos que GET /api/cliente/conta devolveu — nada novo e buscado.
+     "Realizado" = status Concluído (item 4; antes Pronto/Entregue, que o
+     servidor converteu). Solicitado, Confirmado, Em andamento e Cancelado nao entram.
+     ===================================================================== */
+  const ehRealizado = a => statusAg(a) === 'Concluído';
+  let histPet = '';
+
+  /* O painel grava a unidade como id ("franco"), a area do cliente como nome
+     ("Franco da Rocha"). O rotulo usa o catalogo para mostrar sempre o nome. */
+  function rotuloUnidade(valor) {
+    const v = String(valor || '').trim();
+    if (!v) return 'Unidade não informada';
+    const u = ((catalogo && catalogo.unidades) || []).find(x => x.id === v.toLowerCase() || x.nome === v);
+    return u ? u.nome : v;
+  }
+
+  function renderHistorico() {
+    const lista = $('#hist-lista');
+    if (!lista || !conta) return;
+
+    const todos = (conta.agendamentos || []).filter(ehRealizado)
+      .slice().sort((a, b) => quandoMs(b) - quandoMs(a));
+
+    /* Filtro por pet: so os pets que tem atendimento aparecem. */
+    const sel = $('#hist-pet');
+    const petsComHistorico = (conta.pets || []).filter(p => todos.some(a => a.petId === p.id));
+    if (histPet && !petsComHistorico.some(p => p.id === histPet)) histPet = '';
+    sel.innerHTML = '<option value="">Todos os pets</option>' +
+      petsComHistorico.map(p => `<option value="${esc(p.id)}"${p.id === histPet ? ' selected' : ''}>${esc(p.petNome)}</option>`).join('');
+
+    const itens = todos.filter(a => !histPet || a.petId === histPet);
+
+    const total = itens.reduce((s, a) => s + Number(a.total || 0), 0);
+    const ultimo = itens[0];
+    const porPet = {};
+    itens.forEach(a => { porPet[a.pet || '—'] = (porPet[a.pet || '—'] || 0) + 1; });
+    const [petTop, qtdTop] = Object.entries(porPet).sort((a, b) => b[1] - a[1])[0] || ['—', 0];
+
+    $('#hist-resumo').innerHTML = [
+      metrica({ icone: ICO.agenda, rotulo: 'Serviços realizados', valor: String(itens.length), nota: histPet ? 'deste pet' : 'em todos os pets' }),
+      metrica({ icone: ICO.relogio, rotulo: 'Último atendimento', valor: ultimo ? dataCurta(ultimo.dataHora) : '—', nota: ultimo ? esc(servicosDo(ultimo)) : 'Nenhum ainda' }),
+      metrica({ icone: ICO.cartao, rotulo: 'Total dos serviços', valor: brl(total), nota: 'valor registrado nos atendimentos' }),
+      metrica({ icone: ICO.pata, rotulo: 'Pet mais atendido', valor: esc(petTop), nota: qtdTop ? `${qtdTop} atendimento(s)` : '—', acento: true })
+    ].join('');
+
+    if (!itens.length) {
+      lista.innerHTML = vazio('Nenhum serviço realizado ainda',
+        'Quando a equipe concluir um atendimento, ele aparece aqui com a data, o serviço e o valor.',
+        '<button class="botao primario" type="button" data-ir="agendar">Agendar um serviço</button>');
+      return;
+    }
+
+    lista.innerHTML = `<div class="cc-lista">${itens.map(a => linha({
+      icone: iconePet((conta.pets || []).find(p => p.id === a.petId)?.tipo),
+      titulo: `${esc(a.pet)} · ${esc(servicosDo(a))}`,
+      meta: `${dataHora(a.dataHora)} · ${esc(rotuloUnidade(a.unidade))}${a.transporte && a.transporte !== 'Cliente leva' ? ' · ' + esc(a.transporte) : ''}`,
+      fim: `<strong>${brl(a.total)}</strong>${selo(a.status)}`
+    })).join('')}</div>`;
+  }
+
+  document.addEventListener('change', event => {
+    if (event.target && event.target.id === 'hist-pet') { histPet = event.target.value; renderHistorico(); }
+  });
+
+  /* Alterar e-mail / senha (item 2 do roadmap) ---------------------------
+     As duas trocas pedem a senha atual; quem decide e o backend
+     (PUT /api/cliente/conta/email e /conta/senha). */
+  $('#cc-alterar-email').onclick = () => {
+    $('#em-novo').value = '';
+    $('#em-senha').value = '';
+    aviso('#em-msg', '');
+    $('#modal-email').showModal();
+    $('#em-novo').focus();
+  };
+  $('#em-salvar').onclick = event => comBotao(event.currentTarget, 'Salvando…', async () => {
+    aviso('#em-msg', '');
+    const novoEmail = $('#em-novo').value.trim();
+    const senhaAtual = $('#em-senha').value;
+    if (!UI.EMAIL_RE.test(novoEmail)) return aviso('#em-msg', 'Informe um e-mail válido, como nome@exemplo.com.', true);
+    if (!senhaAtual) return aviso('#em-msg', 'Informe a sua senha atual.', true);
+    try {
+      const r = await api('conta/email', { method: 'PUT', body: JSON.stringify({ novoEmail, senhaAtual }) });
+      $('#modal-email').close();
+      await abrir();
+      toast('\u2713 ' + ((r && r.message) || 'E-mail atualizado.'));
+    } catch (e) {
+      console.error('[LanePets] Falha ao alterar o e-mail:', e);
+      aviso('#em-msg', e.status === 401 ? 'Sua sessão expirou. Entre novamente.' : e.message, true);
+    }
+  });
+
+  $('#cc-alterar-senha').onclick = () => {
+    ['#sn-atual', '#sn-nova', '#sn-confirma'].forEach(id => { $(id).value = ''; });
+    aviso('#sn-msg', '');
+    $('#modal-senha').showModal();
+    $('#sn-atual').focus();
+  };
+  $('#sn-salvar').onclick = event => comBotao(event.currentTarget, 'Salvando…', async () => {
+    aviso('#sn-msg', '');
+    const senhaAtual = $('#sn-atual').value;
+    const novaSenha = $('#sn-nova').value;
+    const confirmarSenha = $('#sn-confirma').value;
+    if (!senhaAtual) return aviso('#sn-msg', 'Informe a sua senha atual.', true);
+    if (novaSenha.length < 8) return aviso('#sn-msg', 'A nova senha precisa ter ao menos 8 caracteres.', true);
+    if (!senhaValida(novaSenha)) return aviso('#sn-msg', 'A nova senha precisa ter pelo menos uma letra e um número.', true);
+    if (novaSenha !== confirmarSenha) return aviso('#sn-msg', 'A confirmação da nova senha não confere.', true);
+    try {
+      const r = await api('conta/senha', { method: 'PUT', body: JSON.stringify({ senhaAtual, novaSenha, confirmarSenha }) });
+      $('#modal-senha').close();
+      toast('\u2713 ' + ((r && r.message) || 'Senha alterada.'));
+    } catch (e) {
+      console.error('[LanePets] Falha ao alterar a senha:', e);
+      aviso('#sn-msg', e.status === 401 ? 'Sua sessão expirou. Entre novamente.' : e.message, true);
+    }
   });
 
   /* Editar perfil -------------------------------------------------------- */
@@ -2943,7 +3243,6 @@
     $('#modal-perfil').showModal();
     $('#pf-nome').focus();
   }
-  $('#cc-editar-perfil').onclick = abrirPerfil;
   $('#cc-editar-perfil-2').onclick = abrirPerfil;
   UI.mascaraTelefone($('#pf-telefone'));
 
@@ -3002,6 +3301,29 @@
       renderAvaliacoes();
     } catch (e) { aviso('#av-msg', e.message, true); }
   });
+
+  /* Foto de pet que nao carrega (arquivo corrompido, dado antigo invalido) --
+     "error" em <img> nao borbulha, entao o listener precisa ser de captura.
+     O aviso vai pro console (nao e escondido silenciosamente); a tela mostra
+     o mesmo simbolo de fallback que ja usa para pet sem foto nenhuma. */
+  function substituirFotoQuebrada(img) {
+    console.warn('[LanePets] Não foi possível carregar a foto do pet — mostrando o ícone padrão.', img.src);
+    const tipo = img.dataset.tipo || '';
+    const tamanho = Number(img.dataset.tamanho || 34);
+    if (img.classList.contains('cc-pet__retrato-grande')) {
+      img.outerHTML = `<div class="cc-pet__retrato-grande cc-pet__retrato-grande--vazio">${ico(iconePet(tipo), tamanho)}</div>`;
+      return;
+    }
+    const alvo = img.parentElement;
+    if (!alvo) return;
+    alvo.innerHTML = img.classList.contains('cc-pet__foto')
+      ? `<span class="cc-pet__ico">${ico(iconePet(tipo), tamanho)}</span>`
+      : ico(iconePet(tipo), tamanho);
+  }
+  document.addEventListener('error', evento => {
+    const img = evento.target;
+    if (img instanceof HTMLImageElement && img.classList.contains('pet-foto-real')) substituirFotoQuebrada(img);
+  }, true);
 
   /* Navegação ------------------------------------------------------------ */
   /* Delegado no documento: vale para o menu lateral, para os atalhos do

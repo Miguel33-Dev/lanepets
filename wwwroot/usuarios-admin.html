@@ -4,11 +4,11 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Usu&aacute;rios Administrativos &middot; LanePets</title>
-<link rel="stylesheet" href="design-system.css?v=4">
+<link rel="stylesheet" href="design-system.css?v=6">
 <link rel="stylesheet" href="css/admin-acoes.css?v=1">
 <script src="js/config.js"></script>
 <script src="js/api.js"></script>
-<script src="js/admin-permissoes.js"></script>
+<script src="js/admin-permissoes.js?v=5"></script>
 <script src="js/admin-acoes.js?v=1"></script>
 <style>
 /* Confirmação destrutiva: o botão que apaga não fica colado no Cancelar. */
@@ -235,11 +235,11 @@
   </div>
 
   <section class="card" style="margin-top:var(--sp-5)">
-    <div class="filter-grid" style="grid-template-columns:repeat(2,minmax(200px,300px))">
+    <div class="filter-grid" style="grid-template-columns:repeat(auto-fit,minmax(min(200px,100%),300px))">
       <div class="field"><label for="busca">Buscar</label><input class="input" type="text" id="busca" placeholder="Nome ou e-mail"></div>
       <div class="field"><label for="filtroStatus">Status</label><select class="input" id="filtroStatus"><option value="">Todos</option><option value="ativo">Ativos</option><option value="inativo">Inativos</option></select></div>
     </div>
-    <div class="table-wrap" style="margin-top:var(--sp-4)">
+    <div class="table-wrap tabela-cards" style="margin-top:var(--sp-4)">
       <table>
         <thead><tr><th>Nome</th><th>E-mail</th><th>Perfil</th><th>Status</th><th>Acesso</th><th>&Uacute;ltimo acesso</th><th style="width:1%"></th></tr></thead>
         <tbody id="corpoTabela"></tbody>
@@ -252,7 +252,7 @@
     <div class="page-header" style="margin-bottom:var(--sp-3)">
       <div><h2 class="section-title">Hist&oacute;rico administrativo</h2><p class="small-note">Cria&ccedil;&atilde;o de conta, mudan&ccedil;a de permiss&atilde;o, ativa&ccedil;&atilde;o, acesso total e exclus&atilde;o ficam registrados aqui.</p></div>
     </div>
-    <div class="table-wrap">
+    <div class="table-wrap tabela-cards">
       <table><thead><tr><th>Data</th><th>Quem fez</th><th>A&ccedil;&atilde;o</th><th>Usu&aacute;rio afetado</th><th>Detalhes</th></tr></thead><tbody id="corpoAuditoria"></tbody></table>
     </div>
   </section>
@@ -269,9 +269,22 @@
       <div class="field"><label for="campoNome">Nome completo *</label><input class="input" type="text" id="campoNome" required maxlength="120"></div>
       <div class="field" style="margin-top:var(--sp-4)"><label for="campoEmail">E-mail *</label><input class="input" type="email" id="campoEmail" required maxlength="160"></div>
       <div class="field" style="margin-top:var(--sp-4)"><label for="campoTelefone">Telefone</label><input class="input" type="text" id="campoTelefone" maxlength="30"></div>
+      <div class="field" style="margin-top:var(--sp-4)" id="blocoPerfil">
+        <label for="campoPerfil">Perfil</label>
+        <select class="input" id="campoPerfil">
+          <option value="Admin">Administrador</option>
+          <option value="Funcionario">Funcion&aacute;rio</option>
+        </select>
+        <p class="small-note" id="notaPerfil" style="margin-top:var(--sp-2)"></p>
+      </div>
+      <div class="field" style="margin-top:var(--sp-4);display:none" id="blocoUnidade">
+        <label for="campoUnidade">Unidade *</label>
+        <select class="input" id="campoUnidade"><option value="">Selecione a unidade</option></select>
+      </div>
       <div id="blocoSenha">
-        <div class="field" style="margin-top:var(--sp-4)"><label for="campoSenha">Senha *</label><input class="input" type="password" id="campoSenha" minlength="6" autocomplete="new-password"></div>
-        <div class="field" style="margin-top:var(--sp-4)"><label for="campoSenha2">Confirmar senha *</label><input class="input" type="password" id="campoSenha2" minlength="6" autocomplete="new-password"></div>
+        <div class="field" style="margin-top:var(--sp-4)"><label for="campoSenha">Senha *</label><input class="input" type="password" id="campoSenha" minlength="8" autocomplete="new-password"></div>
+        <p class="small-note" style="margin-top:var(--sp-2)">M&iacute;nimo de 8 caracteres, com pelo menos uma letra e um n&uacute;mero.</p>
+        <div class="field" style="margin-top:var(--sp-4)"><label for="campoSenha2">Confirmar senha *</label><input class="input" type="password" id="campoSenha2" minlength="8" autocomplete="new-password"></div>
       </div>
       <div class="field" style="margin-top:var(--sp-4)">
         <label for="campoStatus">Status</label>
@@ -354,8 +367,9 @@
       <button class="modal-close" type="button" data-fechar aria-label="Fechar">&times;</button>
     </div>
     <form id="formSenha">
-      <div class="field"><label for="novaSenha">Nova senha *</label><input class="input" type="password" id="novaSenha" minlength="6" required autocomplete="new-password"></div>
-      <div class="field" style="margin-top:var(--sp-4)"><label for="novaSenha2">Confirmar senha *</label><input class="input" type="password" id="novaSenha2" minlength="6" required autocomplete="new-password"></div>
+      <div class="field"><label for="novaSenha">Nova senha *</label><input class="input" type="password" id="novaSenha" minlength="8" required autocomplete="new-password"></div>
+      <p class="small-note" style="margin-top:var(--sp-2)">M&iacute;nimo de 8 caracteres, com pelo menos uma letra e um n&uacute;mero.</p>
+      <div class="field" style="margin-top:var(--sp-4)"><label for="novaSenha2">Confirmar senha *</label><input class="input" type="password" id="novaSenha2" minlength="8" required autocomplete="new-password"></div>
       <p class="small-note" style="margin-top:var(--sp-4)">As sess&otilde;es abertas deste usu&aacute;rio ser&atilde;o encerradas.</p>
       <p class="small-note" id="erroSenha" style="color:var(--danger-500);display:none"></p>
       <div class="modal-actions">
@@ -386,7 +400,7 @@
   </div>
 </div>
 
-<script src="ui-kit.js?v=4"></script>
-<script src="js/usuarios-admin.js"></script>
+<script src="ui-kit.js?v=5"></script>
+<script src="js/usuarios-admin.js?v=3"></script>
 </body>
 </html>

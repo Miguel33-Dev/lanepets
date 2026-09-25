@@ -36,4 +36,13 @@ public class LanePetsDbContext(DbContextOptions<LanePetsDbContext> options) : Db
     // unica tabela de usuario do painel; estas duas apenas penduram nela.
     public DbSet<UsuarioAdminPermissao> UsuariosAdminPermissoes => Set<UsuarioAdminPermissao>();
     public DbSet<AuditoriaAdmin> AuditoriasAdmin => Set<AuditoriaAdmin>();
+
+    // Log de eventos (item 15 do roadmap).
+    public DbSet<EventoLog> EventosLog => Set<EventoLog>();
+
+    // Livro de estoque (item 7 do roadmap).
+    public DbSet<MovimentacaoEstoque> MovimentacoesEstoque => Set<MovimentacaoEstoque>();
+
+    // Pagamentos (item 8 do roadmap).
+    public DbSet<Pagamento> Pagamentos => Set<Pagamento>();
 }

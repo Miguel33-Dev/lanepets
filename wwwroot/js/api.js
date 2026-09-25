@@ -158,10 +158,7 @@
 
     // Leitura contratada
     health: () => get('health'),
-    dashboard: params => get('dashboard', params || {}),
-    metricas: params => get('metricas', params || {}),
     agendamentos: params => get('agendamentos', params || {}),
-    appointments: params => get('appointments', params || {}),
     pets: params => get('pets', params || {}),
     clientes: params => get('clientes', params || {}),
     servicos: params => get('servicos', params || {}),

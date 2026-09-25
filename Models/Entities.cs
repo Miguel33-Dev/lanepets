@@ -52,9 +52,15 @@ public class Pet
     public string InfoAtendimento { get; set; } = "";
 }
 public class Cliente { public string Id { get; set; } = ""; public string Nome { get; set; } = ""; public string Telefone { get; set; } = ""; public string Endereco { get; set; } = ""; public string Observacoes { get; set; } = ""; public string Origem { get; set; } = ""; public string Status { get; set; } = ""; }
-public class Agendamento { public string Id { get; set; } = ""; public string Pet { get; set; } = ""; public string Dono { get; set; } = ""; public string Telefone { get; set; } = ""; public string DataHora { get; set; } = ""; public string ServicosJson { get; set; } = "[]"; public decimal Total { get; set; } public string Transporte { get; set; } = ""; public decimal ValorTransporte { get; set; } public string Status { get; set; } = ""; public string PagamentoStatus { get; set; } = ""; public string FormaPagamento { get; set; } = ""; public string Obs { get; set; } = ""; public string Unidade { get; set; } = ""; public string ClienteId { get; set; } = ""; public string PetId { get; set; } = ""; }
+public class Agendamento { public string Id { get; set; } = ""; public string Pet { get; set; } = ""; public string Dono { get; set; } = ""; public string Telefone { get; set; } = ""; public string DataHora { get; set; } = ""; public string ServicosJson { get; set; } = "[]"; public decimal Total { get; set; } public string Transporte { get; set; } = ""; public decimal ValorTransporte { get; set; } public string Status { get; set; } = ""; public string PagamentoStatus { get; set; } = ""; public string FormaPagamento { get; set; } = ""; public string Obs { get; set; } = ""; public string Unidade { get; set; } = ""; public string ClienteId { get; set; } = ""; public string PetId { get; set; } = "";
+    /* Item 4 (24/09): funcionario responsavel (Id de UsuarioAdministrador com perfil Funcionario da
+       mesma unidade). Nunca vai para o JSON da entidade: o cliente recebe so o primeiro nome. */
+    [System.Text.Json.Serialization.JsonIgnore] public string ResponsavelId { get; set; } = "";
+    [System.ComponentModel.DataAnnotations.Schema.NotMapped] public string ResponsavelNome { get; set; } = ""; }
 public class Servico { public string Id { get; set; } = ""; public string Nome { get; set; } = ""; public decimal Preco { get; set; } public string Porte { get; set; } = ""; public string AdicionaisJson { get; set; } = "[]"; public string Pacote { get; set; } = ""; public string Adicional { get; set; } = ""; }
-public class Produto { public string Id { get; set; } = ""; public string Codigo { get; set; } = ""; public string Nome { get; set; } = ""; public string Categoria { get; set; } = ""; public decimal ValorCompra { get; set; } public decimal ValorVenda { get; set; } public int Estoque { get; set; } public int EstoqueMinimo { get; set; } public bool ControlaEstoque { get; set; } }
+public class Produto { public string Id { get; set; } = ""; public string Codigo { get; set; } = ""; public string Nome { get; set; } = ""; public string Categoria { get; set; } = ""; public decimal ValorCompra { get; set; } public decimal ValorVenda { get; set; } public int Estoque { get; set; } public int EstoqueMinimo { get; set; } public bool ControlaEstoque { get; set; }
+    /* Item 6 (24/09): descricao, foto (data URI via ImagemDataUri) e "Visivel na loja". */
+    public string Descricao { get; set; } = ""; public string FotoUrl { get; set; } = ""; public bool VisivelLoja { get; set; } = true; }
 public class EntradaSaida { public string Id { get; set; } = ""; public string Data { get; set; } = ""; public string Descricao { get; set; } = ""; public string Tipo { get; set; } = ""; public decimal Valor { get; set; } public string Unidade { get; set; } = ""; public string Origem { get; set; } = ""; }
 public class Pacote { public string Id { get; set; } = ""; public string PetId { get; set; } = ""; public string Cliente { get; set; } = ""; public string Tipo { get; set; } = ""; public int Quantidade { get; set; } public int Utilizados { get; set; } public int Restantes { get; set; } public string DataInicio { get; set; } = ""; public string DataFim { get; set; } = ""; public string Status { get; set; } = ""; public string Unidade { get; set; } = ""; }
 public class Configuracao { public string Chave { get; set; } = ""; public string Valor { get; set; } = ""; public string Descricao { get; set; } = ""; }
@@ -73,9 +79,17 @@ public class PlanoSeguro { public string Id { get; set; } = ""; public string No
 // cancelamento muda o Status e carimba a data, sem apagar o registro.
 public class SolicitacaoSeguro { public string Id { get; set; } = ""; public string PlanoSeguroId { get; set; } = ""; public string NomePlano { get; set; } = ""; public string ClienteId { get; set; } = ""; public string PetId { get; set; } = ""; public string NomeCliente { get; set; } = ""; public string Telefone { get; set; } = ""; public string NomePet { get; set; } = ""; public string Observacao { get; set; } = ""; public string Status { get; set; } = "Pendente"; public DateTime CriadoEm { get; set; } = DateTime.UtcNow; public decimal Valor { get; set; } public string MetodoPagamento { get; set; } = ""; public string PagamentoStatus { get; set; } = "Pendente"; public string CartaoFinal { get; set; } = ""; public DateTime? DataCancelamento { get; set; } }
 public class UsuarioCliente { public string Id { get; set; } = ""; public string ClienteId { get; set; } = ""; public string Email { get; set; } = ""; public string SenhaHash { get; set; } = ""; public string SenhaSalt { get; set; } = ""; public DateTime CriadoEm { get; set; } = DateTime.UtcNow; }
-public class UsuarioAdministrador { public string Id { get; set; } = ""; public string Email { get; set; } = ""; public string SenhaHash { get; set; } = ""; public string SenhaSalt { get; set; } = ""; public bool Ativo { get; set; } = true; public DateTime CriadoEm { get; set; } = DateTime.UtcNow; public string Nome { get; set; } = ""; public string Telefone { get; set; } = ""; public string Perfil { get; set; } = "Admin"; public bool AcessoTotal { get; set; } public DateTime? UltimoAcesso { get; set; } }
-public class Unidade { public string Id { get; set; } = ""; public string Nome { get; set; } = ""; public string Endereco { get; set; } = ""; public string Telefone { get; set; } = ""; public string HorarioFuncionamento { get; set; } = ""; public bool Ativa { get; set; } = true; }
-public class Pedido { public string Id { get; set; } = ""; public string ClienteId { get; set; } = ""; public string ProdutoId { get; set; } = ""; public string ProdutoNome { get; set; } = ""; public int Quantidade { get; set; } public decimal Total { get; set; } public string FormaPagamento { get; set; } = ""; public string Status { get; set; } = "Pendente"; public DateTime CriadoEm { get; set; } = DateTime.UtcNow; }
+public class UsuarioAdministrador { public string Id { get; set; } = ""; public string Email { get; set; } = ""; public string SenhaHash { get; set; } = ""; public string SenhaSalt { get; set; } = ""; public bool Ativo { get; set; } = true; public DateTime CriadoEm { get; set; } = DateTime.UtcNow; public string Nome { get; set; } = ""; public string Telefone { get; set; } = ""; public string Perfil { get; set; } = "Admin"; public bool AcessoTotal { get; set; } public DateTime? UltimoAcesso { get; set; } public string Unidade { get; set; } = ""; }
+// Unidade (item 5 do roadmap, 24/09): ganhou Capacidade e ServicosJson.
+//   Capacidade   -> quantos atendimentos cabem no MESMO horario (padrao 1, o
+//                   comportamento de antes). A agenda do cliente e do painel
+//                   respeitam esse numero.
+//   ServicosJson -> ids dos servicos oferecidos na unidade. "[]" = todos
+//                   (padrao, entao unidade antiga continua oferecendo tudo).
+// Unidade nao e excluida: sai de operacao com Ativa = false (historico intacto).
+// Funcionarios NAO ficam aqui: sao os UsuariosAdministradores com Unidade = Id.
+public class Unidade { public string Id { get; set; } = ""; public string Nome { get; set; } = ""; public string Endereco { get; set; } = ""; public string Telefone { get; set; } = ""; public string HorarioFuncionamento { get; set; } = ""; public bool Ativa { get; set; } = true; public int Capacidade { get; set; } = 1; public string ServicosJson { get; set; } = "[]"; }
+public class Pedido { public string Id { get; set; } = ""; public string ClienteId { get; set; } = ""; public string ProdutoId { get; set; } = ""; public string ProdutoNome { get; set; } = ""; public int Quantidade { get; set; } public decimal Total { get; set; } public string FormaPagamento { get; set; } = ""; public string Status { get; set; } = "Pendente"; public DateTime CriadoEm { get; set; } = DateTime.UtcNow; public string Unidade { get; set; } = ""; }
 
 // ---------------------------------------------------------------------------
 // USUARIOS ADMINISTRATIVOS E PERMISSOES
@@ -86,11 +100,14 @@ public class Pedido { public string Id { get; set; } = ""; public string Cliente
 //
 //   Nome          -> exibicao na listagem
 //   Telefone      -> contato, opcional
-//   Perfil        -> "AdminGeral" ou "Admin". E a identificacao real do
+//   Perfil        -> "AdminGeral", "Admin" ou "Funcionario". E a identificacao real do
 //                    Administrador Geral, gravada no banco. O sistema NUNCA
 //                    decide isso comparando o e-mail.
 //   AcessoTotal   -> atalho que libera tudo sem listar permissao por permissao
 //   UltimoAcesso  -> carimbado no login bem-sucedido
+//   Unidade       -> (24/09) id da unidade ("franco", "caieiras"). So tem
+//                    efeito para Perfil = "Funcionario", que fica preso a ela.
+//                    Vazio para administradores (veem todas as unidades).
 //
 // Nenhuma segunda entidade de usuario foi criada.
 // ---------------------------------------------------------------------------
@@ -126,4 +143,96 @@ public class AuditoriaAdmin
     public string AlvoId { get; set; } = "";
     public string AlvoEmail { get; set; } = "";
     public string Detalhes { get; set; } = "";
+}
+
+// ---------------------------------------------------------------------------
+// LOG DE EVENTOS (item 15 do roadmap, 24/09)
+//
+// Registro do que aconteceu no sistema para auditoria: login realizado e
+// recusado, conta criada, pedido, agendamento, alteracoes do painel, acesso
+// negado e erro interno. Tabela propria (EventosLog), separada da
+// AuditoriaAdmin (que continua existindo e e espelhada aqui).
+//
+//   Nivel      -> "info", "aviso" ou "erro"
+//   Categoria  -> "autenticacao", "cliente", "pet", "agendamento", "pedido",
+//                 "produto", "servico", "financeiro", "seguro", "administracao",
+//                 "seguranca", "sistema"
+//   Origem     -> "cliente", "admin", "publico" ou "sistema"
+//   Autor*     -> quem fez (id + e-mail/nome); vazio quando nao ha sessao
+//   AlvoId     -> registro afetado (pedido, agendamento, produto...)
+//   Referencia -> a mesma "Ref." mostrada ao usuario num ERR-5001
+//
+// NUNCA entra senha, token ou numero de cartao em nenhum campo.
+// ---------------------------------------------------------------------------
+public class EventoLog
+{
+    public string Id { get; set; } = "";
+    public DateTime DataHora { get; set; } = DateTime.UtcNow;
+    public string Nivel { get; set; } = "info";
+    public string Categoria { get; set; } = "";
+    public string Acao { get; set; } = "";
+    public string Origem { get; set; } = "sistema";
+    public string AutorId { get; set; } = "";
+    public string Autor { get; set; } = "";
+    public string AlvoId { get; set; } = "";
+    public string Detalhes { get; set; } = "";
+    public string Ip { get; set; } = "";
+    public string Referencia { get; set; } = "";
+}
+
+
+// ---------------------------------------------------------------------------
+// MOVIMENTACAO DE ESTOQUE (item 7 do roadmap, 24/09)
+//
+// Livro de estoque: toda mudanca de saldo de um produto com controle de
+// estoque gera UMA linha aqui, na mesma transacao que muda o saldo.
+//   Tipo       -> entrada | saida | ajuste | venda | cancelamento
+//   Quantidade -> variacao com sinal (+ entra, - sai)
+// Somente insercao. Nunca apagada nem editada.
+// ---------------------------------------------------------------------------
+public class MovimentacaoEstoque
+{
+    public string Id { get; set; } = "";
+    public DateTime DataHora { get; set; } = DateTime.UtcNow;
+    public string ProdutoId { get; set; } = "";
+    public string ProdutoNome { get; set; } = "";
+    public string Tipo { get; set; } = "";
+    public int Quantidade { get; set; }
+    public int SaldoAnterior { get; set; }
+    public int SaldoNovo { get; set; }
+    public string Motivo { get; set; } = "";
+    public string PedidoId { get; set; } = "";
+    public string Origem { get; set; } = "admin";
+    public string AutorId { get; set; } = "";
+    public string Autor { get; set; } = "";
+}
+
+
+// ---------------------------------------------------------------------------
+// PAGAMENTO (item 8 do roadmap, 25/09)
+//
+// Um pagamento por origem: agendamento, pedido da loja ou contratacao de
+// seguro (Origem + OrigemId, unicos). Status: Pendente, Aprovado, Recusado,
+// Cancelado, Reembolsado. Os campos antigos (Agendamento.PagamentoStatus,
+// SolicitacaoSeguro.PagamentoStatus) continuam existindo e sao ESPELHADOS a
+// partir daqui, para as telas e relatorios antigos nao mudarem de numero.
+// ---------------------------------------------------------------------------
+public class Pagamento
+{
+    public string Id { get; set; } = "";
+    public string Origem { get; set; } = "";          // agendamento | pedido | seguro
+    public string OrigemId { get; set; } = "";
+    public string ClienteId { get; set; } = "";
+    public string Cliente { get; set; } = "";
+    public string Descricao { get; set; } = "";
+    public decimal Valor { get; set; }
+    public string Forma { get; set; } = "";
+    public string Status { get; set; } = "Pendente";
+    public bool ReembolsoPendente { get; set; }
+    public string Unidade { get; set; } = "";
+    public string DataReferencia { get; set; } = "";  // data do atendimento / do pedido / da contratacao
+    public DateTime CriadoEm { get; set; } = DateTime.UtcNow;
+    public DateTime AtualizadoEm { get; set; } = DateTime.UtcNow;
+    public string AtualizadoPor { get; set; } = "";
+    public string Observacao { get; set; } = "";
 }

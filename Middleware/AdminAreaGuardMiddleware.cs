@@ -37,7 +37,13 @@ public class AdminAreaGuardMiddleware(RequestDelegate next)
         ["/gestao-publica.html"]       = [ModulosAdmin.Seguros, ModulosAdmin.Avaliacoes],
         ["/migrar-dados.html"]         = [ModulosAdmin.Configuracoes],
         ["/pedidos.html"]              = [ModulosAdmin.Pedidos],
-        ["/usuarios-admin.html"]       = [ModulosAdmin.Usuarios]
+        ["/usuarios-admin.html"]       = [ModulosAdmin.Usuarios],
+        // Item 5: cadastro de unidades.
+        ["/unidades.html"]             = [ModulosAdmin.Unidades],
+        ["/pagamentos.html"]           = [ModulosAdmin.Pagamentos],   // item 8
+        ["/integridade.html"]          = [ModulosAdmin.Usuarios],     // item 19: so Administrador Geral
+        // Item 15: log de eventos — mesmo modulo exclusivo do Administrador Geral.
+        ["/eventos.html"]              = [ModulosAdmin.Usuarios]
     };
 
     public async Task InvokeAsync(HttpContext context, PermissaoService permissoes)

@@ -272,7 +272,7 @@ img { max-width: 100%; }
 
 .input, select.input, textarea.input,
 input[type="text"], input[type="tel"], input[type="number"], input[type="email"],
-input[type="date"], input[type="datetime-local"], input[type="password"], select, textarea {
+input[type="date"], input[type="datetime-local"], input[type="password"], input[type="search"], select, textarea {
   width: 100%;
   padding: 11px 14px;
   border: 1px solid var(--border-strong);
@@ -521,6 +521,8 @@ table.data-table { width: 100%; border-collapse: collapse; min-width: 640px; }
 
 /* ---------- Gráficos simples ---------- */
 .chart-grid { display: grid; grid-template-columns: 1.4fr 1fr; gap: var(--sp-5); }
+/* Item 17: tabela larga dentro do grafico/cartao nao alarga a coluna (estourava a 390 px no Relatorio). */
+.chart-grid > * { min-width: 0; }
 .chart { min-height: 310px; }
 .bars { height: 220px; display: flex; align-items: end; gap: 12px; padding: 22px 4px 4px; border-bottom: 1px solid var(--border); }
 .bar-col { height: 100%; flex: 1; display: flex; flex-direction: column; justify-content: end; align-items: center; gap: 6px; min-width: 26px; }
@@ -571,7 +573,7 @@ table.data-table { width: 100%; border-collapse: collapse; min-width: 640px; }
 }
 @media (max-width: 640px) {
   .kpi-grid { grid-template-columns: 1fr; }
-  .cat-row { grid-template-columns: 96px 1fr 78px; font-size: var(--fs-xs); }
+  .cat-row { grid-template-columns: 96px minmax(0, 1fr) auto; font-size: var(--fs-xs); }
   .form-actions, .filter-actions { flex-direction: column; }
   .form-actions .btn, .filter-actions .btn { width: 100%; }
   .backup-buttons-container .btn { width: 100%; }
@@ -604,6 +606,12 @@ table.data-table { width: 100%; border-collapse: collapse; min-width: 640px; }
 @media (max-width: 720px) {
   .topbar-right { gap: var(--sp-2); }
   .topbar-ghost { display: none; }
+  /* .topbar-user-info (display:flex, acima) vencia o .hide-mobile: nome e perfil
+     apareciam no celular e espremiam o titulo da pagina. */
+  .topbar-user-info.hide-mobile { display: none; }
+  .topbar-left { min-width: 0; }
+  .topbar-left > div { min-width: 0; }
+  .topbar-title { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 }
 
 /* ---------- KPI: indicador de variação ---------- */
@@ -627,3 +635,49 @@ table.data-table { width: 100%; border-collapse: collapse; min-width: 640px; }
 .lp-live[data-estado="reconectando"]{color:#9a6a12;border-color:#f0dcae;background:#fdf6e6}
 .lp-live[data-estado="offline"]{color:#8a8f8c}
 @keyframes lp-pulso{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.45;transform:scale(.8)}}
+
+/* =========================================================
+   TABELA QUE VIRA CARTOES NO CELULAR  (item 17, 25/09)
+   Uso: <div class="table-wrap tabela-cards"><table>...</table></div>
+   Abaixo de 860px (mesmo corte do menu "⋮" e dos cards de Agendamentos)
+   cada linha vira um cartao; o rotulo de cada celula vem do <th> da coluna,
+   copiado para data-label pelo ui-kit.js. A 1a celula e o titulo do cartao.
+   ========================================================= */
+@media (max-width: 860px) {
+  .table-wrap.tabela-cards { border: 0; background: transparent; overflow: visible; border-radius: 0; }
+  .tabela-cards table { min-width: 0 !important; width: 100%; border-collapse: separate; }
+  .tabela-cards thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .tabela-cards tbody { display: grid; gap: var(--sp-3); }
+  .tabela-cards tbody tr { display: block; border: 1px solid var(--border); border-radius: var(--r-lg); background: var(--surface); padding: var(--sp-3) var(--sp-4); }
+  .tabela-cards tbody tr:hover { background: var(--surface); }
+  .tabela-cards tbody td {
+    display: flow-root;
+    padding: 8px 0 8px 108px !important; border-bottom: 1px dashed var(--border); text-align: left !important;
+    min-width: 0 !important; max-width: none !important; width: auto !important; overflow-wrap: anywhere;
+  }
+  .tabela-cards tbody td:not(:first-child)::before {
+    content: attr(data-label); float: left; width: 96px; margin-left: -108px;
+    font-size: var(--fs-xs); font-weight: 700; color: var(--ink-500);
+    text-transform: uppercase; letter-spacing: .04em; line-height: 1.5; overflow-wrap: normal;
+  }
+  .tabela-cards tbody td:first-child { padding: 2px 0 8px !important; font-weight: 700; color: var(--ink-900); }
+  .tabela-cards tbody td:last-child { border-bottom: 0; padding-bottom: 2px !important; }
+  .tabela-cards tbody td[data-label=""] { padding-left: 0 !important; }
+  .tabela-cards tbody td[data-label=""]::before { content: none; }
+  .tabela-cards tbody td[colspan] { padding-left: 0 !important; text-align: center !important; }
+  .tabela-cards tbody td[colspan]::before { content: none; }
+  .tabela-cards tbody td .input, .tabela-cards tbody td select { max-width: 100%; }
+  /* Nada dentro do cartao pode segurar a linha e empurrar a borda (ex.: "Estoque baixo · 1" em Produtos). */
+  .tabela-cards tbody td, .tabela-cards tbody td * { white-space: normal !important; }
+  .tabela-cards tbody td:empty { display: none; }
+}
+
+/* Periodo rapido (Dashboard, Relatorio): no celular, 2 x 2 em vez de 4 botoes empilhados. */
+@media (max-width: 480px) {
+  .quick-periods { display: grid; grid-template-columns: 1fr 1fr; }
+}
+
+/* Item 17, 2a rodada (26/09): grades de filtro nunca mais largas que a tela. */
+@media (max-width: 480px) {
+  .filter-grid { grid-template-columns: minmax(0, 1fr) !important; }
+}

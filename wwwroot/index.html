@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Cadastro &middot; LanePets</title>
-<link rel="stylesheet" href="design-system.css?v=4">
+<link rel="stylesheet" href="design-system.css?v=6">
 <style>
   #listaServicosCadastrados { list-style: none; margin: var(--sp-2) 0 0; padding: 0; }
   #listaServicosCadastrados li { padding: 4px 0; }
@@ -16,134 +16,360 @@
   }
   #segundoPetCampos { border-top: 1px dashed var(--border-strong); margin-top: var(--sp-3); padding-top: var(--sp-3); }
   .backup-buttons-container { display: flex; gap: var(--sp-3); flex-wrap: wrap; margin-top: var(--sp-6); }
+
+  /* ------------------------------------------------------------------
+     Central de Cadastro — só o que é específico desta tela. Cards,
+     tabelas, formulários e modais genéricos vivem em design-system.css.
+     ------------------------------------------------------------------ */
+  .voltar-cadastro {
+    display: inline-flex; align-items: center; gap: 6px; font-size: .84rem; font-weight: 700;
+    color: var(--brand-700); text-decoration: none; margin-bottom: var(--sp-4);
+  }
+  .voltar-cadastro:hover { text-decoration: underline; }
+
+  .acoes-rapidas { display: flex; flex-wrap: wrap; gap: var(--sp-3); margin-bottom: var(--sp-5); }
+  .acoes-rapidas .btn svg { flex-shrink: 0; }
+
+  .modulos-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: var(--sp-4); }
+
+  .module-card {
+    display: flex; flex-direction: column; gap: var(--sp-3);
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg);
+    padding: var(--sp-5); box-shadow: var(--shadow-sm); text-decoration: none; color: inherit;
+    transition: transform .14s var(--ease), box-shadow .14s var(--ease), border-color .14s var(--ease);
+  }
+  .module-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-lg); border-color: var(--brand-200); }
+  .module-card:focus-visible { outline: none; box-shadow: var(--ring); }
+  .module-card-head { display: flex; align-items: center; gap: var(--sp-3); }
+  .module-card-icon {
+    width: 42px; height: 42px; border-radius: var(--r-md); flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--brand-100); color: var(--brand-700);
+  }
+  .module-card h3 { font-size: 1rem; font-weight: 800; margin: 0; }
+  .module-card p { margin: 0; font-size: .84rem; color: var(--ink-500); line-height: 1.4; }
+  .module-card-foot { display: flex; align-items: center; justify-content: space-between; margin-top: auto; padding-top: var(--sp-2); }
+  .module-card-count { font-size: .78rem; font-weight: 700; color: var(--ink-600); }
+  .module-card-count.skeleton { display: inline-block; width: 76px; height: 13px; border-radius: var(--r-sm); }
+  .module-card-cta { display: inline-flex; align-items: center; gap: 4px; font-size: .82rem; font-weight: 800; color: var(--accent-600); }
+  .module-card-cta svg { transition: transform .14s var(--ease); }
+  .module-card:hover .module-card-cta svg { transform: translateX(3px); }
+
+  .kpi .value.skeleton { display: inline-block; width: 54px; height: 1.6rem; border-radius: var(--r-sm); margin-top: 8px; }
+
+  #buscaCadastroVazio { display: none; }
 </style>
   <script src="js/config.js"></script>
   <script src="js/api.js"></script>
   <script src="lib/signalr/signalr.min.js"></script>
-  <script src="js/admin-dados.js"></script>
+  <script src="js/admin-dados.js?v=2"></script>
   <script src="js/admin-store.js?v=1"></script>
-<script src="js/admin-permissoes.js"></script>
+  <script src="js/admin-permissoes.js?v=5"></script>
 </head>
 <body>
 <div class="app-shell">
 
-  <aside class="sidebar" id="menu-lateral"><div class="sidebar-brand"><a class="brand-home" href="cliente.html" title="Abrir o site LanePets"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="var(--accent-500)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="7" cy="8" r="2"/><circle cx="12" cy="5.5" r="2"/><circle cx="17" cy="8" r="2"/><path d="M12 13c-3.3 0-6 2.1-6 4.7 0 1.6 1.5 2.3 3 1.8.9-.3 1.9-.5 3-.5s2.1.2 3 .5c1.5.5 3-.2 3-1.8 0-2.6-2.7-4.7-6-4.7Z"/></svg><span class="brand-text"><span class="brand-name">LanePets</span><span class="brand-sub">Franco + Caieiras</span></span><svg class="brand-home-ico" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg></a><button class="sidebar-close hide-desktop" type="button" aria-label="Fechar menu"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div><nav class="sidebar-nav" aria-label="Menu do painel"><p class="nav-group">Operação</p><a class="nav-item" href="dashboard_financeiro.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 13h8V3H3v10Zm0 8h8v-6H3v6Zm10 0h8V11h-8v10Zm0-18v6h8V3h-8Z"/></svg><span>Dashboard</span></a><a class="nav-item" href="agendamentos.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4.5" width="18" height="16.5" rx="2.5"/><path d="M16 2.5v4M8 2.5v4M3 10h18"/></svg><span>Agendamentos</span></a><a class="nav-item" href="pedidos.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="20" r="1.4"/><circle cx="18" cy="20" r="1.4"/><path d="M2.5 3h2.2l2.3 11.2a1.6 1.6 0 0 0 1.6 1.3h8.7a1.6 1.6 0 0 0 1.6-1.25L21 7H6"/></svg><span>Pedidos</span></a><a class="nav-item" href="clientes.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 20v-1.8a3.6 3.6 0 0 0-3.6-3.6H6.6A3.6 3.6 0 0 0 3 18.2V20"/><circle cx="9.5" cy="7.5" r="3.4"/><path d="M21 20v-1.8a3.6 3.6 0 0 0-2.7-3.48"/><path d="M15.5 4.2a3.4 3.4 0 0 1 0 6.6"/></svg><span>Clientes</span></a><a class="nav-item" href="clientes_pacote.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.3 7.5 12 12l8.7-4.5"/><path d="M12 12v9.2"/><path d="M20.4 7.2v9.6a1.4 1.4 0 0 1-.76 1.24l-7 3.6a1.4 1.4 0 0 1-1.28 0l-7-3.6A1.4 1.4 0 0 1 3.6 16.8V7.2a1.4 1.4 0 0 1 .76-1.24l7-3.6a1.4 1.4 0 0 1 1.28 0l7 3.6A1.4 1.4 0 0 1 20.4 7.2Z"/></svg><span>Pacotes</span></a><a class="nav-item active" href="index.html" aria-current="page"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6.2" cy="9" r="1.9"/><circle cx="11" cy="6.4" r="1.9"/><circle cx="15.8" cy="9" r="1.9"/><path d="M11 13.4c-3.1 0-5.6 2-5.6 4.4 0 1.5 1.4 2.2 2.8 1.7.85-.3 1.8-.45 2.8-.45s1.95.15 2.8.45c1.4.5 2.8-.2 2.8-1.7 0-2.4-2.5-4.4-5.6-4.4Z"/><path d="M19 4.5v5M21.5 7h-5"/></svg><span>Cadastro</span></a><p class="nav-group">Catálogo</p><a class="nav-item" href="Produtos.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 8 9-5 9 5-9 5-9-5Z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v8"/></svg><span>Produtos</span></a><p class="nav-group">Financeiro</p><a class="nav-item" href="entradas_e_saidas.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.5v19"/><path d="M16.8 6H9.6a3.4 3.4 0 0 0 0 6.8h4.8a3.4 3.4 0 0 1 0 6.8H6.8"/></svg><span>Entradas e Saídas</span></a><a class="nav-item" href="relatorio.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 3.5v17h17"/><path d="M18 16.5V9M13 16.5V5.5M8 16.5v-4"/></svg><span>Relatório</span></a><p class="nav-group">Site público</p><a class="nav-item" href="gestao-publica.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3.3 9.5h17.4M3.3 14.5h17.4"/><path d="M12 3a15 15 0 0 1 0 18a15 15 0 0 1 0-18Z"/></svg><span>Área pública</span></a></nav><div class="sidebar-foot">LanePets &copy; 2026 &middot; Painel de gestão</div></aside>
-
-  <div class="main-area">
-    <header class="topbar">
-      <div class="topbar-left">
-        <button class="menu-toggle hide-desktop" aria-label="Abrir menu">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
-        </button>
-        <div>
-          <div class="topbar-title">Cadastro</div>
-          <div class="topbar-breadcrumb hide-mobile">Início / Cadastro de pets e serviços</div>
-        </div>
-      </div>
-      <div class="topbar-right"><a class="topbar-ghost hide-mobile" href="cliente.html" title="Ver o site público"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3.3 9.5h17.4M3.3 14.5h17.4"/><path d="M12 3a15 15 0 0 1 0 18a15 15 0 0 1 0-18Z"/></svg><span>Ver site</span></a><div class="topbar-user"><div class="avatar" aria-hidden="true">LP</div><div class="topbar-user-info hide-mobile"><strong>Administrador</strong><span>LanePets</span></div></div><button class="btn btn-outline btn-sm" type="button" id="btnSair" title="Encerrar sessão"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5.5A1.5 1.5 0 0 1 4 19.5v-15A1.5 1.5 0 0 1 5.5 3H9"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/></svg><span class="hide-mobile">Sair</span></button></div>
-    </header>
+  <aside class="sidebar" id="menu-lateral"><div class="sidebar-brand"><a class="brand-home" href="cliente.html" title="Abrir o site LanePets"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="var(--accent-500)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="7" cy="8" r="2"/><circle cx="12" cy="5.5" r="2"/><circle cx="17" cy="8" r="2"/><path d="M12 13c-3.3 0-6 2.1-6 4.7 0 1.6 1.5 2.3 3 1.8.9-.3 1.9-.5 3-.5s2.1.2 3 .5c1.5.5 3-.2 3-1.8 0-2.6-2.7-4.7-6-4.7Z"/></svg><span class="brand-text"><span class="brand-name">LanePets</span><span class="brand-sub">Franco + Caieiras</span></span><svg class="brand-home-ico" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg></a><button class="sidebar-close hide-desktop" type="button" aria-label="Fechar menu"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div><nav class="sidebar-nav" aria-label="Menu do painel"><p class="nav-group">Operação</p><a class="nav-item" href="dashboard_financeiro.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 13h8V3H3v10Zm0 8h8v-6H3v6Zm10 0h8V11h-8v10Zm0-18v6h8V3h-8Z"/></svg><span>Dashboard</span></a><a class="nav-item" href="agendamentos.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4.5" width="18" height="16.5" rx="2.5"/><path d="M16 2.5v4M8 2.5v4M3 10h18"/></svg><span>Agendamentos</span></a><a class="nav-item" href="pedidos.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="20" r="1.4"/><circle cx="18" cy="20" r="1.4"/><path d="M2.5 3h2.2l2.3 11.2a1.6 1.6 0 0 0 1.6 1.3h8.7a1.6 1.6 0 0 0 1.6-1.25L21 7H6"/></svg><span>Pedidos</span></a><a class="nav-item" href="clientes.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 20v-1.8a3.6 3.6 0 0 0-3.6-3.6H6.6A3.6 3.6 0 0 0 3 18.2V20"/><circle cx="9.5" cy="7.5" r="3.4"/><path d="M21 20v-1.8a3.6 3.6 0 0 0-2.7-3.48"/><path d="M15.5 4.2a3.4 3.4 0 0 1 0 6.6"/></svg><span>Clientes</span></a><a class="nav-item" href="clientes_pacote.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.3 7.5 12 12l8.7-4.5"/><path d="M12 12v9.2"/><path d="M20.4 7.2v9.6a1.4 1.4 0 0 1-.76 1.24l-7 3.6a1.4 1.4 0 0 1-1.28 0l-7-3.6A1.4 1.4 0 0 1 3.6 16.8V7.2a1.4 1.4 0 0 1 .76-1.24l7-3.6a1.4 1.4 0 0 1 1.28 0l7 3.6A1.4 1.4 0 0 1 20.4 7.2Z"/></svg><span>Pacotes</span></a><a class="nav-item active" href="index.html" aria-current="page"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6.2" cy="9" r="1.9"/><circle cx="11" cy="6.4" r="1.9"/><circle cx="15.8" cy="9" r="1.9"/><path d="M11 13.4c-3.1 0-5.6 2-5.6 4.4 0 1.5 1.4 2.2 2.8 1.7.85-.3 1.8-.45 2.8-.45s1.95.15 2.8.45c1.4.5 2.8-.2 2.8-1.7 0-2.4-2.5-4.4-5.6-4.4Z"/><path d="M19 4.5v5M21.5 7h-5"/></svg><span>Cadastro</span></a><p class="nav-group">Catálogo</p><a class="nav-item" href="Produtos.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 8 9-5 9 5-9 5-9-5Z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v8"/></svg><span>Produtos</span></a><p class="nav-group">Financeiro</p><a class="nav-item" href="entradas_e_saidas.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.5v19"/><path d="M16.8 6H9.6a3.4 3.4 0 0 0 0 6.8h4.8a3.4 3.4 0 0 1 0 6.8H6.8"/></svg><span>Entradas e Saídas</span></a><a class="nav-item" href="relatorio.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 3.5v17h17"/><path d="M18 16.5V9M13 16.5V5.5M8 16.5v-4"/></svg><span>Relatório</span></a><p class="nav-group">Site público</p><a class="nav-item" href="gestao-publica.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3.3 9.5h17.4M3.3 14.5h17.4"/><path d="M12 3a15 15 0 0 1 0 18a15 15 0 0 1 0-18Z"/></svg><span>Área pública</span></a></nav><div class="sidebar-foot">LanePets &copy; 2026 &middot; Painel de gestão</div></aside><div class="main-area"><header class="topbar"><div class="topbar-left"><button class="menu-toggle hide-desktop" aria-label="Abrir menu">☰</button><div><div class="topbar-title">Cadastro</div><div class="topbar-breadcrumb hide-mobile">Operação / Central de cadastros</div></div></div><div class="topbar-right"><a class="topbar-ghost hide-mobile" href="cliente.html" title="Ver o site público"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3.3 9.5h17.4M3.3 14.5h17.4"/><path d="M12 3a15 15 0 0 1 0 18a15 15 0 0 1 0-18Z"/></svg><span>Ver site</span></a><div class="topbar-user"><div class="avatar" aria-hidden="true">LP</div><div class="topbar-user-info hide-mobile"><strong>Administrador</strong><span>LanePets</span></div></div><button class="btn btn-outline btn-sm" type="button" id="btnSair" title="Encerrar sessão"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5.5A1.5 1.5 0 0 1 4 19.5v-15A1.5 1.5 0 0 1 5.5 3H9"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/></svg><span class="hide-mobile">Sair</span></button></div></header>
 
     <main class="page-content">
-      <div class="page-header">
-        <div>
-          <h1>Cadastro de pets e serviços</h1>
-          <p>Registre novos tutores, seus pets e o catálogo de serviços oferecidos.</p>
+
+      <!-- ================================================================
+           VISÃO 1 — HUB: a central de cadastros
+           ================================================================ -->
+      <div id="viewHub">
+        <div class="page-header">
+          <div>
+            <h1>Cadastro</h1>
+            <p>Gerencie os principais registros utilizados pelo LanePets.</p>
+          </div>
+        </div>
+
+        <div class="acoes-rapidas" id="acoesRapidas" aria-label="Ações rápidas">
+          <a class="btn btn-primary btn-sm" data-permissao="pets:criar" href="#pets">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+            Cliente
+          </a>
+          <a class="btn btn-outline btn-sm" data-permissao="pets:criar" href="#pets">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+            Pet
+          </a>
+          <a class="btn btn-outline btn-sm" data-permissao="produtos:criar" href="Produtos.html">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+            Produto
+          </a>
+          <a class="btn btn-outline btn-sm" data-permissao="servicos:criar" href="#servicos">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+            Serviço
+          </a>
+        </div>
+
+        <div class="toolbar">
+          <div class="search-box">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+            <input class="input" type="text" id="buscaCadastro" placeholder="Buscar cadastro..." aria-label="Buscar cadastro">
+          </div>
+        </div>
+
+        <div class="kpi-grid" id="kpiCadastro">
+          <article class="kpi" data-permissao="clientes:visualizar">
+            <div class="eyebrow">Clientes</div>
+            <div class="value skeleton" data-kpi="clientes">&nbsp;</div>
+            <div class="accent"></div>
+          </article>
+          <article class="kpi" data-permissao="pets:visualizar">
+            <div class="eyebrow">Pets</div>
+            <div class="value skeleton" data-kpi="pets">&nbsp;</div>
+            <div class="accent"></div>
+          </article>
+          <article class="kpi" data-permissao="produtos:visualizar">
+            <div class="eyebrow">Produtos</div>
+            <div class="value skeleton" data-kpi="produtos">&nbsp;</div>
+            <div class="accent"></div>
+          </article>
+          <article class="kpi" data-permissao="servicos:visualizar">
+            <div class="eyebrow">Serviços</div>
+            <div class="value skeleton" data-kpi="servicos">&nbsp;</div>
+            <div class="accent"></div>
+          </article>
+          <article class="kpi kpi-accent">
+            <div class="eyebrow">Unidades</div>
+            <div class="value skeleton" data-kpi="unidades">&nbsp;</div>
+            <div class="accent"></div>
+          </article>
+        </div>
+
+        <div class="modulos-grid" id="gradeModulos">
+
+          <a class="module-card" data-permissao="clientes:visualizar" data-search="clientes tutores donos" href="clientes.html">
+            <div class="module-card-head">
+              <div class="module-card-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M16 20v-1.8a3.6 3.6 0 0 0-3.6-3.6H6.6A3.6 3.6 0 0 0 3 18.2V20"/><circle cx="9.5" cy="7.5" r="3.4"/><path d="M21 20v-1.8a3.6 3.6 0 0 0-2.7-3.48"/><path d="M15.5 4.2a3.4 3.4 0 0 1 0 6.6"/></svg></div>
+              <h3>Clientes</h3>
+            </div>
+            <p>Cadastre e gerencie os tutores do LanePets.</p>
+            <div class="module-card-foot">
+              <span class="module-card-count skeleton" data-count="clientes">&nbsp;</span>
+              <span class="module-card-cta">Gerenciar <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></span>
+            </div>
+          </a>
+
+          <a class="module-card" data-permissao="pets:visualizar" data-search="pets animais cães gatos" href="#pets">
+            <div class="module-card-head">
+              <div class="module-card-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="6.2" cy="9" r="1.9"/><circle cx="11" cy="6.4" r="1.9"/><circle cx="15.8" cy="9" r="1.9"/><path d="M11 13.4c-3.1 0-5.6 2-5.6 4.4 0 1.5 1.4 2.2 2.8 1.7.85-.3 1.8-.45 2.8-.45s1.95.15 2.8.45c1.4.5 2.8-.2 2.8-1.7 0-2.4-2.5-4.4-5.6-4.4Z"/><path d="M19 4.5v5M21.5 7h-5"/></svg></div>
+              <h3>Pets</h3>
+            </div>
+            <p>Cadastre pets e vincule ao tutor responsável.</p>
+            <div class="module-card-foot">
+              <span class="module-card-count skeleton" data-count="pets">&nbsp;</span>
+              <span class="module-card-cta">Gerenciar <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></span>
+            </div>
+          </a>
+
+          <a class="module-card" data-permissao="servicos:visualizar" data-search="servicos banho tosa hidratacao" href="#servicos">
+            <div class="module-card-head">
+              <div class="module-card-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m21 8-9-5-9 5 9 5 9-5Z"/><path d="M3 8v8l9 5 9-5V8"/></svg></div>
+              <h3>Serviços</h3>
+            </div>
+            <p>Gerencie os serviços oferecidos aos clientes.</p>
+            <div class="module-card-foot">
+              <span class="module-card-count skeleton" data-count="servicos">&nbsp;</span>
+              <span class="module-card-cta">Gerenciar <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></span>
+            </div>
+          </a>
+
+          <a class="module-card" data-permissao="produtos:visualizar" data-search="produtos estoque loja" href="Produtos.html">
+            <div class="module-card-head">
+              <div class="module-card-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m3 8 9-5 9 5-9 5-9-5Z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v8"/></svg></div>
+              <h3>Produtos</h3>
+            </div>
+            <p>Cadastre e gerencie os produtos disponíveis na loja.</p>
+            <div class="module-card-foot">
+              <span class="module-card-count skeleton" data-count="produtos">&nbsp;</span>
+              <span class="module-card-cta">Gerenciar <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></span>
+            </div>
+          </a>
+
+          <a class="module-card" data-permissao="usuarios:visualizar" data-search="administradores usuarios equipe permissoes" href="usuarios-admin.html">
+            <div class="module-card-head">
+              <div class="module-card-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M16 20v-1.8a3.6 3.6 0 0 0-3.6-3.6H6.6A3.6 3.6 0 0 0 3 18.2V20"/><circle cx="9.5" cy="7.5" r="3.4"/><path d="M19 11.5v3M20.5 13h-3"/></svg></div>
+              <h3>Administradores</h3>
+            </div>
+            <p>Gerencie usuários administrativos e suas permissões.</p>
+            <div class="module-card-foot">
+              <span class="module-card-count skeleton" data-count="administradores">&nbsp;</span>
+              <span class="module-card-cta">Gerenciar <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></span>
+            </div>
+          </a>
+
+          <a class="module-card" data-permissao="seguros:visualizar" data-search="seguro pet planos coberturas" href="gestao-publica.html">
+            <div class="module-card-head">
+              <div class="module-card-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5 5 6v5.2c0 4.6 3 8 7 9.3 4-1.3 7-4.7 7-9.3V6Z"/><path d="m9.3 12 1.9 1.9 3.6-3.7"/></svg></div>
+              <h3>Seguro Pet</h3>
+            </div>
+            <p>Cadastre planos de seguro oferecidos aos tutores.</p>
+            <div class="module-card-foot">
+              <span class="module-card-count skeleton" data-count="seguros">&nbsp;</span>
+              <span class="module-card-cta">Gerenciar <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></span>
+            </div>
+          </a>
+
+        </div>
+
+        <div class="empty-state" id="buscaCadastroVazio">
+          <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+          <h3>Nenhum cadastro encontrado</h3>
+          <p>Tente buscar por outro termo.</p>
+        </div>
+
+        <section class="card empty-state" id="semFerramentasCadastro" style="display:none;">
+          <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 0 1 4.9.8c0 1.7-2.4 2-2.4 3.7M12 17h.01"/></svg>
+          <h3>Acesso não autorizado</h3>
+          <p>Seu perfil não tem permissão para nenhum dos cadastros do LanePets.<br>Fale com o Administrador Geral se precisar de acesso.</p>
+        </section>
+
+        <div class="backup-buttons-container">
+          <button class="btn btn-outline" onclick="exportarBackupCompleto()">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5M12 15V3"/></svg>
+            Exportar backup
+          </button>
+          <input type="file" id="importarBackupInput" onchange="importarBackupCompleto(this)" style="display:none;">
+          <button class="btn btn-outline" data-permissao="configuracoes:editar" onclick="document.getElementById('importarBackupInput').click()">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M17 8l-5-5-5 5M12 3v12"/></svg>
+            Importar backup
+          </button>
         </div>
       </div>
 
-      <div class="grid grid-2">
-
-        <section class="card">
-          <h2 class="section-title">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--brand-700)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="7" cy="8" r="2"/><circle cx="12" cy="5.5" r="2"/><circle cx="17" cy="8" r="2"/><path d="M12 13c-3.3 0-6 2.1-6 4.7 0 1.6 1.5 2.3 3 1.8.9-.3 1.9-.5 3-.5s2.1.2 3 .5c1.5.5 3-.2 3-1.8 0-2.6-2.7-4.7-6-4.7Z"/></svg>
-            Cadastro de pet
-          </h2>
-
-          <div class="field"><label for="nomeDono">Nome do dono</label><input type="text" id="nomeDono" placeholder="Ex.: Ana Souza"></div>
-          <div class="field"><label for="nomePet">Nome do pet</label><input type="text" id="nomePet" placeholder="Ex.: Thor"></div>
-          <div class="field-row">
-            <div class="field"><label for="tipoPet">Tipo</label>
-              <select id="tipoPet">
-                <option value="">Selecione o tipo</option>
-                <option value="Cão">Cão</option>
-                <option value="Gato">Gato</option>
-                <option value="Outro">Outro</option>
-              </select>
-            </div>
-            <div class="field"><label for="raca">Raça</label><input type="text" id="raca" placeholder="Ex.: SRD, Poodle..."></div>
+      <!-- ================================================================
+           VISÃO 2 — Cadastro de pets (e do cliente/tutor)
+           ================================================================ -->
+      <div id="viewPets" style="display:none;">
+        <a class="voltar-cadastro" href="#">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5 8 12l7 7"/></svg>
+          Voltar para Cadastro
+        </a>
+        <div class="page-header">
+          <div>
+            <h1>Cadastro de pets</h1>
+            <p>Registre o tutor e o pet. Se o tutor já existir, os dados são vinculados automaticamente.</p>
           </div>
-          <div class="field"><label for="telefone">Telefone</label><input type="tel" id="telefone" placeholder="(11) 90000-0000"></div>
-          <div class="field"><label for="endereco">Endereço</label><input type="text" id="endereco" placeholder="Rua, número, bairro"></div>
+        </div>
 
-          <label class="checkbox-row" for="adicionarSegundoPet" style="margin-top:4px;">
-            <input type="checkbox" id="adicionarSegundoPet" onchange="toggleSegundoPet()">
-            Cadastrar outro pet para o mesmo dono
-          </label>
+        <div class="grid grid-2">
+          <section class="card" data-permissao="pets:visualizar">
+            <h2 class="section-title">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--brand-700)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="7" cy="8" r="2"/><circle cx="12" cy="5.5" r="2"/><circle cx="17" cy="8" r="2"/><path d="M12 13c-3.3 0-6 2.1-6 4.7 0 1.6 1.5 2.3 3 1.8.9-.3 1.9-.5 3-.5s2.1.2 3 .5c1.5.5 3-.2 3-1.8 0-2.6-2.7-4.7-6-4.7Z"/></svg>
+              Cadastro de pet
+            </h2>
 
-          <div id="segundoPetCampos" style="display:none;">
-            <div class="field"><label for="nomePet2">Nome do segundo pet</label><input type="text" id="nomePet2" placeholder="Nome do segundo pet"></div>
+            <div class="field"><label for="nomeDono">Nome do dono</label><input type="text" id="nomeDono" placeholder="Ex.: Ana Souza"></div>
+            <div class="field"><label for="nomePet">Nome do pet</label><input type="text" id="nomePet" placeholder="Ex.: Thor"></div>
             <div class="field-row">
-              <div class="field"><label for="tipoPet2">Tipo</label>
-                <select id="tipoPet2">
+              <div class="field"><label for="tipoPet">Tipo</label>
+                <select id="tipoPet">
                   <option value="">Selecione o tipo</option>
                   <option value="Cão">Cão</option>
                   <option value="Gato">Gato</option>
                   <option value="Outro">Outro</option>
                 </select>
               </div>
-              <div class="field"><label for="raca2">Raça</label><input type="text" id="raca2" placeholder="Raça do segundo pet"></div>
+              <div class="field"><label for="raca">Raça</label><input type="text" id="raca" placeholder="Ex.: SRD, Poodle..."></div>
             </div>
+            <div class="field"><label for="telefone">Telefone</label><input type="tel" id="telefone" placeholder="(11) 90000-0000"></div>
+            <div class="field"><label for="endereco">Endereço</label><input type="text" id="endereco" placeholder="Rua, número, bairro"></div>
+
+            <label class="checkbox-row" for="adicionarSegundoPet" style="margin-top:4px;">
+              <input type="checkbox" id="adicionarSegundoPet" onchange="toggleSegundoPet()">
+              Cadastrar outro pet para o mesmo dono
+            </label>
+
+            <div id="segundoPetCampos" style="display:none;">
+              <div class="field"><label for="nomePet2">Nome do segundo pet</label><input type="text" id="nomePet2" placeholder="Nome do segundo pet"></div>
+              <div class="field-row">
+                <div class="field"><label for="tipoPet2">Tipo</label>
+                  <select id="tipoPet2">
+                    <option value="">Selecione o tipo</option>
+                    <option value="Cão">Cão</option>
+                    <option value="Gato">Gato</option>
+                    <option value="Outro">Outro</option>
+                  </select>
+                </div>
+                <div class="field"><label for="raca2">Raça</label><input type="text" id="raca2" placeholder="Raça do segundo pet"></div>
+              </div>
+            </div>
+
+            <button class="btn btn-primary" id="btnCadastrarPet" data-permissao="pets:criar" onclick="handleCadastrarPet()" style="width:100%;margin-top:var(--sp-2);">Cadastrar pet</button>
+          </section>
+
+          <section class="card" style="display:flex;flex-direction:column;gap:var(--sp-3);">
+            <h2 class="section-title">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--brand-700)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16v-4M12 8h.01"/><circle cx="12" cy="12" r="9"/></svg>
+              Como funciona
+            </h2>
+            <p class="text-muted" style="font-size:.88rem;line-height:1.5;margin:0;">
+              O LanePets não tem um cadastro de cliente separado: o tutor é criado automaticamente a partir dos dados
+              informados aqui (nome, telefone e endereço). Se já existir um tutor com esses dados, o pet é vinculado a
+              ele — nenhum cadastro duplicado é criado.
+            </p>
+            <p class="text-muted" style="font-size:.88rem;line-height:1.5;margin:0;">
+              Para ver, editar ou remover tutores já cadastrados, use o módulo <a href="clientes.html" style="color:var(--brand-700);font-weight:700;">Clientes</a>.
+            </p>
+          </section>
+        </div>
+      </div>
+
+      <!-- ================================================================
+           VISÃO 3 — Cadastro de serviços
+           ================================================================ -->
+      <div id="viewServicos" style="display:none;">
+        <a class="voltar-cadastro" href="#">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5 8 12l7 7"/></svg>
+          Voltar para Cadastro
+        </a>
+        <div class="page-header">
+          <div>
+            <h1>Cadastro de serviços</h1>
+            <p>Gerencie os serviços oferecidos por porte e tipo de pet.</p>
           </div>
+        </div>
 
-          <button class="btn btn-primary" id="btnCadastrarPet" onclick="handleCadastrarPet()" style="width:100%;margin-top:var(--sp-2);">Cadastrar pet</button>
-        </section>
-
-        <section class="card">
+        <section class="card" data-permissao="servicos:visualizar">
           <h2 class="section-title">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--brand-700)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21 8-9-5-9 5 9 5 9-5Z"/><path d="M3 8v8l9 5 9-5V8"/></svg>
-            Cadastro de serviço
+            Novo serviço
           </h2>
 
-          <div class="field"><label for="nomeServico">Nome do serviço</label><input type="text" id="nomeServico" placeholder="Ex.: Banho e tosa"></div>
-          <div class="field"><label for="precoServico">Preço do serviço</label><input type="number" id="precoServico" placeholder="0,00"></div>
+          <div class="form-grid">
+            <div class="field"><label for="nomeServico">Nome do serviço</label><input type="text" id="nomeServico" placeholder="Ex.: Banho e tosa"></div>
+            <div class="field"><label for="precoServico">Preço do serviço</label><input type="number" id="precoServico" placeholder="0,00"></div>
+            <div class="field"><label for="porteServico">Porte</label>
+              <select id="porteServico">
+                <option value="">Selecione o porte</option>
+                <option value="Gato">Gato</option>
+                <option value="Pequeno">Pequeno</option>
+                <option value="Médio">Médio</option>
+                <option value="Grande">Grande</option>
+                <option value="Adicional">Adicional</option>
+              </select>
+            </div>
+          </div>
 
           <label class="checkbox-row" for="servicoPacote">
             <input type="checkbox" id="servicoPacote" onchange="togglePrecoServico()"> Serviço pacote (sem valor)
           </label>
-
-          <div class="field" style="margin-top:var(--sp-4);"><label for="porteServico">Porte</label>
-            <select id="porteServico">
-              <option value="">Selecione o porte</option>
-              <option value="Gato">Gato</option>
-              <option value="Pequeno">Pequeno</option>
-              <option value="Médio">Médio</option>
-              <option value="Grande">Grande</option>
-              <option value="Adicional">Adicional</option>
-            </select>
-          </div>
-
           <label class="checkbox-row" for="servicoAdicional">
             <input type="checkbox" id="servicoAdicional" onchange="toggleAdicionalServico()"> Serviço adicional
           </label>
           <input type="text" id="adicionaisServico" placeholder="Digite os adicionais separados por vírgula" style="display:none;margin-top:var(--sp-3);">
 
-          <button class="btn btn-primary" id="btnCadastrarServico" onclick="handleCadastrarServico()" style="width:100%;margin-top:var(--sp-4);">Cadastrar serviço</button>
+          <button class="btn btn-primary" id="btnCadastrarServico" data-permissao="servicos:criar" onclick="handleCadastrarServico()" style="margin-top:var(--sp-4);">Cadastrar serviço</button>
+        </section>
 
+        <section class="card" style="margin-top:var(--sp-5);">
+          <h2 class="section-title">Serviços cadastrados</h2>
           <ul id="listaServicosCadastrados"></ul>
         </section>
       </div>
 
-      <div class="backup-buttons-container">
-        <button class="btn btn-outline" onclick="exportarBackupCompleto()">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5M12 15V3"/></svg>
-          Exportar backup
-        </button>
-        <input type="file" id="importarBackupInput" onchange="importarBackupCompleto(this)" style="display:none;">
-        <button class="btn btn-outline" onclick="document.getElementById('importarBackupInput').click()">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M17 8l-5-5-5 5M12 3v12"/></svg>
-          Importar backup
-        </button>
-      </div>
     </main>
   </div>
 </div>
@@ -182,59 +408,7 @@
   </form>
 </div>
 
-<div id="modalEditarAgendamento" class="modal-overlay">
-  <form id="formEditarAgendamento" class="modal-box modal-wide" autocomplete="off">
-    <div class="modal-head">
-      <h2>Editar agendamento</h2>
-      <button type="button" class="modal-close" onclick="fecharModalEditarAgendamento()" aria-label="Fechar">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
-      </button>
-    </div>
-    <input type="hidden" id="editAgendamentoIndex">
-    <div class="field-row">
-      <div class="field"><label for="editAgendamentoPet">Nome do pet</label><input type="text" id="editAgendamentoPet" required></div>
-      <div class="field"><label for="editAgendamentoDono">Nome do dono</label><input type="text" id="editAgendamentoDono" required></div>
-    </div>
-    <div class="field"><label for="editAgendamentoDataHora">Data e hora</label><input type="datetime-local" id="editAgendamentoDataHora" required></div>
-    <div class="field"><label for="editAgendamentoPorte">Porte</label>
-      <select id="editAgendamentoPorte" onchange="mostrarCampoAdicionalEdit()" required>
-        <option value="">Selecione o porte</option>
-        <option value="Gato">Gato</option>
-        <option value="Pequeno">Pequeno</option>
-        <option value="Médio">Médio</option>
-        <option value="Grande">Grande</option>
-        <option value="Adicional">Adicional</option>
-      </select>
-    </div>
-    <div id="campoServicosAdicionaisEdit" class="field" style="display:none;">
-      <label for="editServicoAdicionalSelect">Serviço adicional</label>
-      <select id="editServicoAdicionalSelect"></select>
-    </div>
-    <div class="field"><label for="editAgendamentoServicos">Serviços</label><select id="editAgendamentoServicos" multiple required></select></div>
-    <label class="checkbox-row" for="editAgendamentoTransporte" style="margin-bottom:var(--sp-4);">
-      <input type="checkbox" id="editAgendamentoTransporte"> Transporte
-    </label>
-    <div class="field-row">
-      <div class="field"><label for="editAgendamentoValorTransporte">Valor transporte</label><input type="number" id="editAgendamentoValorTransporte" min="0" step="0.01"></div>
-      <div class="field"><label for="editAgendamentoTotal">Total</label><input type="number" id="editAgendamentoTotal" min="0" step="0.01"></div>
-    </div>
-    <div class="field"><label for="editAgendamentoStatus">Status</label>
-      <select id="editAgendamentoStatus" required>
-        <option value="Pendente">Pendente</option>
-        <option value="Em processo">Em processo</option>
-        <option value="Pronto">Pronto</option>
-        <option value="Entregue">Entregue</option>
-      </select>
-    </div>
-    <div class="field"><label for="editAgendamentoObs">Observações</label><input type="text" id="editAgendamentoObs"></div>
-    <div class="modal-actions">
-      <button type="button" class="btn btn-outline" onclick="fecharModalEditarAgendamento()">Cancelar</button>
-      <button type="submit" class="btn btn-primary">Salvar</button>
-    </div>
-  </form>
-</div>
-
-<script src="ui-kit.js?v=4"></script>
+<script src="ui-kit.js?v=5"></script>
 <script>
 function exportarBackupCompleto(filename = 'backup-petshop.json') {
   const dados = {};
@@ -273,8 +447,31 @@ function importarBackupCompleto(input) {
 </script>
 
 <script>
-  let pets = JSON.parse(localStorage.getItem("pets") || "[]");
-  let servicos = JSON.parse(localStorage.getItem("servicos") || "[]");
+  /* ---------------------------------------------------------------------
+     DE ONDE VEM O DADO
+     js/admin-store.js troca o localStorage por um adaptador ligado ao banco:
+         lanepets.db -> GET  /api/admin/estado      -> esta tela
+         esta tela   -> POST /api/admin/sync/<lista> -> lanepets.db
+     Portanto getItem("pets") le o banco e setItem("pets", ...) grava nele.
+     Quem autoriza e o backend (403 por acao); data-permissao apenas esconde
+     o que nao adianta oferecer.
+     --------------------------------------------------------------------- */
+  function safeJsonParse(valor, padrao) {
+    if (valor === null || valor === undefined || valor === "") return padrao;
+    try { const v = JSON.parse(valor); return v === null || v === undefined ? padrao : v; }
+    catch (_) { return padrao; }
+  }
+
+  let pets = safeJsonParse(localStorage.getItem("pets"), []);
+  let servicos = safeJsonParse(localStorage.getItem("servicos"), []);
+  let estadoCadastro = "carregando";   // carregando | pronto | erro
+
+  function carregarDadosCadastro() {
+    pets = safeJsonParse(localStorage.getItem("pets"), []);
+    servicos = safeJsonParse(localStorage.getItem("servicos"), []);
+    if (!Array.isArray(pets)) pets = [];
+    if (!Array.isArray(servicos)) servicos = [];
+  }
 
   function toggleSegundoPet() {
     document.getElementById("segundoPetCampos").style.display =
@@ -340,6 +537,7 @@ function importarBackupCompleto(input) {
         document.getElementById("adicionarSegundoPet").checked = false;
         document.getElementById("segundoPetCampos").style.display = "none";
       }
+      atualizarContadores();
     } else {
       toast("Preencha todos os campos obrigatórios!", "error");
     }
@@ -380,6 +578,7 @@ function importarBackupCompleto(input) {
     document.getElementById("adicionaisServico").value = "";
     document.getElementById("adicionaisServico").style.display = "none";
     mostrarServicosCadastrados();
+    atualizarContadores();
     toast("Serviço cadastrado com sucesso.", "success");
     return true;
   }
@@ -391,7 +590,27 @@ function importarBackupCompleto(input) {
 
   function mostrarServicosCadastrados() {
     const ul = document.getElementById("listaServicosCadastrados");
+    if (!ul) return;
     ul.innerHTML = "";
+
+    if (estadoCadastro === "carregando") {
+      ul.innerHTML = '<li><span class="text-muted" style="font-size:.85rem;">Carregando serviços…</span></li>';
+      return;
+    }
+    if (estadoCadastro === "erro") {
+      const li = document.createElement("li");
+      li.innerHTML = '<span class="text-muted" style="font-size:.85rem;">Não foi possível carregar os serviços do servidor.</span>';
+      const botao = document.createElement("button");
+      botao.type = "button";
+      botao.className = "btn btn-outline btn-sm";
+      botao.style.marginTop = "8px";
+      botao.textContent = "Tentar novamente";
+      botao.addEventListener("click", recarregarCadastro);
+      li.appendChild(document.createElement("br"));
+      li.appendChild(botao);
+      ul.appendChild(li);
+      return;
+    }
 
     const portes = ["Gato","Pequeno", "Médio", "Grande", "Adicional"];
     let algum = false;
@@ -410,8 +629,8 @@ function importarBackupCompleto(input) {
           li.innerHTML = `
             <span>${s.nome}${s.pacote ? " (Pacote)" : ""} ${s.preco !== null && s.preco !== undefined ? "- R$ " + s.preco.toFixed(2) : ""}</span>
             <div class="row-actions">
-              <button class="btn btn-outline btn-sm" onclick="editarServico(${idx})">Editar</button>
-              <button class="btn btn-danger btn-sm" onclick="excluirServico(${idx})">Excluir</button>
+              <button class="btn btn-outline btn-sm" data-permissao="servicos:editar" onclick="editarServico(${idx})">Editar</button>
+              <button class="btn btn-danger btn-sm" data-permissao="servicos:excluir" onclick="excluirServico(${idx})">Excluir</button>
             </div>
           `;
           ul.appendChild(li);
@@ -419,8 +638,24 @@ function importarBackupCompleto(input) {
     });
     if (!algum) {
       const li = document.createElement("li");
-      li.innerHTML = `<span class="text-muted" style="font-size:.85rem;">Nenhum serviço cadastrado ainda.</span>`;
+      li.innerHTML = `
+        <div class="empty-state" style="padding:var(--sp-6) var(--sp-2);">
+          <p style="margin:0 0 var(--sp-3);">Nenhum serviço cadastrado ainda.</p>
+        </div>`;
       ul.appendChild(li);
+      const criarBtn = document.createElement("button");
+      criarBtn.type = "button";
+      criarBtn.className = "btn btn-primary btn-sm";
+      criarBtn.dataset.permissao = "servicos:criar";
+      criarBtn.textContent = "+ Cadastrar serviço";
+      criarBtn.addEventListener("click", () => document.getElementById("nomeServico").focus());
+      li.querySelector(".empty-state").appendChild(criarBtn);
+    }
+
+    /* Conteudo criado depois da carga das permissoes precisa ser filtrado de
+       novo — senao um botao proibido reapareceria a cada redesenho. */
+    if (window.LanePermissoes && window.LanePermissoes.estadoAtual) {
+      window.LanePermissoes.ajustarElementos(ul);
     }
   }
 
@@ -430,6 +665,7 @@ function importarBackupCompleto(input) {
       servicos.splice(index, 1);
       localStorage.setItem("servicos", JSON.stringify(servicos));
       mostrarServicosCadastrados();
+      atualizarContadores();
       toast("Serviço excluído.", "success");
     }
   }
@@ -474,8 +710,7 @@ function importarBackupCompleto(input) {
       toast("Preencha todos os campos corretamente!", "error");
       return;
     }
-    /* Mantem o id do servico para que a edicao atualize o registro do banco. */
-    servicos[index] = { ...servicos[index], nome, preco, porte, adicionais, pacote: isPacote };
+    servicos[index] = { nome, preco, porte, adicionais, pacote: isPacote };
     localStorage.setItem("servicos", JSON.stringify(servicos));
     fecharModalServico();
     mostrarServicosCadastrados();
@@ -486,103 +721,182 @@ function importarBackupCompleto(input) {
     if (e.target === this) fecharModalServico();
   });
 
-  let agendamentos = JSON.parse(localStorage.getItem("agendamentos") || "[]");
+  /* ------------------------------------------------------------------ */
+  /* Navegação da central: hub / #pets / #servicos, sem rota nova nem    */
+  /* recarga de página — o botão Voltar do navegador funciona normal.    */
+  /* ------------------------------------------------------------------ */
+  const VIEWS = { hub: 'viewHub', pets: 'viewPets', servicos: 'viewServicos' };
 
-  function mostrarCampoAdicionalEdit() {
-    const porte = document.getElementById("editAgendamentoPorte").value;
-    const campo = document.getElementById("campoServicosAdicionaisEdit");
-    const selectAdic = document.getElementById("editServicoAdicionalSelect");
-    if (porte === "Adicional") {
-      campo.style.display = "block";
-      selectAdic.innerHTML = "";
-      servicos.filter(s => s.porte === "Adicional").forEach(s => {
-        const opt = document.createElement("option");
-        opt.value = s.nome;
-        opt.text = `${s.nome}${s.preco !== null && s.preco !== undefined ? " - R$ " + s.preco.toFixed(2) : ""}`;
-        selectAdic.appendChild(opt);
-      });
-    } else {
-      campo.style.display = "none";
-      selectAdic.innerHTML = "";
-    }
-  }
-
-  function editarAgendamento(index) {
-    const ag = agendamentos[index];
-    if (!ag) return;
-
-    document.getElementById("editAgendamentoIndex").value = index;
-    document.getElementById("editAgendamentoPet").value = ag.pet;
-    document.getElementById("editAgendamentoDono").value = ag.dono;
-    document.getElementById("editAgendamentoDataHora").value = ag.dataHora.slice(0,16);
-    document.getElementById("editAgendamentoPorte").value = ag.porte || "";
-    mostrarCampoAdicionalEdit();
-
-    if (ag.porte === "Adicional" && ag.servicoAdicional) {
-      const selectAdic = document.getElementById("editServicoAdicionalSelect");
-      for (let i = 0; i < selectAdic.options.length; i++) {
-        if (selectAdic.options[i].value === ag.servicoAdicional) {
-          selectAdic.selectedIndex = i;
-          break;
-        }
-      }
-    }
-
-    const selectServicos = document.getElementById("editAgendamentoServicos");
-    selectServicos.innerHTML = "";
-    servicos.forEach((s, i) => {
-      const opt = document.createElement("option");
-      opt.value = i;
-      opt.text = `${s.nome}${s.preco !== null && s.preco !== undefined ? " - R$ " + s.preco.toFixed(2) : ""}`;
-      if (ag.servicos && ag.servicos.some(sv => sv.nome === s.nome)) opt.selected = true;
-      selectServicos.appendChild(opt);
+  function aplicarRota() {
+    const rota = (location.hash || '').replace('#', '');
+    const alvo = VIEWS[rota] ? rota : 'hub';
+    Object.keys(VIEWS).forEach(chave => {
+      const el = document.getElementById(VIEWS[chave]);
+      if (el) el.style.display = chave === alvo ? '' : 'none';
     });
+    if (alvo === 'servicos') mostrarServicosCadastrados();
+    if (alvo !== 'hub') window.scrollTo({ top: 0, behavior: 'instant' in window ? 'instant' : 'auto' });
+  }
+  window.addEventListener('hashchange', aplicarRota);
 
-    document.getElementById("editAgendamentoTransporte").checked = !!ag.transporte;
-    document.getElementById("editAgendamentoValorTransporte").disabled = !ag.transporte;
-    document.getElementById("editAgendamentoValorTransporte").value = ag.transporte ? ag.valorTransporte : "";
-    document.getElementById("editAgendamentoTotal").value = ag.total !== undefined ? ag.total : "";
-    document.getElementById("editAgendamentoStatus").value = ag.status || "Pendente";
-    document.getElementById("editAgendamentoObs").value = ag.obs || "";
-
-    document.getElementById("modalEditarAgendamento").classList.add("ativo");
+  /* ------------------------------------------------------------------ */
+  /* Busca dos cartões de cadastro (client-side, sobre os módulos reais) */
+  /* ------------------------------------------------------------------ */
+  function normalizarBusca(v) {
+    return String(v || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
   }
 
-  function fecharModalEditarAgendamento() {
-    document.getElementById("modalEditarAgendamento").classList.remove("ativo");
+  function iniciarBuscaCadastro() {
+    const input = document.getElementById('buscaCadastro');
+    if (!input) return;
+    input.addEventListener('input', () => {
+      const termo = normalizarBusca(input.value);
+      const cartoes = Array.from(document.querySelectorAll('#gradeModulos .module-card'));
+      let visiveis = 0;
+      cartoes.forEach(card => {
+        if (card.style.display === 'none' && card.dataset.escondidoPermissao === '1') return; // ja removido por permissao
+        const texto = normalizarBusca((card.querySelector('h3')?.textContent || '') + ' ' + (card.dataset.search || ''));
+        const bate = !termo || texto.includes(termo);
+        card.style.display = bate ? '' : 'none';
+        if (bate) visiveis++;
+      });
+      document.getElementById('buscaCadastroVazio').style.display = (termo && visiveis === 0) ? '' : 'none';
+    });
   }
 
-  document.getElementById("formEditarAgendamento").onsubmit = function(e) {
-    e.preventDefault();
-    const index = document.getElementById("editAgendamentoIndex").value;
-    const porte = document.getElementById("editAgendamentoPorte").value;
-    let servicoAdicional = null;
-    if (porte === "Adicional") {
-      servicoAdicional = document.getElementById("editServicoAdicionalSelect").value;
+  /* ------------------------------------------------------------------ */
+  /* Contadores reais — cada card busca do endpoint que já é usado pelo  */
+  /* restante do painel. Nenhum número é inventado; falha vira "—".      */
+  /* ------------------------------------------------------------------ */
+  function preencherContador(seletor, texto) {
+    document.querySelectorAll(seletor).forEach(el => {
+      el.textContent = texto;
+      el.classList.remove('skeleton');
+    });
+  }
+
+  async function contarPelaApi(caminho, extrairLista) {
+    try {
+      const resposta = await fetch(`/api/${caminho}${caminho.includes('?') ? '&' : '?'}token=${encodeURIComponent(LaneAdmin.token())}`);
+      const corpo = await resposta.json();
+      if (!resposta.ok || !corpo.ok) return null;
+      const lista = extrairLista(corpo.data);
+      return Array.isArray(lista) ? lista.length : null;
+    } catch (erro) {
+      console.error('[LanePets] falha ao contar ' + caminho + ':', erro);
+      return null;
+    }
+  }
+
+  async function atualizarContadores() {
+    /* Clientes, pets, serviços e produtos já vêm do estado central
+       (GET /api/admin/estado), a mesma fonte que alimenta o resto do
+       painel — e já filtrada por permissão pelo backend. */
+    const pronto = window.LaneStore && window.LaneStore.pronto && window.LaneStore.pronto();
+    if (pronto) {
+      const nClientes = LaneStore.lista('clientes').length;
+      const nPets = LaneStore.lista('pets').length;
+      const nServicos = LaneStore.lista('servicos').length;
+      const nProdutos = LaneStore.lista('produtos').length;
+      preencherContador('[data-kpi="clientes"]', String(nClientes));
+      preencherContador('[data-kpi="pets"]', String(nPets));
+      preencherContador('[data-kpi="servicos"]', String(nServicos));
+      preencherContador('[data-kpi="produtos"]', String(nProdutos));
+      preencherContador('[data-count="clientes"]', nClientes + (nClientes === 1 ? ' cadastrado' : ' cadastrados'));
+      preencherContador('[data-count="pets"]', nPets + (nPets === 1 ? ' cadastrado' : ' cadastrados'));
+      preencherContador('[data-count="servicos"]', nServicos + (nServicos === 1 ? ' cadastrado' : ' cadastrados'));
+      preencherContador('[data-count="produtos"]', nProdutos + (nProdutos === 1 ? ' cadastrado' : ' cadastrados'));
     }
 
-    agendamentos[index].porte = porte;
-    if (porte === "Adicional") {
-      agendamentos[index].servicoAdicional = servicoAdicional;
-    } else {
-      agendamentos[index].servicoAdicional = null;
+    /* Unidades: não é um cadastro com módulo próprio no sistema — é a
+       lista fixa de unidades da operação (Franco e Caieiras). O número
+       ainda assim vem da API, nunca escrito à mão. */
+    LaneAPI.unidades().then(d => {
+      const n = (d && d.unidades && d.unidades.length) || 0;
+      preencherContador('[data-kpi="unidades"]', String(n));
+    }).catch(() => preencherContador('[data-kpi="unidades"]', '—'));
+
+    /* Administradores: só existe para quem é Administrador Geral — é o
+       próprio backend que decide isso (ExigirGeralAsync). Se o card não
+       está na tela (permissão escondeu), nem tentamos buscar. */
+    const cardAdmins = document.querySelector('.module-card[data-search*="administradores"]');
+    if (cardAdmins && cardAdmins.style.display !== 'none') {
+      const n = await contarPelaApi('admin/usuarios', d => d && d.usuarios);
+      preencherContador('[data-count="administradores"]', n === null ? '—' : n + (n === 1 ? ' cadastrado' : ' cadastrados'));
     }
 
-    localStorage.setItem("agendamentos", JSON.stringify(agendamentos));
-    fecharModalEditarAgendamento();
-    toast("Agendamento atualizado.", "success");
-  };
+    /* Seguro Pet: planos cadastrados (não solicitações de clientes). */
+    const cardSeguros = document.querySelector('.module-card[data-search*="seguro"]');
+    if (cardSeguros && cardSeguros.style.display !== 'none') {
+      const n = await contarPelaApi('admin/seguros', d => d);
+      preencherContador('[data-count="seguros"]', n === null ? '—' : n + (n === 1 ? ' cadastrado' : ' cadastrados'));
+    }
+  }
 
-  mostrarServicosCadastrados();
+  /* ------------------------------------------------------------------ */
+  /* Ciclo de vida: carrega -> mostra, e redesenha quando o banco mudar.  */
+  /* ------------------------------------------------------------------ */
+  function recarregarCadastro() {
+    estadoCadastro = "carregando";
+    mostrarServicosCadastrados();
+    const promessa = (window.LaneStore && window.LaneStore.recarregar)
+      ? window.LaneStore.recarregar()
+      : Promise.resolve(true);
+    return promessa
+      .then(ok => {
+        carregarDadosCadastro();
+        estadoCadastro = ok === false ? "erro" : "pronto";
+        mostrarServicosCadastrados();
+        atualizarContadores();
+      })
+      .catch(erro => {
+        console.error("[LanePets] falha ao carregar o cadastro:", erro);
+        estadoCadastro = "erro";
+        mostrarServicosCadastrados();
+      });
+  }
 
-/* ---------------------------------------------------------------------------
-   Atualizacao automatica: a ponte js/admin-store.js recarrega o banco (aviso
-   em tempo real do servidor ou verificacao periodica) e dispara este evento.
-   A tela apenas se redesenha com o que acabou de chegar.
-   ------------------------------------------------------------------------- */
-window.addEventListener('lanepets:dados', function () {
-  try { pets = JSON.parse(localStorage.getItem('pets') || '[]'); servicos = JSON.parse(localStorage.getItem('servicos') || '[]'); agendamentos = JSON.parse(localStorage.getItem('agendamentos') || '[]'); mostrarServicosCadastrados(); } catch (e) { console.error('[LanePets] falha ao redesenhar a tela:', e); }
-});
+  function iniciarCadastro() {
+    carregarDadosCadastro();
+    estadoCadastro = (window.LaneStore && window.LaneStore.pronto && window.LaneStore.pronto())
+      ? "pronto" : "carregando";
+    aplicarRota();
+    iniciarBuscaCadastro();
+    atualizarContadores();
+    if (estadoCadastro === "carregando") recarregarCadastro();
+  }
+
+  /* A ponte avisa (SignalR ou recarga periodica) quando o banco muda. */
+  window.addEventListener("lanepets:dados", () => {
+    carregarDadosCadastro();
+    estadoCadastro = "pronto";
+    mostrarServicosCadastrados();
+    atualizarContadores();
+  });
+
+  /* As permissoes chegam depois do primeiro desenho: redesenha para que os
+     cartões e botões proibidos sumam sem piscar a tela inteira. */
+  function conferirCardsDisponiveis() {
+    const grade = document.getElementById("gradeModulos");
+    const acoes = document.getElementById("acoesRapidas");
+    const aviso = document.getElementById("semFerramentasCadastro");
+    if (!grade || !aviso) return;
+    const vazia = grade.querySelectorAll(".module-card").length === 0;
+    grade.style.display = vazia ? "none" : "";
+    if (acoes) acoes.style.display = vazia ? "none" : "";
+    aviso.style.display = vazia ? "" : "none";
+  }
+
+  if (window.LanePermissoes && typeof window.LanePermissoes.pronto === "function") {
+    window.LanePermissoes.pronto(() => {
+      mostrarServicosCadastrados();
+      conferirCardsDisponiveis();
+      atualizarContadores();
+    });
+  }
+
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", iniciarCadastro);
+  else iniciarCadastro();
 </script>
 </body>
 </html>

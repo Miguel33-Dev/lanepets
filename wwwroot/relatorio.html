@@ -1,88 +1,535 @@
-<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Relatório &middot; LanePets</title><link rel="stylesheet" href="design-system.css?v=4"><style>
-    /* Somente o que é específico desta tela. Tabelas, filtros, formulários,
-       resumos e modais vivem em design-system.css (camada compartilhada). */
+<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Relatório Financeiro &middot; LanePets</title><link rel="stylesheet" href="design-system.css?v=6"><style>
+    /* Somente o que é específico desta tela. Cards, tabelas, filtros,
+       badges e estados vazios/skeleton vivem em design-system.css. */
     #modalEditarES{display:none;position:fixed;inset:0;background:rgba(3,44,28,.55);backdrop-filter:blur(2px);z-index:1000;align-items:center;justify-content:center;padding:20px}
     #modalEditarES[style*="flex"]{display:flex}
     #formEditarES{width:min(620px,100%);background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);padding:var(--sp-6);box-shadow:var(--shadow-lg);max-height:88vh;overflow:auto}
     #avisoSucesso{display:none}
+
+    /* ---------- Filtros ---------- */
+    .rel-filtros-grid{display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-5)}
+    .rel-periodo-custom{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:var(--sp-4);margin-top:var(--sp-3)}
+    .rel-periodo-custom[hidden]{display:none}
+    @media(max-width:900px){.rel-filtros-grid{grid-template-columns:1fr}}
+
+    /* ---------- Cards financeiros ---------- */
+    .kpi-grid.rel-kpis{grid-template-columns:repeat(5,1fr)}
+    @media(max-width:1200px){.kpi-grid.rel-kpis{grid-template-columns:repeat(3,1fr)}}
+    @media(max-width:640px){.kpi-grid.rel-kpis{grid-template-columns:1fr 1fr}}
+
+    /* ---------- Aviso de acesso restrito ---------- */
+    .rel-restrito{display:flex;align-items:center;gap:var(--sp-3);padding:var(--sp-4) var(--sp-5);background:var(--warning-100);border:1px solid var(--warning-500);border-radius:var(--r-md);color:#7a5a0e;font-size:var(--fs-sm);font-weight:700;margin-bottom:var(--sp-5)}
+    .rel-restrito svg{flex-shrink:0}
+
+    /* ---------- Entradas x Saídas (comparação simples) ---------- */
+    .rel-comparacao{display:grid;gap:var(--sp-4);margin-top:var(--sp-3)}
+    .rel-comp-linha{display:grid;grid-template-columns:88px 1fr 110px;align-items:center;gap:var(--sp-3);font-size:var(--fs-sm)}
+    .rel-comp-track{height:14px;background:var(--surface-muted);border-radius:var(--r-full);overflow:hidden}
+    .rel-comp-fill{height:100%;border-radius:var(--r-full);transition:width .3s var(--ease)}
+    .rel-comp-fill.entrada{background:linear-gradient(90deg,var(--success-500),#2fa066)}
+    .rel-comp-fill.saida{background:linear-gradient(90deg,var(--danger-500),#d9584a)}
+    .rel-comp-linha strong{text-align:right;font-variant-numeric:tabular-nums}
+    .rel-saldo-linha{display:flex;justify-content:space-between;align-items:center;padding-top:var(--sp-3);margin-top:var(--sp-1);border-top:1px dashed var(--border);font-weight:800}
+
+    /* ---------- Formas de pagamento / listas chave-valor ---------- */
+    .rel-forma-row{display:grid;grid-template-columns:96px 1fr auto;gap:var(--sp-3);align-items:center;font-size:var(--fs-sm);margin-bottom:var(--sp-3)}
+    .rel-forma-row:last-child{margin-bottom:0}
+    .rel-forma-row .meta{text-align:right;font-variant-numeric:tabular-nums;color:var(--ink-700)}
+    .rel-forma-row .meta small{display:block;color:var(--ink-500);font-weight:600;font-size:var(--fs-xs)}
+
+    .rel-kv-grid{display:grid;grid-template-columns:1fr 1fr;gap:0 var(--sp-5)}
+    .rel-kv{display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--border);font-size:var(--fs-sm)}
+    .rel-kv:last-child,.rel-kv:nth-last-child(2){border-bottom:0}
+    .rel-kv span{color:var(--ink-500)}
+    .rel-kv strong{font-variant-numeric:tabular-nums;color:var(--ink-900)}
+    @media(max-width:560px){.rel-kv-grid{grid-template-columns:1fr}}
+
+    /* ---------- Rankings (top produtos/serviços) ---------- */
+    .rel-rank{display:grid;gap:var(--sp-3);margin-top:var(--sp-3)}
+    .rel-rank-row{display:grid;grid-template-columns:22px 1fr auto;gap:var(--sp-3);align-items:center;font-size:var(--fs-sm)}
+    .rel-rank-pos{width:22px;height:22px;border-radius:50%;background:var(--brand-100);color:var(--brand-700);font-size:var(--fs-xs);font-weight:800;display:flex;align-items:center;justify-content:center}
+    .rel-rank-info strong{display:block;font-size:var(--fs-sm)}
+    .rel-rank-info small{color:var(--ink-500);font-size:var(--fs-xs)}
+    .rel-rank-valor{text-align:right;font-weight:800;font-variant-numeric:tabular-nums}
+
+    /* ---------- Tipo de movimentação (mesmo padrão de entradas_e_saidas.html) ---------- */
+    .es-tipo-badge{display:inline-flex;align-items:center;gap:6px}
+    .es-tipo-badge .bolinha{width:8px;height:8px;border-radius:50%;flex:0 0 auto}
+    .es-tipo-badge.entrada .bolinha{background:var(--success-500)}
+    .es-tipo-badge.saida .bolinha{background:var(--danger-500)}
+    .num{text-align:right;font-variant-numeric:tabular-nums}
+
+    /* ---------- Skeletons ---------- */
+    .rel-skel-kpi{height:96px;border-radius:var(--r-lg)}
+    .rel-skel-chart{height:220px;border-radius:var(--r-md)}
+    .rel-skel-row{height:16px;border-radius:var(--r-sm);margin-bottom:10px}
+    .rel-skel-row:last-child{margin-bottom:0}
+
+    .section-head{display:flex;align-items:flex-start;justify-content:space-between;gap:var(--sp-4);flex-wrap:wrap;margin-bottom:var(--sp-3)}
+    .section-head .section-title{margin-bottom:0}
   </style>  <script src="js/config.js"></script>
   <script src="js/api.js"></script>
   <script src="lib/signalr/signalr.min.js"></script>
-  <script src="js/admin-dados.js"></script>
-<script src="js/admin-permissoes.js"></script>
-</head><body><div class="app-shell"><aside class="sidebar" id="menu-lateral"><div class="sidebar-brand"><a class="brand-home" href="cliente.html" title="Abrir o site LanePets"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="var(--accent-500)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="7" cy="8" r="2"/><circle cx="12" cy="5.5" r="2"/><circle cx="17" cy="8" r="2"/><path d="M12 13c-3.3 0-6 2.1-6 4.7 0 1.6 1.5 2.3 3 1.8.9-.3 1.9-.5 3-.5s2.1.2 3 .5c1.5.5 3-.2 3-1.8 0-2.6-2.7-4.7-6-4.7Z"/></svg><span class="brand-text"><span class="brand-name">LanePets</span><span class="brand-sub">Franco + Caieiras</span></span><svg class="brand-home-ico" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg></a><button class="sidebar-close hide-desktop" type="button" aria-label="Fechar menu"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div><nav class="sidebar-nav" aria-label="Menu do painel"><p class="nav-group">Operação</p><a class="nav-item" href="dashboard_financeiro.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 13h8V3H3v10Zm0 8h8v-6H3v6Zm10 0h8V11h-8v10Zm0-18v6h8V3h-8Z"/></svg><span>Dashboard</span></a><a class="nav-item" href="agendamentos.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4.5" width="18" height="16.5" rx="2.5"/><path d="M16 2.5v4M8 2.5v4M3 10h18"/></svg><span>Agendamentos</span></a><a class="nav-item" href="pedidos.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="20" r="1.4"/><circle cx="18" cy="20" r="1.4"/><path d="M2.5 3h2.2l2.3 11.2a1.6 1.6 0 0 0 1.6 1.3h8.7a1.6 1.6 0 0 0 1.6-1.25L21 7H6"/></svg><span>Pedidos</span></a><a class="nav-item" href="clientes.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 20v-1.8a3.6 3.6 0 0 0-3.6-3.6H6.6A3.6 3.6 0 0 0 3 18.2V20"/><circle cx="9.5" cy="7.5" r="3.4"/><path d="M21 20v-1.8a3.6 3.6 0 0 0-2.7-3.48"/><path d="M15.5 4.2a3.4 3.4 0 0 1 0 6.6"/></svg><span>Clientes</span></a><a class="nav-item" href="clientes_pacote.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.3 7.5 12 12l8.7-4.5"/><path d="M12 12v9.2"/><path d="M20.4 7.2v9.6a1.4 1.4 0 0 1-.76 1.24l-7 3.6a1.4 1.4 0 0 1-1.28 0l-7-3.6A1.4 1.4 0 0 1 3.6 16.8V7.2a1.4 1.4 0 0 1 .76-1.24l7-3.6a1.4 1.4 0 0 1 1.28 0l7 3.6A1.4 1.4 0 0 1 20.4 7.2Z"/></svg><span>Pacotes</span></a><a class="nav-item" href="index.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6.2" cy="9" r="1.9"/><circle cx="11" cy="6.4" r="1.9"/><circle cx="15.8" cy="9" r="1.9"/><path d="M11 13.4c-3.1 0-5.6 2-5.6 4.4 0 1.5 1.4 2.2 2.8 1.7.85-.3 1.8-.45 2.8-.45s1.95.15 2.8.45c1.4.5 2.8-.2 2.8-1.7 0-2.4-2.5-4.4-5.6-4.4Z"/><path d="M19 4.5v5M21.5 7h-5"/></svg><span>Cadastro</span></a><p class="nav-group">Catálogo</p><a class="nav-item" href="Produtos.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 8 9-5 9 5-9 5-9-5Z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v8"/></svg><span>Produtos</span></a><p class="nav-group">Financeiro</p><a class="nav-item" href="entradas_e_saidas.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.5v19"/><path d="M16.8 6H9.6a3.4 3.4 0 0 0 0 6.8h4.8a3.4 3.4 0 0 1 0 6.8H6.8"/></svg><span>Entradas e Saídas</span></a><a class="nav-item active" href="relatorio.html" aria-current="page"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 3.5v17h17"/><path d="M18 16.5V9M13 16.5V5.5M8 16.5v-4"/></svg><span>Relatório</span></a><p class="nav-group">Site público</p><a class="nav-item" href="gestao-publica.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3.3 9.5h17.4M3.3 14.5h17.4"/><path d="M12 3a15 15 0 0 1 0 18a15 15 0 0 1 0-18Z"/></svg><span>Área pública</span></a></nav><div class="sidebar-foot">LanePets &copy; 2026 &middot; Painel de gestão</div></aside><div class="main-area"><header class="topbar"><div class="topbar-left"><button class="menu-toggle hide-desktop" aria-label="Abrir menu">☰</button><div><div class="topbar-title">Relatório Financeiro</div><div class="topbar-breadcrumb hide-mobile">Financeiro / Relatório de agendamentos</div></div></div><div class="topbar-right"><a class="topbar-ghost hide-mobile" href="cliente.html" title="Ver o site público"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3.3 9.5h17.4M3.3 14.5h17.4"/><path d="M12 3a15 15 0 0 1 0 18a15 15 0 0 1 0-18Z"/></svg><span>Ver site</span></a><div class="topbar-user"><div class="avatar" aria-hidden="true">LP</div><div class="topbar-user-info hide-mobile"><strong>Administrador</strong><span>LanePets</span></div></div><button class="btn btn-outline btn-sm" type="button" id="btnSair" title="Encerrar sessão"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5.5A1.5 1.5 0 0 1 4 19.5v-15A1.5 1.5 0 0 1 5.5 3H9"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/></svg><span class="hide-mobile">Sair</span></button></div></header><main class="page-content"><div class="page-header"><div><h1>Relatório Financeiro de Agendamentos</h1><p>Consulte quantidade de agendamentos e faturamento por período.</p></div></div>
-<section class="card" style="margin-bottom:var(--sp-5)"><h2 class="section-title">Período e unidade</h2><div class="filter-grid" style="grid-template-columns:repeat(3,minmax(180px,260px))"><div class="field"><label for="filtroDataInicio">Data inicial</label><input class="input" type="date" id="filtroDataInicio" onchange="gerarRelatorio()"></div><div class="field"><label for="filtroDataFim">Data final</label><input class="input" type="date" id="filtroDataFim" onchange="gerarRelatorio()"></div><div class="field"><label for="filtroUnidade">Unidade</label><select class="input" id="filtroUnidade" onchange="gerarRelatorio()"><option value="todas">Todas as unidades</option><option value="franco">Franco da Rocha</option><option value="caieiras">Caieiras</option><option value="sem-unidade">Sem unidade / antigos</option></select></div></div><div class="filter-actions" style="margin-top:var(--sp-4)"><button class="btn btn-primary" onclick="gerarRelatorio()">Atualizar relatório</button></div></section>
-<section class="card"><div class="table-wrap"><table id="tabelaRelatorio"><thead><tr><th>Data</th><th>Agendamentos</th><th>Cancelados</th><th>Valor Total (R$)</th></tr></thead><tbody></tbody></table></div></section><section class="card" id="totalGeral" style="margin-top:var(--sp-5)"></section>
-<div class="backup-buttons-container"><button class="btn btn-outline" onclick="exportarRelatorio()">Exportar relatório (CSV)</button><a class="btn btn-outline" href="migrar-dados.html">Migrar dados do navegador</a></div></main></div></div><script src="ui-kit.js?v=4"></script>
+  <script src="js/admin-dados.js?v=2"></script>
+<script src="js/admin-permissoes.js?v=5"></script>
+<script src="js/unidades.js?v=3"></script>
+</head><body><div class="app-shell"><aside class="sidebar" id="menu-lateral"><div class="sidebar-brand"><a class="brand-home" href="cliente.html" title="Abrir o site LanePets"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="var(--accent-500)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="7" cy="8" r="2"/><circle cx="12" cy="5.5" r="2"/><circle cx="17" cy="8" r="2"/><path d="M12 13c-3.3 0-6 2.1-6 4.7 0 1.6 1.5 2.3 3 1.8.9-.3 1.9-.5 3-.5s2.1.2 3 .5c1.5.5 3-.2 3-1.8 0-2.6-2.7-4.7-6-4.7Z"/></svg><span class="brand-text"><span class="brand-name">LanePets</span><span class="brand-sub">Franco + Caieiras</span></span><svg class="brand-home-ico" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg></a><button class="sidebar-close hide-desktop" type="button" aria-label="Fechar menu"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div><nav class="sidebar-nav" aria-label="Menu do painel"><p class="nav-group">Operação</p><a class="nav-item" href="dashboard_financeiro.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 13h8V3H3v10Zm0 8h8v-6H3v6Zm10 0h8V11h-8v10Zm0-18v6h8V3h-8Z"/></svg><span>Dashboard</span></a><a class="nav-item" href="agendamentos.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4.5" width="18" height="16.5" rx="2.5"/><path d="M16 2.5v4M8 2.5v4M3 10h18"/></svg><span>Agendamentos</span></a><a class="nav-item" href="pedidos.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="20" r="1.4"/><circle cx="18" cy="20" r="1.4"/><path d="M2.5 3h2.2l2.3 11.2a1.6 1.6 0 0 0 1.6 1.3h8.7a1.6 1.6 0 0 0 1.6-1.25L21 7H6"/></svg><span>Pedidos</span></a><a class="nav-item" href="clientes.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 20v-1.8a3.6 3.6 0 0 0-3.6-3.6H6.6A3.6 3.6 0 0 0 3 18.2V20"/><circle cx="9.5" cy="7.5" r="3.4"/><path d="M21 20v-1.8a3.6 3.6 0 0 0-2.7-3.48"/><path d="M15.5 4.2a3.4 3.4 0 0 1 0 6.6"/></svg><span>Clientes</span></a><a class="nav-item" href="clientes_pacote.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.3 7.5 12 12l8.7-4.5"/><path d="M12 12v9.2"/><path d="M20.4 7.2v9.6a1.4 1.4 0 0 1-.76 1.24l-7 3.6a1.4 1.4 0 0 1-1.28 0l-7-3.6A1.4 1.4 0 0 1 3.6 16.8V7.2a1.4 1.4 0 0 1 .76-1.24l7-3.6a1.4 1.4 0 0 1 1.28 0l7 3.6A1.4 1.4 0 0 1 20.4 7.2Z"/></svg><span>Pacotes</span></a><a class="nav-item" href="index.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6.2" cy="9" r="1.9"/><circle cx="11" cy="6.4" r="1.9"/><circle cx="15.8" cy="9" r="1.9"/><path d="M11 13.4c-3.1 0-5.6 2-5.6 4.4 0 1.5 1.4 2.2 2.8 1.7.85-.3 1.8-.45 2.8-.45s1.95.15 2.8.45c1.4.5 2.8-.2 2.8-1.7 0-2.4-2.5-4.4-5.6-4.4Z"/><path d="M19 4.5v5M21.5 7h-5"/></svg><span>Cadastro</span></a><p class="nav-group">Catálogo</p><a class="nav-item" href="Produtos.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 8 9-5 9 5-9 5-9-5Z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v8"/></svg><span>Produtos</span></a><p class="nav-group">Financeiro</p><a class="nav-item" href="entradas_e_saidas.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.5v19"/><path d="M16.8 6H9.6a3.4 3.4 0 0 0 0 6.8h4.8a3.4 3.4 0 0 1 0 6.8H6.8"/></svg><span>Entradas e Saídas</span></a><a class="nav-item active" href="relatorio.html" aria-current="page"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 3.5v17h17"/><path d="M18 16.5V9M13 16.5V5.5M8 16.5v-4"/></svg><span>Relatório</span></a><p class="nav-group">Site público</p><a class="nav-item" href="gestao-publica.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3.3 9.5h17.4M3.3 14.5h17.4"/><path d="M12 3a15 15 0 0 1 0 18a15 15 0 0 1 0-18Z"/></svg><span>Área pública</span></a></nav><div class="sidebar-foot">LanePets &copy; 2026 &middot; Painel de gestão</div></aside><div class="main-area"><header class="topbar"><div class="topbar-left"><button class="menu-toggle hide-desktop" aria-label="Abrir menu">☰</button><div><div class="topbar-title">Relatório Financeiro</div><div class="topbar-breadcrumb hide-mobile">Financeiro / Relatório</div></div></div><div class="topbar-right"><a class="topbar-ghost hide-mobile" href="cliente.html" title="Ver o site público"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3.3 9.5h17.4M3.3 14.5h17.4"/><path d="M12 3a15 15 0 0 1 0 18a15 15 0 0 1 0-18Z"/></svg><span>Ver site</span></a><div class="topbar-user"><div class="avatar" aria-hidden="true">LP</div><div class="topbar-user-info hide-mobile"><strong>Administrador</strong><span>LanePets</span></div></div><button class="btn btn-outline btn-sm" type="button" id="btnSair" title="Encerrar sessão"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5.5A1.5 1.5 0 0 1 4 19.5v-15A1.5 1.5 0 0 1 5.5 3H9"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/></svg><span class="hide-mobile">Sair</span></button></div></header><main class="page-content">
+
+<div class="page-header">
+  <div><h1>Relatório Financeiro</h1><p>Acompanhe o desempenho financeiro da LanePets por período e unidade.</p></div>
+  <div class="filter-actions"><button class="btn btn-outline" id="btnExportar"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v13m0 0-4-4m4 4 4-4"/><path d="M4 17v2.5A1.5 1.5 0 0 0 5.5 21h13a1.5 1.5 0 0 0 1.5-1.5V17"/></svg><span>Exportar relatório</span></button></div>
+</div>
+
+<div id="avisoRestrito" class="rel-restrito" hidden><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4m0 4h.01M10.3 3.9 1.8 18a1.6 1.6 0 0 0 1.4 2.4h17.6a1.6 1.6 0 0 0 1.4-2.4L13.7 3.9a1.6 1.6 0 0 0-2.8 0Z"/></svg><span>Seu usuário não tem permissão para ver os valores financeiros. Exibindo apenas o que está liberado para o seu perfil.</span></div>
+
+<section class="card" style="margin-bottom:var(--sp-5)">
+  <h2 class="section-title">Período e unidade</h2>
+  <div class="rel-filtros-grid">
+    <div class="field" style="margin-bottom:0">
+      <label>Período rápido</label>
+      <div class="quick-periods">
+        <button class="btn btn-outline btn-sm" data-period="today">Hoje</button>
+        <button class="btn btn-outline btn-sm" data-period="week">Esta semana</button>
+        <button class="btn btn-outline btn-sm active" data-period="month">Este mês</button>
+        <button class="btn btn-outline btn-sm" data-period="previous">Mês anterior</button>
+        <button class="btn btn-outline btn-sm" data-period="30">Últimos 30 dias</button>
+        <button class="btn btn-outline btn-sm" data-period="year">Este ano</button>
+        <button class="btn btn-outline btn-sm" data-period="custom">Personalizado</button>
+      </div>
+    </div>
+    <div class="field" style="margin-bottom:0;max-width:280px">
+      <label for="filtroUnidade">Unidade</label>
+      <select class="input" id="filtroUnidade"><option value="todas">Todas as unidades</option><option value="franco">Franco da Rocha</option><option value="caieiras">Caieiras</option><option value="sem-unidade">Sem unidade / antigos</option></select>
+    </div>
+  </div>
+  <div class="rel-periodo-custom" id="periodoCustom" hidden>
+    <div class="field" style="margin-bottom:0"><label for="filtroDataInicio">Data inicial</label><input class="input" type="date" id="filtroDataInicio"></div>
+    <div class="field" style="margin-bottom:0"><label for="filtroDataFim">Data final</label><input class="input" type="date" id="filtroDataFim"></div>
+  </div>
+  <div class="filter-actions" style="margin-top:var(--sp-4)">
+    <button class="btn btn-primary" id="btnAplicarFiltros">Aplicar filtros</button>
+    <button class="btn btn-outline" id="btnLimparFiltros">Limpar filtros</button>
+  </div>
+</section>
+
+<div class="kpi-grid rel-kpis" id="kpisRelatorio">
+  <section class="card kpi" data-financeiro><div class="accent"></div><div class="eyebrow">Entradas</div><div class="value" id="kpiEntradas">R$ 0,00</div><div class="kpi-trend" id="trendEntradas"></div></section>
+  <section class="card kpi" data-financeiro><div class="accent"></div><div class="eyebrow">Saídas</div><div class="value" id="kpiSaidas">R$ 0,00</div><div class="kpi-trend" id="trendSaidas"></div></section>
+  <section class="card kpi kpi-accent" data-financeiro><div class="accent"></div><div class="eyebrow">Saldo</div><div class="value" id="kpiSaldo">R$ 0,00</div><div class="kpi-trend" id="trendSaldo"></div></section>
+  <section class="card kpi"><div class="accent"></div><div class="eyebrow">Total de pagamentos</div><div class="value" id="kpiPagamentos">0</div><div class="meta">Atendimentos + pedidos no período</div></section>
+  <section class="card kpi" data-financeiro><div class="accent"></div><div class="eyebrow">Ticket médio</div><div class="value" id="kpiTicket">R$ 0,00</div><div class="meta">Receita ÷ atendimentos</div></section>
+</div>
+
+<section class="card chart" data-financeiro style="margin-top:var(--sp-5)">
+  <div class="section-head"><div><h2 class="section-title">Evolução financeira</h2><p class="small-note">Entradas e saídas ao longo do período selecionado.</p></div></div>
+  <div class="bars" id="graficoEvolucao"></div>
+  <div class="legend"><span class="rev">Entradas</span><span class="exp">Saídas</span></div>
+</section>
+
+<div class="chart-grid" data-financeiro style="margin-top:var(--sp-5)">
+  <section class="card chart">
+    <h2 class="section-title">Entradas × Saídas</h2>
+    <p class="small-note">Totais do período selecionado.</p>
+    <div class="rel-comparacao" id="comparacaoEntradasSaidas"></div>
+  </section>
+  <section class="card chart">
+    <h2 class="section-title">Movimentações por categoria</h2>
+    <p class="small-note">Distribuição da receita por origem.</p>
+    <div class="category-list" id="categoriasRelatorio"></div>
+  </section>
+</div>
+
+<div class="chart-grid" data-financeiro style="margin-top:var(--sp-5)">
+  <section class="card">
+    <h2 class="section-title">Desempenho por unidade</h2>
+    <div class="table-wrap tabela-cards"><table><thead><tr><th>Unidade</th><th class="num">Entradas</th><th class="num">Saídas</th><th class="num">Saldo</th><th class="num">Pedidos</th></tr></thead><tbody id="tabelaUnidadesRelatorio"></tbody></table></div>
+  </section>
+  <section class="card">
+    <h2 class="section-title">Receita por forma de pagamento</h2>
+    <div id="formasPagamentoRelatorio"></div>
+  </section>
+</div>
+
+<div class="chart-grid" style="margin-top:var(--sp-5)">
+  <section class="card">
+    <h2 class="section-title">Resumo de pedidos</h2>
+    <div class="rel-kv-grid" id="resumoPedidos"></div>
+  </section>
+  <section class="card" data-financeiro>
+    <h2 class="section-title">Pagamentos</h2>
+    <p class="small-note">Serviços, pedidos da loja e Seguro Pet, pela data de referência do pagamento.</p>
+    <div class="rel-kv-grid" id="resumoPagamentos"></div>
+  </section>
+</div>
+
+<div class="chart-grid" id="blocoTops" style="margin-top:var(--sp-5)">
+  <section class="card" id="cardTopProdutos">
+    <h2 class="section-title">Produtos com maior faturamento</h2>
+    <div class="rel-rank" id="topProdutosRelatorio"></div>
+  </section>
+  <section class="card" id="cardTopServicos">
+    <h2 class="section-title">Serviços mais realizados</h2>
+    <div class="rel-rank" id="topServicosRelatorio"></div>
+  </section>
+</div>
+
+<section class="card" data-financeiro style="margin-top:var(--sp-5)">
+  <h2 class="section-title">Relatório por período</h2>
+  <p class="small-note">Granularidade adaptada automaticamente (diária, semanal ou mensal) conforme o intervalo escolhido.</p>
+  <div class="table-wrap tabela-cards"><table><thead><tr><th>Período</th><th class="num">Entradas</th><th class="num">Saídas</th><th class="num">Saldo</th></tr></thead><tbody id="tabelaPorPeriodo"></tbody></table></div>
+</section>
+
+<section class="card" data-financeiro style="margin-top:var(--sp-5)">
+  <div class="section-head">
+    <div><h2 class="section-title">Últimas movimentações</h2><p class="small-note">Lançamentos manuais de entradas e saídas no período.</p></div>
+    <a class="btn btn-outline btn-sm" href="entradas_e_saidas.html">Ver todas as movimentações</a>
+  </div>
+  <div class="table-wrap tabela-cards"><table><thead><tr><th>Data</th><th>Tipo</th><th>Descrição</th><th>Unidade</th><th class="num">Valor</th></tr></thead><tbody id="tabelaMovimentacoes"></tbody></table></div>
+</section>
+
+</main></div></div><script src="ui-kit.js?v=5"></script>
   <script>
   /* =========================================================================
-     Relatorio de agendamentos — lido do banco (lanepets.db), nao do navegador.
-     Cancelados aparecem em coluna propria e nao entram no faturamento.
+     Relatório Financeiro — centro de análise, 100% alimentado pelo banco
+     (lanepets.db) via /api/admin/relatorio (+ /api/admin/entradas-saidas
+     para o detalhamento). Nenhum número é calculado de novo no navegador
+     além do que a tela precisa formatar — tudo vem pronto do servidor.
      ========================================================================= */
-  let linhasRelatorio = [];
+  const brl = v => Number(v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  const hojeStr = () => new Date().toISOString().slice(0, 10);
+  const el = id => document.getElementById(id);
+  let carregando = false;
+  let ultimoRelatorio = null;
+  let ultimasMovimentacoes = [];
+
+  function periodoAtual() { return [el('filtroDataInicio').value, el('filtroDataFim').value]; }
+
+  /* Só mostra skeleton no primeiro carregamento — nas atualizações seguintes
+     os dados antigos continuam visíveis até os novos chegarem, sem "piscar". */
+  function estadoCarregando() {
+    if (ultimoRelatorio) return;
+    document.querySelectorAll('#kpisRelatorio .value').forEach(v => v.innerHTML = '<span class="skeleton" style="display:inline-block;width:84px;height:20px;vertical-align:middle"></span>');
+    el('graficoEvolucao').innerHTML = '<div class="skeleton rel-skel-chart"></div>';
+    el('comparacaoEntradasSaidas').innerHTML = '<div class="skeleton rel-skel-row" style="height:32px"></div><div class="skeleton rel-skel-row" style="height:32px"></div>';
+    el('categoriasRelatorio').innerHTML = '<div class="skeleton rel-skel-row"></div><div class="skeleton rel-skel-row"></div><div class="skeleton rel-skel-row"></div>';
+    el('formasPagamentoRelatorio').innerHTML = '<div class="skeleton rel-skel-row"></div><div class="skeleton rel-skel-row"></div>';
+    el('tabelaUnidadesRelatorio').innerHTML = '<tr><td colspan="5"><div class="skeleton rel-skel-row"></div></td></tr>';
+    el('tabelaPorPeriodo').innerHTML = '<tr><td colspan="4"><div class="skeleton rel-skel-row"></div></td></tr>';
+    el('tabelaMovimentacoes').innerHTML = '<tr><td colspan="5"><div class="skeleton rel-skel-row"></div></td></tr>';
+    el('resumoPedidos').innerHTML = '<div class="skeleton rel-skel-row"></div>';
+    el('resumoPagamentos').innerHTML = '<div class="skeleton rel-skel-row"></div>';
+  }
 
   async function gerarRelatorio() {
-    const de = document.getElementById('filtroDataInicio').value;
-    const ate = document.getElementById('filtroDataFim').value;
-    const unidade = document.getElementById('filtroUnidade').value;
-    localStorage.setItem('filtrosRelatorio', JSON.stringify({ dataInicio: de, dataFim: ate }));
+    const [de, ate] = periodoAtual();
+    const unidade = el('filtroUnidade').value;
+    if (!de || !ate || de > ate) { toast('Informe um período válido.', 'error'); return; }
+    if (carregando) return;
+    carregando = true;
+    estadoCarregando();
+    localStorage.setItem('filtrosRelatorioFinanceiro', JSON.stringify({ de, ate, unidade, periodoChave: periodoChaveAtiva }));
 
-    const tbody = document.getElementById('tabelaRelatorio').querySelector('tbody');
-    tbody.innerHTML = "<tr><td colspan='4'>Carregando…</td></tr>";
     try {
-      const agendamentos = await LaneAdmin.agendamentos({ de, ate });
-      const daUnidade = a => unidade === 'todas'
-        || (unidade === 'sem-unidade' ? !a.unidade : String(a.unidade || '').toLowerCase() === unidade);
+      const [dados, movimentacoes] = await Promise.all([
+        LaneAdmin.relatorio({ de, ate, unidade }),
+        LaneAdmin.lancamentos({ de, ate }).catch(() => [])
+      ]);
+      ultimoRelatorio = dados;
+      ultimasMovimentacoes = (movimentacoes || []).slice(0, 15);
 
-      const resumo = {};
-      agendamentos.filter(daUnidade).forEach(a => {
-        const data = String(a.dataHora || '').slice(0, 10);
-        if (!data) return;
-        resumo[data] = resumo[data] || { quantidade: 0, cancelados: 0, valor: 0 };
-        if (a.statusCanonico === 'Cancelado') { resumo[data].cancelados += 1; return; }
-        resumo[data].quantidade += 1;
-        resumo[data].valor += Number(a.total || 0);
-      });
+      aplicarRestricao(dados.restrito === true);
 
-      linhasRelatorio = Object.keys(resumo).sort().map(data => ({ data, ...resumo[data] }));
-      const totalValor = linhasRelatorio.reduce((s, l) => s + l.valor, 0);
-      const totalQtd = linhasRelatorio.reduce((s, l) => s + l.quantidade, 0);
-      const totalCancelados = linhasRelatorio.reduce((s, l) => s + l.cancelados, 0);
-
-      tbody.innerHTML = linhasRelatorio.length
-        ? linhasRelatorio.map(l => {
-            const [ano, mes, dia] = l.data.split('-');
-            return `<tr><td>${dia}/${mes}/${ano}</td><td>${l.quantidade}</td><td>${l.cancelados}</td><td>R$ ${l.valor.toFixed(2)}</td></tr>`;
-          }).join('')
-        : "<tr><td colspan='4'>Nenhum agendamento encontrado para o período.</td></tr>";
-
-      document.getElementById('totalGeral').innerHTML =
-        `Valor total arrecadado no período: R$ ${totalValor.toFixed(2)}<br>
-         <span style="font-size:1.1em">Total de agendamentos no período: ${totalQtd}</span><br>
-         <span class="small-note">Cancelados no período (não somados): ${totalCancelados}</span>`;
+      pintarCards(dados.cards, dados.variacao);
+      pintarEvolucao(dados.serie);
+      pintarComparacao(dados.cards);
+      pintarCategorias(dados.categorias);
+      pintarUnidades(dados.porUnidade);
+      pintarFormasPagamento(dados.formasPagamento);
+      pintarResumoPedidos(dados.pedidosResumo);
+      pintarResumoPagamentos(dados.pagamentosResumo);
+      pintarTops(dados.topProdutos, dados.topServicos);
+      pintarPorPeriodo(dados.serie);
+      pintarMovimentacoes(ultimasMovimentacoes);
     } catch (erro) {
-      console.error('[LanePets] relatório:', erro);
-      tbody.innerHTML = `<tr><td colspan='4'>${erro.message}</td></tr>`;
+      console.error('[LanePets] relatório financeiro:', erro);
+      toast(erro.message || 'Não foi possível carregar o relatório financeiro.', 'error');
+      mostrarErroGeral();
+    } finally {
+      carregando = false;
     }
   }
 
+  function mostrarErroGeral() {
+    if (!ultimoRelatorio) {
+      el('graficoEvolucao').innerHTML = '<div class="empty-state"><h3>Não foi possível carregar o relatório financeiro.</h3><p>Verifique sua conexão e tente novamente.</p><button class="btn btn-outline btn-sm" onclick="gerarRelatorio()">Tentar novamente</button></div>';
+    }
+  }
+
+  /* ---------- Cards ---------- */
+  /* Item 11.2: sem permissao de Pagamentos o servidor nao manda valor em dinheiro
+     (vem null / lista vazia); a tela esconde os blocos financeiros em vez de mostrar R$ 0,00. */
+  function aplicarRestricao(restrito) {
+    el('avisoRestrito').hidden = !restrito;
+    document.querySelectorAll('[data-financeiro]').forEach(b => { b.hidden = restrito; b.style.display = restrito ? 'none' : ''; });
+  }
+
+  function pintarCards(cards, variacao) {
+    el('kpiEntradas').textContent = brl(cards.entradas);
+    el('kpiSaidas').textContent = brl(cards.saidas);
+    el('kpiSaldo').textContent = brl(cards.saldo);
+    el('kpiSaldo').className = 'value ' + (cards.saldo >= 0 ? 'positive' : 'negative');
+    el('kpiPagamentos').textContent = cards.totalPagamentos;
+    el('kpiTicket').textContent = brl(cards.ticketMedio);
+
+    tendencia('trendEntradas', variacao && variacao.entradas, true);
+    tendencia('trendSaidas', variacao && variacao.saidas, false);
+    tendencia('trendSaldo', variacao && variacao.saldo, true);
+  }
+
+  function tendencia(id, variacaoPercentual, bomSeSobe) {
+    const alvo = el(id);
+    if (!alvo) return;
+    if (variacaoPercentual === null || variacaoPercentual === undefined) { alvo.innerHTML = ''; return; }
+    const sobe = variacaoPercentual >= 0;
+    const bom = bomSeSobe ? sobe : !sobe;
+    const seta = sobe ? 'M5 12l7-7 7 7' : 'M5 12l7 7 7-7';
+    const classe = Math.abs(variacaoPercentual) < 0.05 ? 'neutro' : (bom ? 'bom' : 'ruim');
+    alvo.innerHTML = `<span class="kpi-trend-chip ${classe}"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="${seta}"/></svg>${sobe ? '+' : ''}${variacaoPercentual.toFixed(1)}% vs. período anterior</span>`;
+  }
+
+  /* ---------- Evolução financeira ---------- */
+  function pintarEvolucao(serie) {
+    const alvo = el('graficoEvolucao');
+    if (!serie || !serie.length) { alvo.innerHTML = '<div class="empty">Sem movimentações no período para montar o gráfico.</div>'; return; }
+    const maior = Math.max(...serie.flatMap(p => [Number(p.receita) || 0, Number(p.despesas) || 0]), 1);
+    alvo.innerHTML = serie.map(p =>
+      `<div class="bar-col"><div class="bar-stack" title="${p.periodo} · entradas ${brl(p.receita)} · saídas ${brl(p.despesas)} · saldo ${brl(p.saldo)}"><div class="bar revenue" style="height:${(Number(p.receita) || 0) / maior * 100}%"></div><div class="bar expense" style="height:${(Number(p.despesas) || 0) / maior * 100}%"></div></div><div class="bar-label">${p.periodo}</div></div>`
+    ).join('');
+  }
+
+  /* ---------- Entradas x Saídas ---------- */
+  function pintarComparacao(cards) {
+    const maior = Math.max(cards.entradas, cards.saidas, 1);
+    el('comparacaoEntradasSaidas').innerHTML = `
+      <div class="rel-comp-linha"><span>Entradas</span><div class="rel-comp-track"><div class="rel-comp-fill entrada" style="width:${cards.entradas / maior * 100}%"></div></div><strong>${brl(cards.entradas)}</strong></div>
+      <div class="rel-comp-linha"><span>Saídas</span><div class="rel-comp-track"><div class="rel-comp-fill saida" style="width:${cards.saidas / maior * 100}%"></div></div><strong>${brl(cards.saidas)}</strong></div>
+      <div class="rel-saldo-linha"><span>Saldo do período</span><span class="${cards.saldo >= 0 ? 'positive' : 'negative'}">${brl(cards.saldo)}</span></div>`;
+  }
+
+  /* ---------- Categorias ---------- */
+  function pintarCategorias(categorias) {
+    const alvo = el('categoriasRelatorio');
+    if (!categorias || !categorias.length) { alvo.innerHTML = '<div class="empty">Sem receitas no período.</div>'; return; }
+    const maior = Math.max(...categorias.map(c => Number(c.valor) || 0), 1);
+    alvo.innerHTML = categorias.map(c =>
+      `<div class="cat-row"><span>${c.nome}</span><div class="cat-track"><div class="cat-fill" style="width:${c.valor / maior * 100}%"></div></div><strong>${brl(c.valor)}</strong></div>`
+    ).join('');
+  }
+
+  /* ---------- Unidades ---------- */
+  function pintarUnidades(linhas) {
+    const alvo = el('tabelaUnidadesRelatorio');
+    if (!linhas || !linhas.length) { alvo.innerHTML = '<tr><td colspan="5"><div class="empty">Sem movimentação por unidade no período.</div></td></tr>'; return; }
+    alvo.innerHTML = linhas.map(u =>
+      `<tr><td><strong>${u.nome}</strong></td><td class="num">${brl(u.receita)}</td><td class="num">${brl(u.despesas)}</td><td class="num ${u.saldo >= 0 ? 'positive' : 'negative'}">${brl(u.saldo)}</td><td class="num">${u.pedidos}</td></tr>`
+    ).join('');
+  }
+
+  /* ---------- Formas de pagamento ---------- */
+  function pintarFormasPagamento(formas) {
+    const alvo = el('formasPagamentoRelatorio');
+    if (!formas || !formas.length) { alvo.innerHTML = '<div class="empty">Sem pagamentos com forma identificada no período.</div>'; return; }
+    const maior = Math.max(...formas.map(f => Number(f.valor) || 0), 1);
+    alvo.innerHTML = formas.map(f => `
+      <div class="rel-forma-row">
+        <span>${f.forma}</span>
+        <div class="rel-comp-track"><div class="rel-comp-fill entrada" style="width:${f.valor / maior * 100}%"></div></div>
+        <div class="meta">${brl(f.valor)}<small>${f.quantidade}x · ${f.percentual}%</small></div>
+      </div>`).join('');
+  }
+
+  /* ---------- Pedidos e pagamentos ---------- */
+  function pintarResumoPedidos(r) {
+    if (!r) { el('resumoPedidos').innerHTML = '<div class="empty">Sem pedidos no período.</div>'; return; }
+    const itens = [
+      ['Total de pedidos', r.total], ['Pendentes', r.pendentes], ['Confirmados', r.confirmados],
+      ['Entregues', r.entregues], ['Cancelados', r.cancelados],
+      ...(r.valorTotalPedidos == null ? [] : [['Valor total dos pedidos', brl(r.valorTotalPedidos)]]),
+      ...(r.valorRecebido == null ? [] : [['Valor efetivamente recebido', brl(r.valorRecebido)]])
+    ];
+    el('resumoPedidos').innerHTML = itens.map(([nome, valor]) => `<div class="rel-kv"><span>${nome}</span><strong>${valor}</strong></div>`).join('');
+  }
+
+  function pintarResumoPagamentos(r) {
+    if (!r) { el('resumoPagamentos').innerHTML = '<div class="empty">Sem pagamentos no período.</div>'; return; }
+    const itens = [
+      ['Aprovados (pagos)', r.pagos], ['Pendentes', r.pendentes], ['Recusados', r.recusados ?? 0],
+      ['Cancelados', r.cancelados], ['Reembolsados', r.reembolsados ?? 0],
+      ...(r.reembolsosPendentes ? [['Reembolsos pendentes', r.reembolsosPendentes]] : []),
+      ['Total recebido', brl(r.totalRecebido)], ['A receber (pendentes)', brl(r.totalPendente)]
+    ];
+    el('resumoPagamentos').innerHTML = itens.map(([nome, valor]) => `<div class="rel-kv"><span>${nome}</span><strong>${valor}</strong></div>`).join('');
+  }
+
+  /* ---------- Tops ---------- */
+  function pintarTops(produtos, servicos) {
+    const temProdutos = produtos && produtos.length;
+    const temServicos = servicos && servicos.length;
+    el('cardTopProdutos').style.display = temProdutos ? '' : 'none';
+    el('cardTopServicos').style.display = temServicos ? '' : 'none';
+    el('blocoTops').style.display = (temProdutos || temServicos) ? '' : 'none';
+
+    if (temProdutos) {
+      const maior = Math.max(...produtos.map(p => Number(p.receita) || 0), 1);
+      el('topProdutosRelatorio').innerHTML = produtos.map((p, i) => `
+        <div class="rel-rank-row"><div class="rel-rank-pos">${i + 1}</div>
+          <div class="rel-rank-info"><strong>${p.produto}</strong><small>${p.quantidade} unidade(s) vendida(s)</small></div>
+          <div class="rel-rank-valor">${brl(p.receita)}</div></div>`).join('');
+    }
+    if (temServicos) {
+      el('topServicosRelatorio').innerHTML = servicos.map((s, i) => `
+        <div class="rel-rank-row"><div class="rel-rank-pos">${i + 1}</div>
+          <div class="rel-rank-info"><strong>${s.servico}</strong><small>Serviço realizado no período</small></div>
+          <div class="rel-rank-valor">${s.quantidade}x</div></div>`).join('');
+    }
+  }
+
+  /* ---------- Relatório por período ---------- */
+  function pintarPorPeriodo(serie) {
+    const alvo = el('tabelaPorPeriodo');
+    if (!serie || !serie.length) { alvo.innerHTML = '<tr><td colspan="4"><div class="empty">Sem movimentações no período.</div></td></tr>'; return; }
+    alvo.innerHTML = serie.map(p =>
+      `<tr><td>${p.periodo}</td><td class="num">${brl(p.receita)}</td><td class="num">${brl(p.despesas)}</td><td class="num ${p.saldo >= 0 ? 'positive' : 'negative'}">${brl(p.saldo)}</td></tr>`
+    ).join('');
+  }
+
+  /* ---------- Últimas movimentações ---------- */
+  function pintarMovimentacoes(linhas) {
+    const alvo = el('tabelaMovimentacoes');
+    if (!linhas || !linhas.length) {
+      alvo.innerHTML = `<tr><td colspan="5"><div class="empty-state"><h3>Nenhum dado financeiro encontrado</h3><p>Não existem movimentações para os filtros selecionados.</p></div></td></tr>`;
+      return;
+    }
+    alvo.innerHTML = linhas.map(item => {
+      const positivo = item.tipo === 'Entrada';
+      const [ano, mes, dia] = String(item.data || '').slice(0, 10).split('-');
+      const dataFmt = ano ? `${dia}/${mes}/${ano}` : (item.data || '');
+      return `<tr>
+        <td>${dataFmt}</td>
+        <td><span class="es-tipo-badge ${positivo ? 'entrada' : 'saida'}"><span class="bolinha"></span>${item.tipo}</span></td>
+        <td>${item.descricao || ''}</td>
+        <td><span class="badge badge-neutral">${nomeUnidadeRelatorio(item.unidade)}</span></td>
+        <td class="num ${positivo ? 'positive' : 'negative'}">${positivo ? '+' : '-'} ${brl(Math.abs(Number(item.valor) || 0))}</td>
+      </tr>`;
+    }).join('');
+  }
+
+  /* Item 5: nomes do cadastro de unidades (js/unidades.js). */
+  function nomeUnidadeRelatorio(u) {
+    const id = LaneUnidades.idDe(u);
+    return id ? LaneUnidades.nome(id) : 'Sem unidade';
+  }
+
+  /* ---------- Exportação (CSV, a partir dos dados já carregados) ---------- */
   function exportarRelatorio() {
-    if (!linhasRelatorio.length) { toast('Não há linhas para exportar.', 'error'); return; }
-    const csv = ['Data;Agendamentos;Cancelados;Valor']
-      .concat(linhasRelatorio.map(l => `${l.data};${l.quantidade};${l.cancelados};${l.valor.toFixed(2)}`))
-      .join('\n');
-    const url = URL.createObjectURL(new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' }));
+    if (!ultimoRelatorio) { toast('Aguarde o relatório carregar antes de exportar.', 'error'); return; }
+    const d = ultimoRelatorio;
+    const linhas = [];
+    linhas.push('Relatório Financeiro — LanePets');
+    linhas.push(`Período;${d.periodo.de} a ${d.periodo.ate}`);
+    linhas.push(`Unidade;${el('filtroUnidade').selectedOptions[0].textContent}`);
+    linhas.push(`Gerado em;${new Date().toLocaleString('pt-BR')}`);
+    linhas.push('');
+    const din = v => v == null ? 'Restrito' : Number(v).toFixed(2);
+    linhas.push('Resumo;Valor');
+    linhas.push(`Entradas;${din(d.cards.entradas)}`);
+    linhas.push(`Saídas;${din(d.cards.saidas)}`);
+    linhas.push(`Saldo;${din(d.cards.saldo)}`);
+    linhas.push(`Total de pagamentos;${d.cards.totalPagamentos}`);
+    linhas.push(`Ticket médio;${din(d.cards.ticketMedio)}`);
+    linhas.push('');
+    if (d.categorias && d.categorias.length) {
+      linhas.push('Categoria;Valor');
+      d.categorias.forEach(c => linhas.push(`${c.nome};${Number(c.valor).toFixed(2)}`));
+      linhas.push('');
+    }
+    if (d.formasPagamento && d.formasPagamento.length) {
+      linhas.push('Forma de pagamento;Quantidade;Valor;Percentual');
+      d.formasPagamento.forEach(f => linhas.push(`${f.forma};${f.quantidade};${Number(f.valor).toFixed(2)};${f.percentual}%`));
+      linhas.push('');
+    }
+    if (d.porUnidade && d.porUnidade.length) {
+      linhas.push('Unidade;Entradas;Saídas;Saldo;Pedidos');
+      d.porUnidade.forEach(u => linhas.push(`${u.nome};${din(u.receita)};${din(u.despesas)};${din(u.saldo)};${u.pedidos}`));
+      linhas.push('');
+    }
+    if (d.serie && d.serie.length) {
+      linhas.push('Período;Entradas;Saídas;Saldo');
+      d.serie.forEach(p => linhas.push(`${p.periodo};${Number(p.receita).toFixed(2)};${Number(p.despesas).toFixed(2)};${Number(p.saldo).toFixed(2)}`));
+      linhas.push('');
+    }
+    if (!d.restrito && ultimasMovimentacoes.length) {
+      linhas.push('Movimentações;Data;Tipo;Descrição;Unidade;Valor');
+      ultimasMovimentacoes.forEach(m => linhas.push(`;${m.data};${m.tipo};${(m.descricao || '').replace(/;/g, ',')};${nomeUnidadeRelatorio(m.unidade)};${Number(m.valor).toFixed(2)}`));
+    }
+
+    const csv = linhas.join('\n');
+    const url = URL.createObjectURL(new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' }));
     const a = document.createElement('a');
-    a.href = url; a.download = 'relatorio-lanepets.csv'; a.click();
+    a.href = url; a.download = `relatorio-financeiro-lanepets-${d.periodo.de}_a_${d.periodo.ate}.csv`; a.click();
     URL.revokeObjectURL(url);
   }
 
-  window.addEventListener('load', () => {
-    const filtros = JSON.parse(localStorage.getItem('filtrosRelatorio') || '{}');
-    if (filtros.dataInicio) document.getElementById('filtroDataInicio').value = filtros.dataInicio;
-    if (filtros.dataFim) document.getElementById('filtroDataFim').value = filtros.dataFim;
-    document.getElementById('filtroUnidade').value = 'todas';
+  /* ---------- Filtros de período ---------- */
+  let periodoChaveAtiva = 'month';
+
+  function definirPeriodo(chave) {
+    periodoChaveAtiva = chave;
+    document.querySelectorAll('[data-period]').forEach(b => b.classList.toggle('active', b.dataset.period === chave));
+    el('periodoCustom').hidden = chave !== 'custom';
+    if (chave === 'custom') return;
+
+    const hoje = new Date();
+    let de, ate = hojeStr();
+    if (chave === 'today') de = ate;
+    else if (chave === 'week') { const d = new Date(); d.setDate(d.getDate() - d.getDay()); de = d.toISOString().slice(0, 10); }
+    else if (chave === '30') { const d = new Date(); d.setDate(d.getDate() - 29); de = d.toISOString().slice(0, 10); }
+    else if (chave === 'previous') {
+      de = new Date(hoje.getFullYear(), hoje.getMonth() - 1, 1).toISOString().slice(0, 10);
+      ate = new Date(hoje.getFullYear(), hoje.getMonth(), 0).toISOString().slice(0, 10);
+    } else if (chave === 'year') { de = new Date(hoje.getFullYear(), 0, 1).toISOString().slice(0, 10); }
+    else de = new Date(hoje.getFullYear(), hoje.getMonth(), 1).toISOString().slice(0, 10);
+
+    el('filtroDataInicio').value = de;
+    el('filtroDataFim').value = ate;
     gerarRelatorio();
+  }
+
+  function limparFiltros() {
+    el('filtroUnidade').value = 'todas';
+    definirPeriodo('month');
+  }
+
+  document.querySelectorAll('[data-period]').forEach(b => b.onclick = () => definirPeriodo(b.dataset.period));
+  el('btnAplicarFiltros').onclick = () => gerarRelatorio();
+  el('btnLimparFiltros').onclick = () => limparFiltros();
+  el('filtroUnidade').onchange = () => gerarRelatorio();
+  el('btnExportar').onclick = () => exportarRelatorio();
+
+  LaneUnidades.preencherSelect(el('filtroUnidade'), { todas: true, semUnidade: true });
+  window.addEventListener('load', async () => {
+    await LaneUnidades.carregar();
+    LaneUnidades.preencherSelect(el('filtroUnidade'), { todas: true, semUnidade: true });
+    const salvo = JSON.parse(localStorage.getItem('filtrosRelatorioFinanceiro') || '{}');
+    if (salvo.de && salvo.ate) {
+      el('filtroDataInicio').value = salvo.de;
+      el('filtroDataFim').value = salvo.ate;
+      el('filtroUnidade').value = salvo.unidade || 'todas';
+      definirPeriodo(salvo.periodoChave || 'custom');
+      if (salvo.periodoChave === 'custom' || !salvo.periodoChave) gerarRelatorio();
+    } else {
+      definirPeriodo('month');
+    }
     LaneAdmin.aoMudar(() => gerarRelatorio());
   });
   </script>

@@ -80,7 +80,7 @@
 @media (max-width: 1100px) { .ag-filtros { grid-template-columns: 1fr 1fr 1fr; } .ag-busca { grid-column: 1 / -1; } }
 @media (max-width: 760px) {
   .ag-filtros-toggle { display: inline-flex; width: 100%; justify-content: center; margin-bottom: var(--sp-3); }
-  .ag-filtros { grid-template-columns: 1fr; }
+  .ag-filtros { grid-template-columns: minmax(0, 1fr); }
   .ag-filtros[hidden] { display: none; }
   .ag-filtros .ag-busca { grid-column: auto; }
 }
@@ -93,7 +93,8 @@
 .ag-view-btn:focus-visible { outline: none; box-shadow: var(--ring); }
 .ag-view-btn.is-ativo { background: var(--surface); color: var(--brand-700); box-shadow: var(--shadow-sm); }
 .ag-nav { display: flex; align-items: center; gap: 8px; }
-.ag-periodo { min-width: 220px; text-align: center; font-weight: 800; color: var(--ink-900); font-size: .9rem; text-transform: capitalize; }
+.ag-periodo { min-width: 220px; text-align: center; font-weight: 800; color: var(--ink-900); font-size: .9rem; }
+.ag-periodo::first-letter { text-transform: uppercase; }
 @media (max-width: 860px) {
   .ag-barra { align-items: stretch; }
   .ag-nav { width: 100%; justify-content: space-between; }
@@ -295,4 +296,16 @@
   .modal-actions { flex-direction: column-reverse; }
   .modal-actions .btn { width: 100%; justify-content: center; }
   .ag-blocos { grid-template-columns: 1fr; }
+}
+
+/* Item 17, 2a rodada (26/09): no celular o nome do periodo ("Todos os periodos", "setembro de 2026")
+   ganha a linha de cima e os botoes ‹ Hoje › dividem a de baixo; as duas datas do filtro empilham. */
+@media (max-width: 560px) {
+  .ag-nav { flex-wrap: wrap; }
+  .ag-periodo { order: -1; flex: 1 0 100%; text-align: left; }
+  .ag-nav .btn { flex: 1; width: auto; }
+}
+@media (max-width: 420px) {
+  .ag-filtros__periodo { flex-direction: column; }
+  .ag-view-btn { padding: 7px 6px; }
 }

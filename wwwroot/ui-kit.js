@@ -126,3 +126,28 @@ document.addEventListener("DOMContentLoaded", function () {
     if (ok) lanePetsLogout();
   });
 });
+
+/* ---------- Tabela que vira cartoes no celular (item 17, 25/09) ----------
+   Copia o texto do <th> para data-label de cada <td> das tabelas dentro de
+   .tabela-cards. Roda de novo sempre que a tela redesenha as linhas. */
+(function () {
+  function rotular(tabela) {
+    const cab = Array.from(tabela.querySelectorAll('thead th')).map(th => th.textContent.trim());
+    tabela.querySelectorAll('tbody tr').forEach(tr => {
+      let col = 0;
+      Array.from(tr.children).forEach(td => {
+        if (!td.hasAttribute('data-label')) td.setAttribute('data-label', cab[col] || '');
+        col += Number(td.colSpan) || 1;
+      });
+    });
+  }
+  function iniciar() {
+    document.querySelectorAll('.tabela-cards table').forEach(tabela => {
+      rotular(tabela);
+      new MutationObserver(() => rotular(tabela)).observe(tabela, { childList: true, subtree: true });
+    });
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', iniciar);
+  else iniciar();
+  window.LaneTabelaCards = { rotular };
+})();

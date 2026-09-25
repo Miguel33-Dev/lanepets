@@ -17,8 +17,28 @@ public static class PerfilAdmin
     public const string Geral = "AdminGeral";
     public const string Comum = "Admin";
 
-    public static string Rotulo(string perfil)
-        => perfil == Geral ? "Administrador Geral" : "Administrador";
+    /// <summary>
+    /// Funcionario (item 1 do roadmap, 24/09): terceiro perfil, MAIS RESTRITO
+    /// que o Admin comum. Tres travas valem no backend, qualquer que seja o
+    /// que a tela mande:
+    ///
+    ///   1. nunca tem acesso total (a coluna AcessoTotal e ignorada);
+    ///   2. so pode receber permissao nos modulos de operacao
+    ///      (ModulosAdmin.LimiteFuncionario) — financeiro, relatorios,
+    ///      configuracoes, site publico e usuarios ficam fechados;
+    ///   3. fica preso a UMA unidade (UsuarioAdministrador.Unidade):
+    ///      agendamentos e pets de outra unidade nao chegam para ele.
+    /// </summary>
+    public const string Funcionario = "Funcionario";
+
+    public static readonly string[] Todos = [Geral, Comum, Funcionario];
+
+    public static string Rotulo(string perfil) => perfil switch
+    {
+        Geral => "Administrador Geral",
+        Funcionario => "Funcionário",
+        _ => "Administrador"
+    };
 }
 
 /// <summary>As quatro acoes que uma permissao pode liberar.</summary>
@@ -43,6 +63,7 @@ public static class ModulosAdmin
     public const string Seguros = "seguros";
     public const string Avaliacoes = "avaliacoes";
     public const string Relatorios = "relatorios";
+    public const string Unidades = "unidades";
     public const string Usuarios = "usuarios";
     public const string Configuracoes = "configuracoes";
 
@@ -67,6 +88,7 @@ public static class ModulosAdmin
         new(Avaliacoes,    "Avaliações",               "Site público"),
         new(Pagamentos,    "Pagamentos e financeiro",  "Financeiro"),
         new(Relatorios,    "Relatórios",               "Financeiro"),
+        new(Unidades,      "Unidades",                 "Administração"),
         new(Usuarios,      "Usuários Administrativos", "Administração", SomenteGeral: true),
         new(Configuracoes, "Configurações",            "Administração"),
     ];
@@ -81,6 +103,26 @@ public static class ModulosAdmin
         Todos.Select(m => m.Chave).ToHashSet(StringComparer.OrdinalIgnoreCase);
 
     public static bool Existe(string chave) => Chaves.Contains(chave ?? "");
+
+    /// <summary>
+    /// Teto do perfil Funcionario: modulo -> acoes que PODEM ser concedidas a
+    /// ele. Fora desta lista, nem a permissao gravada no banco abre a porta.
+    /// Produtos e so consulta (o funcionario precisa ver preco e estoque para
+    /// atender, nao alterar catalogo).
+    /// </summary>
+    public static readonly IReadOnlyDictionary<string, AcaoPermissao[]> LimiteFuncionario =
+        new Dictionary<string, AcaoPermissao[]>(StringComparer.OrdinalIgnoreCase)
+        {
+            [Dashboard]    = [AcaoPermissao.Visualizar],
+            [Agendamentos] = [AcaoPermissao.Visualizar, AcaoPermissao.Criar, AcaoPermissao.Editar, AcaoPermissao.Excluir],
+            [Pedidos]      = [AcaoPermissao.Visualizar, AcaoPermissao.Criar, AcaoPermissao.Editar],
+            [Clientes]     = [AcaoPermissao.Visualizar, AcaoPermissao.Criar, AcaoPermissao.Editar],
+            [Pets]         = [AcaoPermissao.Visualizar, AcaoPermissao.Criar, AcaoPermissao.Editar],
+            [Produtos]     = [AcaoPermissao.Visualizar],
+        };
+
+    public static bool FuncionarioPode(string modulo, AcaoPermissao acao)
+        => LimiteFuncionario.TryGetValue(modulo ?? "", out var acoes) && acoes.Contains(acao);
 }
 
 /// <summary>
@@ -100,8 +142,29 @@ public class ContextoAdmin
 
     public bool EhGeral => Usuario.Perfil == PerfilAdmin.Geral;
 
-    /// <summary>Acesso irrestrito: Administrador Geral ou usuario com acesso total ligado.</summary>
-    public bool AcessoIrrestrito => EhGeral || Usuario.AcessoTotal;
+    public bool EhFuncionario => Usuario.Perfil == PerfilAdmin.Funcionario;
+
+    /// <summary>
+    /// Acesso irrestrito: Administrador Geral ou usuario com acesso total
+    /// ligado. Funcionario NUNCA tem acesso irrestrito, mesmo que a coluna
+    /// AcessoTotal tenha ficado ligada por engano no banco.
+    /// </summary>
+    public bool AcessoIrrestrito => EhGeral || (Usuario.AcessoTotal && !EhFuncionario);
+
+    /// <summary>Unidade do funcionario, no formato do Normalizador ("Franco", "Caieiras").</summary>
+    public string UnidadeDoFuncionario => EhFuncionario ? Normalizador.Unidade(Usuario.Unidade) : "";
+
+    /// <summary>
+    /// true quando o registro da unidade informada pode chegar a este usuario.
+    /// Administradores veem todas. Funcionario ve so a dele — e, sem unidade
+    /// valida gravada, nao ve nenhuma (falha fechada, nunca aberta).
+    /// </summary>
+    public bool VeUnidade(string? unidade)
+    {
+        if (!EhFuncionario) return true;
+        var minha = UnidadeDoFuncionario;
+        return minha.Length > 0 && Normalizador.Unidade(unidade) == minha;
+    }
 
     public bool Pode(string modulo, AcaoPermissao acao)
     {
@@ -109,6 +172,10 @@ public class ContextoAdmin
         // abrem. "Acesso total" libera as FERRAMENTAS do petshop, nunca a
         // autoridade sobre os outros administradores.
         if (ModulosAdmin.EhExclusivoDoGeral(modulo)) return EhGeral;
+
+        // Teto do Funcionario: o que esta fora dele nao abre nem com a linha de
+        // permissao gravada no banco.
+        if (EhFuncionario && !ModulosAdmin.FuncionarioPode(modulo, acao)) return false;
 
         if (AcessoIrrestrito) return true;
         if (!Permissoes.TryGetValue(modulo, out var p)) return false;
@@ -132,7 +199,7 @@ public class ContextoAdmin
 /// Esconder um botao no HTML nao protege nada: quem chamar
 /// DELETE /api/... na mao passa pelo mesmo caminho acima e leva 403 igual.
 /// </summary>
-public class PermissaoService(LanePetsDbContext db, SessionService sessions)
+public class PermissaoService(LanePetsDbContext db, SessionService sessions, EventosService eventos)
 {
     private ContextoAdmin? _cache;
     private string _cacheToken = "";
@@ -192,6 +259,37 @@ public class PermissaoService(LanePetsDbContext db, SessionService sessions)
         throw new AcessoNegadoException($"Você não possui permissão para {Verbo(acao)} em {rotulo}.");
     }
 
+    /// <summary>
+    /// Garante que um funcionario so grave registro da propria unidade.
+    /// Para administradores nao faz nada.
+    /// </summary>
+    public static void ExigirUnidade(ContextoAdmin contexto, string? unidade, string oQue)
+    {
+        if (contexto.VeUnidade(unidade)) return;
+        throw new AcessoNegadoException(contexto.UnidadeDoFuncionario.Length == 0
+            ? "Sua conta de funcionário não está vinculada a nenhuma unidade. Procure o Administrador Geral."
+            : $"Você só pode operar {oQue} da unidade {contexto.UnidadeDoFuncionario}.");
+    }
+
+    /// <summary>
+    /// Pets que um funcionario pode ver: os marcados com a unidade dele e os
+    /// que tem agendamento nela (muitos pets cadastrados pelo cliente nascem
+    /// sem unidade — o agendamento e que diz onde ele e atendido).
+    /// Devolve null para administradores, que veem todos.
+    /// </summary>
+    public async Task<HashSet<string>?> PetsVisiveisAsync(ContextoAdmin contexto)
+    {
+        if (!contexto.EhFuncionario) return null;
+        var ids = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        if (contexto.UnidadeDoFuncionario.Length == 0) return ids;
+
+        foreach (var a in await db.Agendamentos.AsNoTracking().Select(a => new { a.PetId, a.Unidade }).ToListAsync())
+            if (!string.IsNullOrWhiteSpace(a.PetId) && contexto.VeUnidade(a.Unidade)) ids.Add(a.PetId);
+        foreach (var p in await db.Pets.AsNoTracking().Select(p => new { p.Id, p.Unidade }).ToListAsync())
+            if (contexto.VeUnidade(p.Unidade)) ids.Add(p.Id);
+        return ids;
+    }
+
     /// <summary>Exige que quem chama seja Administrador Geral (regra 20).</summary>
     public async Task<ContextoAdmin> ExigirGeralAsync(string token)
     {
@@ -224,8 +322,10 @@ public class PermissaoService(LanePetsDbContext db, SessionService sessions)
             email = contexto.Usuario.Email,
             perfil = contexto.Usuario.Perfil,
             perfilRotulo = PerfilAdmin.Rotulo(contexto.Usuario.Perfil),
-            acessoTotal = contexto.Usuario.AcessoTotal,
+            acessoTotal = contexto.AcessoIrrestrito,
             adminGeral = contexto.EhGeral,
+            funcionario = contexto.EhFuncionario,
+            unidade = contexto.UnidadeDoFuncionario,
             ultimoAcesso = contexto.Usuario.UltimoAcesso?.ToString("O")
         },
         acessoIrrestrito = contexto.AcessoIrrestrito,
@@ -256,5 +356,10 @@ public class PermissaoService(LanePetsDbContext db, SessionService sessions)
             Detalhes = detalhes
         });
         await db.SaveChangesAsync();
+
+        // Item 15: a mesma acao aparece no log de eventos, para existir um
+        // lugar so de consulta. A AuditoriaAdmin continua sendo gravada.
+        await eventos.RegistrarAsync(new("administracao", acao, acao.StartsWith("Excluiu") || acao.StartsWith("Desativou") ? "aviso" : "info",
+            "admin", autor.Usuario.Id, autor.Usuario.Email, alvo?.Id ?? "", $"{(alvo is null ? "" : alvo.Email + ": ")}{detalhes}"));
     }
 }

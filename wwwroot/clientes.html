@@ -4,19 +4,21 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Clientes &middot; LanePets</title>
-<link rel="stylesheet" href="design-system.css?v=4">
+<link rel="stylesheet" href="design-system.css?v=6">
 <link rel="stylesheet" href="css/clientes-admin.css?v=1">
 <style>
   /* Faixa lateral que marca o pet de cliente-pacote na tabela de pets. */
   tr.pacote td:first-child { position: relative; }
   tr.pacote td:first-child::before { content: ""; position: absolute; left: 0; top: 8px; bottom: 8px; width: 3px; background: var(--accent-500); border-radius: 2px; }
+  /* Item 17: no celular a linha vira cartao e a faixa passa para a borda do cartao. */
+  @media (max-width: 860px) { .tabela-cards tr.pacote { border-left: 3px solid var(--accent-500); } .tabela-cards tr.pacote td:first-child::before { content: none; } }
 </style>
   <script src="js/config.js"></script>
   <script src="js/api.js"></script>
   <script src="lib/signalr/signalr.min.js"></script>
-  <script src="js/admin-dados.js"></script>
+  <script src="js/admin-dados.js?v=2"></script>
   <script src="js/admin-store.js?v=1"></script>
-<script src="js/admin-permissoes.js"></script>
+<script src="js/admin-permissoes.js?v=5"></script>
 </head>
 <body>
 <div class="app-shell">
@@ -51,7 +53,7 @@
           </div>
         </div>
         <div class="cli-head-actions">
-          <button class="btn btn-primary" type="button" data-permissao="clientes:criar" onclick="window.location.href='index.html'">
+          <button class="btn btn-primary" type="button" data-permissao="clientes:criar" onclick="window.location.href='index.html#pets'">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
             Novo cliente
           </button>
@@ -118,14 +120,18 @@
             <h2 class="section-title">Pets cadastrados</h2>
             <p class="small-note">Cada pet pertence a um cliente da lista acima. Editar um pet aqui altera o cadastro no banco.</p>
           </div>
+          <div style="display:flex;gap:var(--sp-3);flex-wrap:wrap;align-items:center;">
+          <input type="search" id="buscaPet" class="input" style="max-width:280px;flex:1 1 200px;" placeholder="Buscar pet, dono, raça ou telefone" autocomplete="off" aria-label="Buscar pet">
           <select id="filtroTipo" class="input" style="max-width:190px;" aria-label="Filtrar pets por tipo">
             <option value="">Todos os tipos</option>
             <option value="Cão">Cão</option>
             <option value="Gato">Gato</option>
             <option value="Outro">Outro</option>
           </select>
+          </div>
         </div>
-        <div class="table-wrap">
+        <p class="small-note" id="contagemPets" aria-live="polite" style="margin:var(--sp-3) 0 0;"></p>
+        <div class="table-wrap tabela-cards">
           <table id="tabelaClientes" class="data-table">
             <thead>
               <tr>
@@ -245,8 +251,9 @@
   </form>
 </div>
 
-<script src="ui-kit.js?v=4"></script>
-<script src="js/clientes-admin.js?v=1"></script>
+<script src="ui-kit.js?v=5"></script>
+<script src="js/busca.js?v=1"></script>
+<script src="js/clientes-admin.js?v=3"></script>
 <script>
 /* =============================================================================
    Clientes — funcoes que ja existiam nesta tela.
@@ -339,31 +346,31 @@
     /* ---------------------------------------------------------------- */
     window.carregarTabelaPets = function () {
       const todosPets = lista("pets");
-      const campoFiltro = document.getElementById("filtro");
-      const filtro = campoFiltro ? campoFiltro.value.toLowerCase().trim() : "";
+      /* Item 16: busca propria dos pets (antes usava a busca de clientes) no
+         padrao LaneBusca. Tipo por grupo: o site grava "Cachorro", o painel "Cão". */
+      const termo = document.getElementById("buscaPet") ? document.getElementById("buscaPet").value : "";
       const filtroTipo = document.getElementById("filtroTipo") ? document.getElementById("filtroTipo").value : "";
+      const grupoTipo = t => {
+        const n = LaneBusca.normal(t);
+        if (["cao", "cachorro", "cadela", "dog", "canino"].includes(n)) return "Cão";
+        if (["gato", "gata", "felino", "cat"].includes(n)) return "Gato";
+        return n ? "Outro" : "";
+      };
 
       const petsFiltrados = todosPets
         .map((p, i) => ({ ...p, realIndex: i }))
         .filter(p =>
-          ((p.dono || "").toLowerCase().includes(filtro) ||
-            (p.pet || "").toLowerCase().includes(filtro) ||
-            (p.raca || "").toLowerCase().includes(filtro) ||
-            (p.telefone || "").toLowerCase().includes(filtro) ||
-            (p.endereco || "").toLowerCase().includes(filtro)) &&
-          (filtroTipo === "" || (p.tipo || "").toLowerCase() === filtroTipo.toLowerCase())
+          LaneBusca.combina(termo, [p.pet, p.dono, p.raca, p.telefone, p.endereco, p.tipo]) &&
+          (filtroTipo === "" || grupoTipo(p.tipo) === filtroTipo)
         )
         .sort((a, b) => (a.dono || "").localeCompare(b.dono || "") || (a.pet || "").localeCompare(b.pet || ""));
 
       const tbody = document.querySelector("#tabelaClientes tbody");
       tbody.innerHTML = "";
+      LaneBusca.contador("contagemPets", petsFiltrados.length, todosPets.length, "pet", "pets");
 
       if (!petsFiltrados.length) {
-        tbody.innerHTML = `<tr><td colspan="7">
-          <div class="empty-state" style="padding:var(--sp-7) var(--sp-4);">
-            <h3>${todosPets.length === 0 ? "Nenhum pet cadastrado." : "Nenhum pet encontrado."}</h3>
-            <p>${todosPets.length === 0 ? "Cadastre o primeiro pet para começar." : "Tente ajustar os filtros de busca."}</p>
-          </div></td></tr>`;
+        tbody.innerHTML = LaneBusca.linhaVazia(7, todosPets.length, { nenhum: "Nenhum pet cadastrado.", filtro: "Nenhum pet encontrado com esses filtros." });
         return;
       }
 
@@ -461,8 +468,16 @@
     /* ---------------------------------------------------------------- */
     document.addEventListener("DOMContentLoaded", function () {
       document.getElementById("filtroTipo").addEventListener("change", carregarTabelaPets);
-      const campo = document.getElementById("filtro");
-      if (campo) campo.addEventListener("input", carregarTabelaPets);
+      document.getElementById("buscaPet").addEventListener("input", carregarTabelaPets);
+      document.getElementById("buscaPet").addEventListener("keydown", e => {
+        if (e.key === "Escape" && e.target.value) { e.stopPropagation(); e.target.value = ""; carregarTabelaPets(); }
+      });
+      document.getElementById("tabelaClientes").addEventListener("click", e => {
+        if (!e.target.closest("[data-limpar-filtros]")) return;
+        document.getElementById("buscaPet").value = "";
+        document.getElementById("filtroTipo").value = "";
+        carregarTabelaPets();
+      });
 
       document.getElementById("modalEditar").addEventListener("mousedown", function (e) {
         if (e.target === this) fecharModal();

@@ -76,10 +76,12 @@ public class UsuariosAdminController(LanePetsDbContext db, PermissaoService perm
                     perfil = u.Perfil,
                     perfilRotulo = PerfilAdmin.Rotulo(u.Perfil),
                     adminGeral = u.Perfil == PerfilAdmin.Geral,
+                    funcionario = u.Perfil == PerfilAdmin.Funcionario,
+                    unidade = u.Perfil == PerfilAdmin.Funcionario ? u.Unidade : "",
                     ativo = u.Ativo,
-                    acessoTotal = u.AcessoTotal || u.Perfil == PerfilAdmin.Geral,
+                    acessoTotal = TemAcessoTotal(u),
                     modulosLiberados = liberados,
-                    acessoResumo = (u.Perfil == PerfilAdmin.Geral || u.AcessoTotal)
+                    acessoResumo = TemAcessoTotal(u)
                         ? "Acesso total"
                         : liberados == 0 ? "Sem permissões" : $"{liberados} permiss{(liberados == 1 ? "ão" : "ões")}",
                     criadoEm = u.CriadoEm.ToString("O"),
@@ -109,16 +111,19 @@ public class UsuariosAdminController(LanePetsDbContext db, PermissaoService perm
             var nome = (req.Nome ?? "").Trim();
             var email = (req.Email ?? "").Trim().ToLowerInvariant();
             var senha = req.Senha ?? "";
+            // "perfil" e o campo novo; "adminGeral" continua aceito para a tela
+            // antiga nao quebrar.
+            var perfil = req.AdminGeral ? PerfilAdmin.Geral : PerfilValido(req.Perfil);
+            var unidade = await UnidadeDoPerfilAsync(perfil, req.Unidade);
 
             if (string.IsNullOrWhiteSpace(nome)) throw new Exception("Informe o nome completo.");
-            if (string.IsNullOrWhiteSpace(email) || !email.Contains('@')) throw new Exception("Informe um e-mail válido.");
-            if (senha.Length < 6) throw new Exception("A senha precisa ter ao menos 6 caracteres.");
-            if (senha != (req.ConfirmarSenha ?? senha)) throw new Exception("A confirmação de senha não confere.");
+            email = Validacao.Email(email);
+            Validacao.Senha(senha, req.ConfirmarSenha ?? senha);
+            var telefoneNovo = Validacao.Telefone(req.Telefone, obrigatorio: false);
             if (await db.UsuariosAdministradores.AnyAsync(u => u.Email == email)) throw new Exception("Já existe um administrador com este e-mail.");
 
             // Criar um Administrador Geral e privilegio de Administrador Geral.
-            var perfil = req.AdminGeral ? PerfilAdmin.Geral : PerfilAdmin.Comum;
-            if (req.AdminGeral && !contexto.EhGeral)
+            if (perfil == PerfilAdmin.Geral && !contexto.EhGeral)
                 throw new AcessoNegadoException("Somente o Administrador Geral pode criar outro Administrador Geral.");
             if (req.AcessoTotal && !contexto.EhGeral)
                 throw new AcessoNegadoException("Somente o Administrador Geral pode conceder acesso total.");
@@ -133,21 +138,23 @@ public class UsuariosAdminController(LanePetsDbContext db, PermissaoService perm
                 Id = "ADM-" + Guid.NewGuid().ToString("N")[..10].ToUpperInvariant(),
                 Nome = nome,
                 Email = email,
-                Telefone = (req.Telefone ?? "").Trim(),
+                Telefone = telefoneNovo,
                 SenhaHash = hash,
                 SenhaSalt = salt,
                 Ativo = req.Ativo,
                 Perfil = perfil,
                 // Regra central do pedido: administrador novo NASCE SEM ACESSO.
-                // Nenhuma permissao e criada aqui de proposito.
-                AcessoTotal = req.AdminGeral || req.AcessoTotal,
+                // Nenhuma permissao e criada aqui de proposito. Funcionario
+                // nunca nasce (nem fica) com acesso total.
+                AcessoTotal = perfil == PerfilAdmin.Geral || (req.AcessoTotal && perfil == PerfilAdmin.Comum),
+                Unidade = unidade,
                 CriadoEm = DateTime.UtcNow
             };
 
             db.UsuariosAdministradores.Add(novo);
             await db.SaveChangesAsync();
             await permissoes.RegistrarAsync(contexto, "Criou administrador", novo,
-                $"Perfil {PerfilAdmin.Rotulo(novo.Perfil)}; acesso total {(novo.AcessoTotal ? "sim" : "não")}; sem permissões individuais.");
+                $"Perfil {PerfilAdmin.Rotulo(novo.Perfil)}{(novo.Unidade.Length > 0 ? $" (unidade {novo.Unidade})" : "")}; acesso total {(novo.AcessoTotal ? "sim" : "não")}; sem permissões individuais.");
 
             return OkApi(new { id = novo.Id, nome = novo.Nome, email = novo.Email, criado = true });
         }
@@ -169,15 +176,49 @@ public class UsuariosAdminController(LanePetsDbContext db, PermissaoService perm
             var nome = (req.Nome ?? "").Trim();
             var email = (req.Email ?? "").Trim().ToLowerInvariant();
             if (string.IsNullOrWhiteSpace(nome)) throw new Exception("Informe o nome completo.");
-            if (string.IsNullOrWhiteSpace(email) || !email.Contains('@')) throw new Exception("Informe um e-mail válido.");
+            email = Validacao.Email(email);
+            var telefoneEditado = Validacao.Telefone(req.Telefone, obrigatorio: false);
             if (await db.UsuariosAdministradores.AnyAsync(u => u.Email == email && u.Id != alvo.Id))
                 throw new Exception("Já existe outro administrador com este e-mail.");
 
+            // Troca de perfil: so entre Administrador e Funcionario. Promover a
+            // (ou rebaixar de) Administrador Geral nao passa por aqui — o Geral
+            // nasce na criacao e o ultimo nunca pode deixar de existir.
+            var detalhes = "Dados cadastrais atualizados.";
+            if (!string.IsNullOrWhiteSpace(req.Perfil) && alvo.Perfil != PerfilAdmin.Geral)
+            {
+                var novoPerfil = PerfilValido(req.Perfil);
+                var novaUnidade = await UnidadeDoPerfilAsync(novoPerfil, req.Unidade);
+                if (alvo.Id == contexto.Usuario.Id && novoPerfil != alvo.Perfil)
+                    throw new AcessoNegadoException("Você não pode alterar o seu próprio perfil.");
+
+                if (novoPerfil != alvo.Perfil || novaUnidade != alvo.Unidade)
+                    detalhes += $" Perfil {PerfilAdmin.Rotulo(alvo.Perfil)} -> {PerfilAdmin.Rotulo(novoPerfil)}"
+                              + (novaUnidade.Length > 0 ? $" (unidade {novaUnidade})." : ".");
+
+                alvo.Perfil = novoPerfil;
+                alvo.Unidade = novaUnidade;
+                if (novoPerfil == PerfilAdmin.Funcionario)
+                {
+                    // Virou funcionario: desliga acesso total e apaga o que
+                    // estiver acima do teto do perfil. Nada fica "adormecido"
+                    // no banco esperando o perfil voltar.
+                    alvo.AcessoTotal = false;
+                    var atuais = await db.UsuariosAdminPermissoes.Where(p => p.UsuarioAdminId == alvo.Id).ToListAsync();
+                    foreach (var p in atuais) AplicarTetoFuncionario(p);
+                    db.UsuariosAdminPermissoes.RemoveRange(atuais.Where(p => !p.PodeVisualizar));
+                }
+            }
+            else if (alvo.Perfil == PerfilAdmin.Funcionario && req.Unidade is not null)
+            {
+                alvo.Unidade = await UnidadeDoPerfilAsync(PerfilAdmin.Funcionario, req.Unidade);
+            }
+
             alvo.Nome = nome;
             alvo.Email = email;
-            alvo.Telefone = (req.Telefone ?? "").Trim();
+            alvo.Telefone = telefoneEditado;
             await db.SaveChangesAsync();
-            await permissoes.RegistrarAsync(contexto, "Editou administrador", alvo, "Dados cadastrais atualizados.");
+            await permissoes.RegistrarAsync(contexto, "Editou administrador", alvo, detalhes);
 
             return OkApi(new { atualizado = true });
         }
@@ -230,8 +271,7 @@ public class UsuariosAdminController(LanePetsDbContext db, PermissaoService perm
             GarantirPodeMexerNoAlvo(contexto, alvo);
 
             var senha = req.Senha ?? "";
-            if (senha.Length < 6) throw new Exception("A senha precisa ter ao menos 6 caracteres.");
-            if (senha != (req.ConfirmarSenha ?? senha)) throw new Exception("A confirmação de senha não confere.");
+            Validacao.Senha(senha, req.ConfirmarSenha ?? senha);
 
             var (hash, salt) = SessionService.HashPassword(senha);
             alvo.SenhaHash = hash;
@@ -261,8 +301,8 @@ public class UsuariosAdminController(LanePetsDbContext db, PermissaoService perm
 
             return OkApi(new
             {
-                usuario = new { id = alvo.Id, nome = string.IsNullOrWhiteSpace(alvo.Nome) ? alvo.Email : alvo.Nome, email = alvo.Email, perfil = alvo.Perfil, adminGeral = alvo.Perfil == PerfilAdmin.Geral },
-                acessoTotal = alvo.AcessoTotal || alvo.Perfil == PerfilAdmin.Geral,
+                usuario = new { id = alvo.Id, nome = string.IsNullOrWhiteSpace(alvo.Nome) ? alvo.Email : alvo.Nome, email = alvo.Email, perfil = alvo.Perfil, adminGeral = alvo.Perfil == PerfilAdmin.Geral, funcionario = alvo.Perfil == PerfilAdmin.Funcionario, unidade = alvo.Unidade },
+                acessoTotal = TemAcessoTotal(alvo),
                 modulos = ModulosAdmin.Todos.Select(m =>
                 {
                     porModulo.TryGetValue(m.Chave, out var p);
@@ -272,6 +312,11 @@ public class UsuariosAdminController(LanePetsDbContext db, PermissaoService perm
                         rotulo = m.Rotulo,
                         grupo = m.Grupo,
                         somenteGeral = m.SomenteGeral,
+                        // Para Funcionario: quais acoes a tela pode oferecer.
+                        // null = sem teto (administrador comum).
+                        permitidas = alvo.Perfil == PerfilAdmin.Funcionario
+                            ? Enum.GetValues<AcaoPermissao>().Where(a => ModulosAdmin.FuncionarioPode(m.Chave, a)).Select(a => a.ToString().ToLowerInvariant()).ToArray()
+                            : null,
                         visualizar = p?.PodeVisualizar ?? false,
                         criar = p?.PodeCriar ?? false,
                         editar = p?.PodeEditar ?? false,
@@ -306,6 +351,8 @@ public class UsuariosAdminController(LanePetsDbContext db, PermissaoService perm
             var anterior = await db.UsuariosAdminPermissoes.Where(p => p.UsuarioAdminId == alvo.Id).ToListAsync();
             var resumoAnterior = Resumir(alvo.AcessoTotal, anterior);
 
+            if (alvo.Perfil == PerfilAdmin.Funcionario && req.AcessoTotal)
+                throw new AcessoNegadoException("Funcionário não pode receber acesso total.");
             alvo.AcessoTotal = req.AcessoTotal;
 
             // Regravacao completa: a tela manda o estado final de todos os
@@ -321,7 +368,7 @@ public class UsuariosAdminController(LanePetsDbContext db, PermissaoService perm
                                                                           // nem com a requisicao forjada pedindo isso
                 if (!item.Visualizar && !item.Criar && !item.Editar && !item.Excluir) continue;
 
-                novas.Add(new UsuarioAdminPermissao
+                var nova = new UsuarioAdminPermissao
                 {
                     Id = Guid.NewGuid().ToString("N"),
                     UsuarioAdminId = alvo.Id,
@@ -332,7 +379,15 @@ public class UsuariosAdminController(LanePetsDbContext db, PermissaoService perm
                     PodeCriar = item.Criar,
                     PodeEditar = item.Editar,
                     PodeExcluir = item.Excluir
-                });
+                };
+                // Funcionario: o que passar do teto do perfil e descartado aqui,
+                // mesmo que a requisicao tenha sido forjada pedindo.
+                if (alvo.Perfil == PerfilAdmin.Funcionario)
+                {
+                    AplicarTetoFuncionario(nova);
+                    if (!nova.PodeVisualizar) continue;
+                }
+                novas.Add(nova);
             }
 
             db.UsuariosAdminPermissoes.AddRange(novas);
@@ -413,6 +468,39 @@ public class UsuariosAdminController(LanePetsDbContext db, PermissaoService perm
             throw new AcessoNegadoException("Somente o Administrador Geral pode alterar a conta de um Administrador Geral.");
     }
 
+    private static bool TemAcessoTotal(UsuarioAdministrador u)
+        => u.Perfil == PerfilAdmin.Geral || (u.AcessoTotal && u.Perfil != PerfilAdmin.Funcionario);
+
+    /// <summary>Perfil pedido pela tela. So "Funcionario" e "Admin" chegam por aqui.</summary>
+    private static string PerfilValido(string? perfil)
+        => string.Equals((perfil ?? "").Trim(), PerfilAdmin.Funcionario, StringComparison.OrdinalIgnoreCase)
+            ? PerfilAdmin.Funcionario
+            : PerfilAdmin.Comum;
+
+    /// <summary>
+    /// Funcionario exige uma unidade ATIVA da tabela Unidades; os outros perfis
+    /// ficam sem unidade (veem todas).
+    /// </summary>
+    private async Task<string> UnidadeDoPerfilAsync(string perfil, string? unidade)
+    {
+        if (perfil != PerfilAdmin.Funcionario) return "";
+        var id = (unidade ?? "").Trim().ToLowerInvariant();
+        if (id.Length == 0) throw new Exception("Escolha a unidade em que o funcionário trabalha.");
+        var existe = await db.Unidades.AsNoTracking().AnyAsync(u => u.Id == id && u.Ativa);
+        if (!existe || Normalizador.Unidade(id).Length == 0) throw new Exception("Unidade não encontrada ou inativa.");
+        return id;
+    }
+
+    /// <summary>Corta as acoes que passam do teto do perfil Funcionario.</summary>
+    private static void AplicarTetoFuncionario(UsuarioAdminPermissao p)
+    {
+        p.PodeCriar &= ModulosAdmin.FuncionarioPode(p.Modulo, AcaoPermissao.Criar);
+        p.PodeEditar &= ModulosAdmin.FuncionarioPode(p.Modulo, AcaoPermissao.Editar);
+        p.PodeExcluir &= ModulosAdmin.FuncionarioPode(p.Modulo, AcaoPermissao.Excluir);
+        p.PodeVisualizar = ModulosAdmin.FuncionarioPode(p.Modulo, AcaoPermissao.Visualizar)
+                           && (p.PodeVisualizar || p.PodeCriar || p.PodeEditar || p.PodeExcluir);
+    }
+
     private async Task<int> ContarGeraisAtivosAsync()
         => await db.UsuariosAdministradores.CountAsync(u => u.Perfil == PerfilAdmin.Geral && u.Ativo);
 
@@ -426,8 +514,8 @@ public class UsuariosAdminController(LanePetsDbContext db, PermissaoService perm
     // =======================================================================
     // CORPOS DE REQUISICAO
     // =======================================================================
-    public record CriarUsuarioRequest(string? Token, string? Nome, string? Email, string? Telefone, string? Senha, string? ConfirmarSenha, bool Ativo = true, bool AcessoTotal = false, bool AdminGeral = false);
-    public record EditarUsuarioRequest(string? Token, string? Nome, string? Email, string? Telefone);
+    public record CriarUsuarioRequest(string? Token, string? Nome, string? Email, string? Telefone, string? Senha, string? ConfirmarSenha, bool Ativo = true, bool AcessoTotal = false, bool AdminGeral = false, string? Perfil = null, string? Unidade = null);
+    public record EditarUsuarioRequest(string? Token, string? Nome, string? Email, string? Telefone, string? Perfil = null, string? Unidade = null);
     public record StatusUsuarioRequest(string? Token, bool Ativo);
     public record SenhaUsuarioRequest(string? Token, string? Senha, string? ConfirmarSenha);
     public record ModuloPermissaoRequest(string Chave, bool Visualizar, bool Criar, bool Editar, bool Excluir);

@@ -3,7 +3,9 @@ using LanePets.Data;
 using LanePets.Models;
 using LanePets.Services;
 using Microsoft.AspNetCore.Mvc;
+using LanePets.DTOs;
 using Microsoft.EntityFrameworkCore;
+using static LanePets.Services.SyncPainelService;   // Texto, Itens, Ids, SemTransporte (item 11.5)
 
 namespace LanePets.Controllers;
 
@@ -26,7 +28,7 @@ namespace LanePets.Controllers;
 /// Nenhum endpoint anterior foi alterado e nenhuma tabela mudou de esquema.
 /// </summary>
 [Route("api/admin")]
-public class AdminStoreController(LanePetsDbContext db, PermissaoService permissoes, RealtimeNotifier realtime) : ApiControllerBase
+public class AdminStoreController(LanePetsDbContext db, PermissaoService permissoes, RealtimeNotifier realtime, EventosService eventos, SyncPainelService sync) : ApiControllerBase
 {
     // =======================================================================
     // LEITURA — o painel inteiro em uma chamada
@@ -51,11 +53,18 @@ public class AdminStoreController(LanePetsDbContext db, PermissaoService permiss
 
             List<Agendamento> agendamentos = Ver(ModulosAdmin.Agendamentos) ? await db.Agendamentos.AsNoTracking().ToListAsync() : new();
             List<Pet> pets = Ver(ModulosAdmin.Pets) ? await db.Pets.AsNoTracking().ToListAsync() : new();
+
+            // Funcionario (item 1): agendamentos e pets de outra unidade nao
+            // saem do servidor. Para administradores os dois filtros nao cortam nada.
+            agendamentos = agendamentos.Where(a => contexto.VeUnidade(a.Unidade)).ToList();
+            var petsVisiveis = await permissoes.PetsVisiveisAsync(contexto);
+            if (petsVisiveis is not null) pets = pets.Where(p => petsVisiveis.Contains(p.Id)).ToList();
             List<Cliente> clientes = Ver(ModulosAdmin.Clientes) ? await db.Clientes.AsNoTracking().ToListAsync() : new();
             List<Servico> servicos = Ver(ModulosAdmin.Servicos) ? await db.Servicos.AsNoTracking().ToListAsync() : new();
             List<Produto> produtos = Ver(ModulosAdmin.Produtos) ? await db.Produtos.AsNoTracking().ToListAsync() : new();
             List<EntradaSaida> lancamentos = Ver(ModulosAdmin.Pagamentos) ? await db.EntradasESaidas.AsNoTracking().ToListAsync() : new();
             List<Pedido> pedidos = Ver(ModulosAdmin.Pedidos) ? await db.Pedidos.AsNoTracking().ToListAsync() : new();
+            pedidos = pedidos.Where(p => contexto.VeUnidade(p.Unidade)).ToList();   // item 5: funcionario ve so a unidade dele
             List<UsuarioCliente> usuarios = Ver(ModulosAdmin.Clientes) ? await db.UsuariosClientes.AsNoTracking().ToListAsync() : new();
 
             // E-mail e data de criacao da conta vivem em UsuariosClientes; o
@@ -67,10 +76,11 @@ public class AdminStoreController(LanePetsDbContext db, PermissaoService permiss
             var petsPorCliente = pets.GroupBy(p => p.ClienteId ?? "").ToDictionary(g => g.Key, g => g.Count());
             var agsPorCliente = agendamentos.GroupBy(a => a.ClienteId ?? "").ToDictionary(g => g.Key, g => g.Count());
             var pedidosPorCliente = pedidos.GroupBy(p => p.ClienteId ?? "").ToDictionary(g => g.Key, g => g.Count());
+            var nomesResponsaveis = await ResponsaveisAgendamento.NomesAsync(db);   // item 4
 
             return OkApi(new
             {
-                agendamentos = agendamentos.OrderBy(a => a.DataHora).Select(a => ParaPainel(a)),
+                agendamentos = agendamentos.OrderBy(a => a.DataHora).Select(a => ParaPainel(a, nomesResponsaveis)),
                 pets = pets.Select(p => ParaPainel(p)),
                 servicos = servicos.OrderBy(s => s.Nome).Select(s => ParaPainel(s)),
                 produtos = produtos.OrderBy(p => p.Nome).Select(p => ParaPainel(p)),
@@ -104,71 +114,6 @@ public class AdminStoreController(LanePetsDbContext db, PermissaoService permiss
                 },
                 atualizadoEm = DateTime.UtcNow.ToString("O"),
                 permissoes = PermissaoService.Mapear(contexto)
-            });
-        }
-        catch (Exception ex) { return ErrorApi(ex); }
-    }
-
-    /// <summary>
-    /// Indicadores do painel. Cada numero e um COUNT/SUM feito no banco na hora
-    /// da chamada — nada e guardado, nada e incrementado em memoria. Banco vazio
-    /// devolve zero; e por isso que o painel nunca mostra numero inventado.
-    /// </summary>
-    [HttpGet("dashboard")]
-    public async Task<IActionResult> Dashboard([FromQuery] string token = "")
-    {
-        try
-        {
-            var contexto = await permissoes.ExigirAsync(token, ModulosAdmin.Dashboard, AcaoPermissao.Visualizar);
-
-            // O dashboard so mostra numero financeiro para quem pode ver
-            // Pagamentos (regra 24). Sem a permissao, o bloco "financeiro"
-            // volta zerado e marcado como restrito — o dado nao sai do banco.
-            var podeFinanceiro = contexto.Pode(ModulosAdmin.Pagamentos, AcaoPermissao.Visualizar);
-
-            var agendamentos = await db.Agendamentos.AsNoTracking().ToListAsync();
-            var pedidos = await db.Pedidos.AsNoTracking().ToListAsync();
-            List<EntradaSaida> lancamentos = podeFinanceiro ? await db.EntradasESaidas.AsNoTracking().ToListAsync() : new();
-            var hoje = DateTime.Now.ToString("yyyy-MM-dd");
-
-            var ativos = agendamentos.Where(a => Normalizador.Status(a.Status) != "Cancelado").ToList();
-            var entradas = lancamentos.Where(e => Normalizador.Texto(e.Tipo) == "entrada").Sum(e => e.Valor);
-            var saidas = lancamentos.Where(e => Normalizador.Texto(e.Tipo).StartsWith("said")).Sum(e => e.Valor);
-
-            return OkApi(new
-            {
-                totais = new
-                {
-                    clientes = await db.Clientes.CountAsync(),
-                    contasDeCliente = await db.UsuariosClientes.CountAsync(),
-                    pets = await db.Pets.CountAsync(),
-                    agendamentos = agendamentos.Count,
-                    pedidos = pedidos.Count,
-                    produtos = await db.Produtos.CountAsync(),
-                    servicos = await db.Servicos.CountAsync(),
-                    unidades = await db.Unidades.CountAsync(),
-                    planosSeguro = await db.PlanosSeguro.CountAsync(),
-                    seguros = await db.SolicitacoesSeguro.CountAsync(),
-                    avaliacoes = await db.Depoimentos.CountAsync(),
-                    pagamentos = ativos.Count(a => Normalizador.Texto(a.PagamentoStatus) == "pago") + pedidos.Count
-                },
-                agenda = new
-                {
-                    hoje = agendamentos.Count(a => Normalizador.Data(a.DataHora) == hoje),
-                    pendentes = agendamentos.Count(a => Normalizador.Status(a.Status) == "Pendente"),
-                    emAndamento = agendamentos.Count(a => Normalizador.Status(a.Status) == "Em andamento"),
-                    entregues = agendamentos.Count(a => Normalizador.Status(a.Status) == "Entregue"),
-                    cancelados = agendamentos.Count(a => Normalizador.Status(a.Status) == "Cancelado")
-                },
-                financeiro = new
-                {
-                    restrito = !podeFinanceiro,
-                    receitaAgendamentos = podeFinanceiro ? ativos.Sum(a => a.Total) : 0m,
-                    receitaPedidos = podeFinanceiro ? pedidos.Where(p => !string.Equals(p.Status, "Cancelado", StringComparison.OrdinalIgnoreCase)).Sum(p => p.Total) : 0m,
-                    entradasManuais = entradas,
-                    despesas = saidas
-                },
-                calculadoEm = DateTime.UtcNow.ToString("O")
             });
         }
         catch (Exception ex) { return ErrorApi(ex); }
@@ -218,7 +163,7 @@ public class AdminStoreController(LanePetsDbContext db, PermissaoService permiss
     // banco como unica fonte de verdade.
     // =======================================================================
 
-    private static object ParaPainel(Agendamento a) => new
+    private static object ParaPainel(Agendamento a, IReadOnlyDictionary<string, string>? responsaveis = null) => new
     {
         id = a.Id,
         unidade = UnidadePainel(a.Unidade),
@@ -233,7 +178,9 @@ public class AdminStoreController(LanePetsDbContext db, PermissaoService permiss
         transporte = TemTransporte(a.Transporte, a.ValorTransporte),
         transporteDescricao = a.Transporte,
         valorTransporte = a.ValorTransporte,
-        status = string.IsNullOrWhiteSpace(a.Status) ? "Pendente" : a.Status,
+        status = StatusAgendamento.Exibir(a.Status),
+        responsavelId = a.ResponsavelId,
+        responsavelNome = a.ResponsavelId.Length > 0 && responsaveis is not null && responsaveis.TryGetValue(a.ResponsavelId, out var resp) ? resp : "",
         pagamentoStatus = string.IsNullOrWhiteSpace(a.PagamentoStatus) ? "A pagar" : a.PagamentoStatus,
         formaPagamento = a.FormaPagamento,
         obs = a.Obs,
@@ -288,7 +235,12 @@ public class AdminStoreController(LanePetsDbContext db, PermissaoService permiss
         valorVenda = p.ValorVenda,
         estoque = p.Estoque,
         estoqueMinimo = p.EstoqueMinimo,
-        controlaEstoque = p.ControlaEstoque
+        controlaEstoque = p.ControlaEstoque,
+        // Itens 6/7
+        descricao = p.Descricao,
+        fotoUrl = p.FotoUrl,
+        visivelLoja = p.VisivelLoja,
+        situacaoEstoque = EstoqueService.Situacao(p)
     };
 
     private static object ParaPainel(EntradaSaida e) => new
@@ -302,16 +254,12 @@ public class AdminStoreController(LanePetsDbContext db, PermissaoService permiss
         origem = e.Origem
     };
 
-    /// <summary>"Franco"/"Caieiras" do banco viram os ids curtos das telas.</summary>
-    private static string UnidadePainel(string? valor) => Normalizador.Unidade(valor) switch
-    {
-        "Franco" => "franco",
-        "Caieiras" => "caieiras",
-        _ => ""
-    };
-
-    private static readonly string[] SemTransporte =
-        { "", "false", "0", "nao", "n", "cliente leva", "sem transporte", "nenhum" };
+    /// <summary>
+    /// Qualquer forma gravada da unidade ("Franco da Rocha", "franco"...) vira
+    /// o id curto das telas. Desde o item 5 a lista de unidades e dinamica
+    /// (Normalizador.RegistrarUnidades), entao unidade nova funciona aqui sem mudar codigo.
+    /// </summary>
+    private static string UnidadePainel(string? valor) => Normalizador.IdUnidade(valor);
 
     /// <summary>
     /// A tela trabalha com um sim/nao. O banco tem historico gravado de duas
@@ -381,446 +329,62 @@ public class AdminStoreController(LanePetsDbContext db, PermissaoService permiss
             if (criados.Count == 0 && atualizados.Count == 0 && removidos.Count == 0)
                 await permissoes.ExigirAsync(request.Token ?? "", modulo, AcaoPermissao.Visualizar);
 
-            var novosIds = new List<string>();
-            int alterados = 0, apagados = 0;
+            // Item 11.5: unidade do Funcionario, capacidade, gravacao e pagamentos em SyncPainelService.
+            var (novosIds, alterados, apagados) = await sync.AplicarAsync(contexto, Normalizador.Texto(colecao), criados, atualizados, removidos);
 
-            switch (Normalizador.Texto(colecao))
-            {
-                case "agendamentos":
-                    foreach (var item in criados) novosIds.Add(await CriarAgendamento(item));
-                    foreach (var item in atualizados) alterados += await AtualizarAgendamento(item);
-                    apagados += await Remover(db.Agendamentos, removidos, a => a.Id);
-                    break;
-
-                case "pets":
-                    foreach (var item in criados) novosIds.Add(await CriarPet(item));
-                    foreach (var item in atualizados) alterados += await AtualizarPet(item);
-                    apagados += await Remover(db.Pets, removidos, p => p.Id);
-                    break;
-
-                case "clientes":
-                    foreach (var item in criados) novosIds.Add(await CriarCliente(item));
-                    foreach (var item in atualizados) alterados += await AtualizarCliente(item);
-                    apagados += await Remover(db.Clientes, removidos, c => c.Id);
-                    break;
-
-                case "servicos":
-                    foreach (var item in criados) novosIds.Add(CriarServico(item));
-                    foreach (var item in atualizados) alterados += await AtualizarServico(item);
-                    apagados += await Remover(db.Servicos, removidos, s => s.Id);
-                    break;
-
-                case "produtos":
-                    foreach (var item in criados) novosIds.Add(CriarProduto(item));
-                    foreach (var item in atualizados) alterados += await AtualizarProduto(item);
-                    apagados += await Remover(db.Produtos, removidos, p => p.Id);
-                    break;
-
-                case "entradasesaidas":
-                    foreach (var item in criados) novosIds.Add(CriarLancamento(item));
-                    foreach (var item in atualizados) alterados += await AtualizarLancamento(item);
-                    apagados += await Remover(db.EntradasESaidas, removidos, e => e.Id);
-                    break;
-
-                default:
-                    throw new Exception($"Colecao \"{colecao}\" nao e sincronizavel.");
-            }
-
-            await db.SaveChangesAsync();
             await realtime.NotificarAsync(colecao, "sincronizado", new { criados = novosIds.Count, alterados, apagados });
+            await RegistrarEventosDoSync(contexto, Normalizador.Texto(colecao), criados, novosIds, atualizados, removidos);
 
-            return OkApi(new
-            {
-                colecao,
-                novosIds,
-                criados = novosIds.Count,
-                alterados,
-                apagados,
-                message = "Alteracoes gravadas no banco."
-            });
+            return OkApi(new SyncResposta(colecao, novosIds, novosIds.Count, alterados, apagados, "Alteracoes gravadas no banco."));
         }
         catch (Exception ex) { return ErrorApi(ex); }
     }
 
-    // ----------------------------------------------------------------- AGD
-    private async Task<string> CriarAgendamento(JsonElement item)
-    {
-        var id = Id(item, "AGD");
-        var dono = Texto(item, "dono");
-        var telefone = Texto(item, "telefone");
-
-        // Liga o agendamento ao cadastro real sempre que der: e o que faz o
-        // agendamento criado no painel aparecer tambem na conta do cliente.
-        var pet = await ResolverPet(Texto(item, "petId"), Texto(item, "pet"), dono);
-        var clienteId = Texto(item, "clienteId");
-        if (clienteId.Length == 0) clienteId = pet?.ClienteId ?? await ResolverClienteId(dono, telefone);
-
-        db.Agendamentos.Add(new Agendamento
-        {
-            Id = id,
-            Pet = Texto(item, "pet"),
-            Dono = dono,
-            Telefone = telefone,
-            DataHora = Texto(item, "dataHora"),
-            ServicosJson = Bruto(item, "servicos") ?? "[]",
-            Total = Numero(item, "total"),
-            Transporte = DescricaoTransporte(item),
-            ValorTransporte = Numero(item, "valorTransporte"),
-            Status = Preenchido(Texto(item, "status"), "Pendente"),
-            PagamentoStatus = Preenchido(Texto(item, "pagamentoStatus"), "A pagar"),
-            FormaPagamento = Texto(item, "formaPagamento"),
-            Obs = Texto(item, "obs"),
-            Unidade = UnidadeBanco(Texto(item, "unidade")),
-            ClienteId = clienteId,
-            PetId = pet?.Id ?? Texto(item, "petId")
-        });
-        return id;
-    }
-
-    private async Task<int> AtualizarAgendamento(JsonElement item)
-    {
-        var alvo = await db.Agendamentos.FindAsync(Texto(item, "id"));
-        if (alvo is null) return 0;
-        alvo.Pet = Texto(item, "pet");
-        alvo.Dono = Texto(item, "dono");
-        alvo.Telefone = Texto(item, "telefone");
-        alvo.DataHora = Texto(item, "dataHora");
-        alvo.ServicosJson = Bruto(item, "servicos") ?? alvo.ServicosJson;
-        alvo.Total = Numero(item, "total");
-        alvo.Transporte = DescricaoTransporte(item, alvo.Transporte);
-        alvo.ValorTransporte = Numero(item, "valorTransporte");
-        alvo.Status = Preenchido(Texto(item, "status"), alvo.Status);
-        alvo.PagamentoStatus = Preenchido(Texto(item, "pagamentoStatus"), alvo.PagamentoStatus);
-        alvo.FormaPagamento = Texto(item, "formaPagamento");
-        alvo.Obs = Texto(item, "obs");
-        var unidade = UnidadeBanco(Texto(item, "unidade"));
-        if (unidade.Length > 0) alvo.Unidade = unidade;
-        return 1;
-    }
-
-    /// <summary>Recupera a descricao do transporte sem perder a que ja estava gravada.</summary>
-    private static string DescricaoTransporte(JsonElement item, string? atual = null)
-    {
-        var marcado = Booleano(item, "transporte") || Numero(item, "valorTransporte") > 0;
-        // Sem transporte marcado a descricao antiga nao pode continuar valendo:
-        // desmarcar o transporte na tela precisa apagar tambem a descricao.
-        if (!marcado) return "Cliente leva";
-        var descricao = Texto(item, "transporteDescricao");
-        if (descricao.Length > 0 && !SemTransporte.Contains(Normalizador.Texto(descricao))
-            && Normalizador.Texto(descricao) != "true") return descricao;
-        return string.IsNullOrWhiteSpace(atual) || Normalizador.Texto(atual) == "cliente leva" ? "Busca e entrega" : atual!;
-    }
-
-    private async Task<Pet?> ResolverPet(string petId, string nomePet, string dono)
-    {
-        if (petId.Length > 0)
-        {
-            var porId = await db.Pets.AsNoTracking().FirstOrDefaultAsync(p => p.Id == petId);
-            if (porId is not null) return porId;
-        }
-        if (nomePet.Length == 0) return null;
-        var chavePet = Normalizador.Texto(nomePet);
-        var chaveDono = Normalizador.Texto(dono);
-        return (await db.Pets.AsNoTracking().ToListAsync())
-            .FirstOrDefault(p => Normalizador.Texto(p.PetNome) == chavePet && Normalizador.Texto(p.Dono) == chaveDono);
-    }
-
-    private async Task<string> ResolverClienteId(string nome, string telefone)
-    {
-        if (nome.Length == 0 && telefone.Length == 0) return "";
-        var chaveNome = Normalizador.Texto(nome);
-        var digitos = new string((telefone ?? "").Where(char.IsDigit).ToArray());
-        var clientes = await db.Clientes.AsNoTracking().ToListAsync();
-        var achado = clientes.FirstOrDefault(c => Normalizador.Texto(c.Nome) == chaveNome)
-                     ?? (digitos.Length >= 8
-                         ? clientes.FirstOrDefault(c => new string(c.Telefone.Where(char.IsDigit).ToArray()) == digitos)
-                         : null);
-        return achado?.Id ?? "";
-    }
-
-    // ----------------------------------------------------------------- PET
-    private async Task<string> CriarPet(JsonElement item)
-    {
-        var id = Id(item, "PET");
-        var dono = Texto(item, "dono");
-        var telefone = Texto(item, "telefone");
-        var endereco = Texto(item, "endereco");
-        var clienteId = Texto(item, "clienteId");
-        if (clienteId.Length == 0) clienteId = await ResolverClienteId(dono, telefone);
-
-        // Pet cadastrado no painel para um dono que ainda nao existe: cria o
-        // cliente junto, para nao nascer um pet orfao.
-        if (clienteId.Length == 0 && dono.Length > 0)
-        {
-            var cliente = new Cliente
-            {
-                Id = NovoId("CLI"),
-                Nome = dono,
-                Telefone = telefone,
-                Endereco = endereco,
-                Origem = "cadastro_painel",
-                Status = "ativo"
-            };
-            db.Clientes.Add(cliente);
-            clienteId = cliente.Id;
-        }
-
-        db.Pets.Add(new Pet
-        {
-            Id = id,
-            ClienteId = clienteId,
-            Dono = dono,
-            PetNome = Texto(item, "pet"),
-            Tipo = Texto(item, "tipo"),
-            Raca = Texto(item, "raca"),
-            Telefone = telefone,
-            Endereco = endereco,
-            PacoteJson = Bruto(item, "pacote") ?? "",
-            Unidade = UnidadeBanco(Texto(item, "unidade"))
-        });
-        return id;
-    }
-
-    private async Task<int> AtualizarPet(JsonElement item)
-    {
-        var alvo = await db.Pets.FindAsync(Texto(item, "id"));
-        if (alvo is null) return 0;
-        alvo.Dono = Texto(item, "dono");
-        alvo.PetNome = Texto(item, "pet");
-        alvo.Tipo = Texto(item, "tipo");
-        alvo.Raca = Texto(item, "raca");
-        alvo.Telefone = Texto(item, "telefone");
-        alvo.Endereco = Texto(item, "endereco");
-        alvo.PacoteJson = Bruto(item, "pacote") ?? alvo.PacoteJson;
-        var unidade = UnidadeBanco(Texto(item, "unidade"));
-        if (unidade.Length > 0) alvo.Unidade = unidade;
-        return 1;
-    }
-
-    // ------------------------------------------------------------- CLIENTE
-    private async Task<string> CriarCliente(JsonElement item)
-    {
-        var id = Id(item, "CLI");
-        db.Clientes.Add(new Cliente
-        {
-            Id = id,
-            Nome = Texto(item, "nome"),
-            Telefone = Texto(item, "telefone"),
-            Endereco = Texto(item, "endereco"),
-            Observacoes = Texto(item, "observacoes"),
-            Origem = Preenchido(Texto(item, "origem"), "cadastro_painel"),
-            Status = Preenchido(Texto(item, "status"), "ativo")
-        });
-        await Task.CompletedTask;
-        return id;
-    }
-
-    private async Task<int> AtualizarCliente(JsonElement item)
-    {
-        var alvo = await db.Clientes.FindAsync(Texto(item, "id"));
-        if (alvo is null) return 0;
-        var nome = Texto(item, "nome");
-        if (nome.Length > 0) alvo.Nome = nome;
-        alvo.Telefone = Texto(item, "telefone");
-        alvo.Endereco = Texto(item, "endereco");
-        alvo.Observacoes = Texto(item, "observacoes");
-        alvo.Status = Preenchido(Texto(item, "status"), alvo.Status);
-
-        // O nome do dono aparece copiado nos pets e nos agendamentos: mantem
-        // as duas pontas coerentes, como ja acontece na area do cliente.
-        foreach (var pet in await db.Pets.Where(p => p.ClienteId == alvo.Id).ToListAsync())
-        {
-            pet.Dono = alvo.Nome;
-            pet.Telefone = alvo.Telefone;
-        }
-        foreach (var ag in await db.Agendamentos.Where(a => a.ClienteId == alvo.Id).ToListAsync())
-        {
-            ag.Dono = alvo.Nome;
-            ag.Telefone = alvo.Telefone;
-        }
-        return 1;
-    }
-
-    // ------------------------------------------------------------- SERVICO
-    private string CriarServico(JsonElement item)
-    {
-        var id = Id(item, "SRV");
-        db.Servicos.Add(new Servico
-        {
-            Id = id,
-            Nome = Texto(item, "nome"),
-            Preco = Numero(item, "preco"),
-            Porte = Texto(item, "porte"),
-            AdicionaisJson = Bruto(item, "adicionais") ?? "[]",
-            Pacote = Texto(item, "pacote"),
-            Adicional = Texto(item, "adicional")
-        });
-        return id;
-    }
-
-    private async Task<int> AtualizarServico(JsonElement item)
-    {
-        var alvo = await db.Servicos.FindAsync(Texto(item, "id"));
-        if (alvo is null) return 0;
-        alvo.Nome = Texto(item, "nome");
-        alvo.Preco = Numero(item, "preco");
-        alvo.Porte = Texto(item, "porte");
-        alvo.AdicionaisJson = Bruto(item, "adicionais") ?? alvo.AdicionaisJson;
-        alvo.Pacote = Texto(item, "pacote");
-        alvo.Adicional = Texto(item, "adicional");
-        return 1;
-    }
-
-    // ------------------------------------------------------------- PRODUTO
-    private string CriarProduto(JsonElement item)
-    {
-        var id = Id(item, "PRD");
-        db.Produtos.Add(new Produto
-        {
-            Id = id,
-            Codigo = Texto(item, "codigo"),
-            Nome = Texto(item, "nome"),
-            Categoria = Texto(item, "categoria"),
-            ValorCompra = Numero(item, "valorCompra"),
-            ValorVenda = Numero(item, "valorVenda"),
-            Estoque = (int)Numero(item, "estoque"),
-            EstoqueMinimo = (int)Numero(item, "estoqueMinimo"),
-            ControlaEstoque = Booleano(item, "controlaEstoque")
-        });
-        return id;
-    }
-
-    private async Task<int> AtualizarProduto(JsonElement item)
-    {
-        var alvo = await db.Produtos.FindAsync(Texto(item, "id"));
-        if (alvo is null) return 0;
-        alvo.Codigo = Texto(item, "codigo");
-        alvo.Nome = Texto(item, "nome");
-        alvo.Categoria = Texto(item, "categoria");
-        alvo.ValorCompra = Numero(item, "valorCompra");
-        alvo.ValorVenda = Numero(item, "valorVenda");
-        // Estoque so muda quando a tela realmente mandou o campo: assim uma
-        // edicao de preco nao zera o estoque dado pela baixa de um pedido.
-        if (item.TryGetProperty("estoque", out _)) alvo.Estoque = (int)Numero(item, "estoque");
-        if (item.TryGetProperty("estoqueMinimo", out _)) alvo.EstoqueMinimo = (int)Numero(item, "estoqueMinimo");
-        if (item.TryGetProperty("controlaEstoque", out _)) alvo.ControlaEstoque = Booleano(item, "controlaEstoque");
-        return 1;
-    }
-
-    // ---------------------------------------------------------- LANCAMENTO
-    private string CriarLancamento(JsonElement item)
-    {
-        var id = Id(item, "FIN");
-        db.EntradasESaidas.Add(new EntradaSaida
-        {
-            Id = id,
-            Data = Texto(item, "data"),
-            Descricao = Texto(item, "descricao"),
-            Tipo = Texto(item, "tipo"),
-            Valor = Numero(item, "valor"),
-            Unidade = UnidadeBanco(Texto(item, "unidade")),
-            Origem = Preenchido(Texto(item, "origem"), "painel")
-        });
-        return id;
-    }
-
-    private async Task<int> AtualizarLancamento(JsonElement item)
-    {
-        var alvo = await db.EntradasESaidas.FindAsync(Texto(item, "id"));
-        if (alvo is null) return 0;
-        alvo.Data = Texto(item, "data");
-        alvo.Descricao = Texto(item, "descricao");
-        alvo.Tipo = Texto(item, "tipo");
-        alvo.Valor = Numero(item, "valor");
-        alvo.Unidade = UnidadeBanco(Texto(item, "unidade"));
-        return 1;
-    }
-
-    // =======================================================================
-    // AUXILIARES
-    // =======================================================================
-
-    private async Task<int> Remover<T>(DbSet<T> conjunto, List<string> ids, Func<T, string> chave) where T : class
-    {
-        if (ids.Count == 0) return 0;
-        var alvos = (await conjunto.ToListAsync()).Where(x => ids.Contains(chave(x))).ToList();
-        conjunto.RemoveRange(alvos);
-        return alvos.Count;
-    }
-
-    private static string NovoId(string prefixo) => prefixo + "-" + Guid.NewGuid().ToString("N")[..12].ToUpperInvariant();
-
-    /// <summary>Usa o id que a tela mandou; se veio vazio, gera um novo.</summary>
-    private static string Id(JsonElement item, string prefixo)
-    {
-        var informado = Texto(item, "id");
-        return informado.Length > 0 ? informado : NovoId(prefixo);
-    }
-
-    private static string Preenchido(string valor, string padrao) => valor.Length > 0 ? valor : padrao;
-
+    // ------------------------------------------------------------ EVENTOS
     /// <summary>
-    /// Grava a unidade na mesma forma que o banco ja usa ("franco"/"caieiras"),
-    /// que e tambem a que a area do cliente escreve. A leitura continua passando
-    /// pelo Normalizador, entao registros antigos em qualquer capitalizacao
-    /// continuam sendo reconhecidos.
+    /// Item 15: o que o painel gravou vira evento, com quem fez. Ate 20 itens,
+    /// um evento por registro (com o nome/descricao); acima disso (importacao
+    /// em lote), um evento so com as contagens, para o log nao explodir.
+    /// So roda DEPOIS do SaveChanges: nada e registrado se a gravacao falhou.
     /// </summary>
-    private static string UnidadeBanco(string? valor) => Normalizador.Texto(valor) switch
+    private async Task RegistrarEventosDoSync(ContextoAdmin contexto, string colecao, List<JsonElement> criados, List<string> novosIds, List<JsonElement> atualizados, List<string> removidos)
     {
-        "franco" or "franco da rocha" => "franco",
-        "caieiras" => "caieiras",
-        _ => ""
-    };
-
-    private static List<JsonElement> Itens(JsonElement valor)
-        => valor.ValueKind == JsonValueKind.Array
-            ? valor.EnumerateArray().Where(x => x.ValueKind == JsonValueKind.Object).ToList()
-            : new List<JsonElement>();
-
-    private static List<string> Ids(JsonElement valor)
-        => valor.ValueKind == JsonValueKind.Array
-            ? valor.EnumerateArray().Select(x => x.ValueKind == JsonValueKind.String ? x.GetString() ?? "" : x.ToString())
-                   .Where(x => x.Length > 0).ToList()
-            : new List<string>();
-
-    private static string Texto(JsonElement objeto, string nome)
-    {
-        if (!objeto.TryGetProperty(nome, out var valor)) return "";
-        return valor.ValueKind switch
+        var (categoria, rotulo) = colecao switch
         {
-            JsonValueKind.String => valor.GetString()?.Trim() ?? "",
-            JsonValueKind.Number => valor.ToString(),
-            JsonValueKind.True => "true",
-            JsonValueKind.False => "false",
-            _ => ""
+            "agendamentos" => ("agendamento", "Agendamento"),
+            "pets" => ("pet", "Pet"),
+            "clientes" => ("cliente", "Cliente"),
+            "servicos" => ("servico", "Serviço"),
+            "produtos" => ("produto", "Produto"),
+            "entradasesaidas" => ("financeiro", "Lançamento financeiro"),
+            _ => ("sistema", colecao)
         };
-    }
+        var total = criados.Count + atualizados.Count + removidos.Count;
+        if (total == 0) return;
 
-    private static decimal Numero(JsonElement objeto, string nome)
-    {
-        if (!objeto.TryGetProperty(nome, out var valor)) return 0m;
-        if (valor.ValueKind == JsonValueKind.Number && valor.TryGetDecimal(out var d)) return d;
-        var texto = (valor.ValueKind == JsonValueKind.String ? valor.GetString() : null) ?? "";
-        texto = texto.Replace("R$", "").Trim();
-        if (texto.Contains(',')) texto = texto.Replace(".", "").Replace(',', '.');
-        return decimal.TryParse(texto, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var parsed) ? parsed : 0m;
-    }
+        EventosService.Evento Novo(string acao, string alvo, string detalhes, string nivel = "info")
+            => new(categoria, acao, nivel, "admin", contexto.Usuario.Id, contexto.Usuario.Email, alvo, detalhes);
 
-    private static bool Booleano(JsonElement objeto, string nome)
-    {
-        if (!objeto.TryGetProperty(nome, out var valor)) return false;
-        return valor.ValueKind switch
+        if (total > 20)
         {
-            JsonValueKind.True => true,
-            JsonValueKind.False => false,
-            JsonValueKind.Number => valor.TryGetDecimal(out var n) && n != 0,
-            JsonValueKind.String => Normalizador.Texto(valor.GetString()) is "sim" or "true" or "1",
-            _ => false
-        };
-    }
+            await eventos.RegistrarAsync(Novo($"{rotulo}: alteração em lote", "",
+                $"{criados.Count} criado(s), {atualizados.Count} alterado(s), {removidos.Count} excluído(s)."), HttpContext);
+            return;
+        }
 
-    private static string? Bruto(JsonElement objeto, string nome)
-        => objeto.TryGetProperty(nome, out var valor) && valor.ValueKind is JsonValueKind.Array or JsonValueKind.Object
-            ? valor.GetRawText()
-            : null;
+        static string Descrever(JsonElement item)
+        {
+            var partes = new[] { "nome", "pet", "descricao", "dono", "dataHora", "status", "valorVenda", "valor", "tipo" }
+                .Select(campo => item.TryGetProperty(campo, out var v) && v.ValueKind is JsonValueKind.String or JsonValueKind.Number ? $"{campo}: {v}" : null)
+                .Where(p => p is not null);
+            return string.Join(" · ", partes);
+        }
+
+        for (var i = 0; i < criados.Count; i++)
+            await eventos.RegistrarAsync(Novo($"{rotulo} criado", i < novosIds.Count ? novosIds[i] : "", Descrever(criados[i])), HttpContext);
+        foreach (var item in atualizados)
+            await eventos.RegistrarAsync(Novo($"{rotulo} alterado", Texto(item, "id"), Descrever(item)), HttpContext);
+        foreach (var id in removidos)
+            await eventos.RegistrarAsync(Novo($"{rotulo} excluído", id, "", "aviso"), HttpContext);
+    }
 }

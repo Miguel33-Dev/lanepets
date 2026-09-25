@@ -37,7 +37,7 @@ public static class PetFicha
     /// limite existe porque a tela nao e a unica coisa que pode chamar a API.
     /// 200 KB de data URI e folgado para uma foto de 320px de lado.
     /// </summary>
-    public const int LimiteFotoBytes = 200 * 1024;
+    public const int LimiteFotoBytes = ImagemDataUri.LimitePadraoBytes;
 
     private static readonly string[] EspeciesAceitas = ["Cachorro", "Gato", "Outro"];
     private static readonly string[] SexosAceitos = ["Macho", "Fêmea"];
@@ -88,7 +88,10 @@ public static class PetFicha
         var cor = Limpar(entrada.Cor);
         if (cor.Length > LimiteCor) throw new ValidacaoException($"A cor pode ter até {LimiteCor} caracteres.");
 
-        var foto = ValidarFoto(entrada.FotoUrl);
+        // So remove uma foto ja salva quando o cliente pede isso de forma
+        // explicita (RemoverFoto=true). Um FotoUrl vazio/ausente sozinho NUNCA
+        // apaga uma foto existente -- ele so significa "nao mudei a foto".
+        var foto = ResolverFoto(pet.FotoUrl, entrada.FotoUrl, entrada.RemoverFoto);
 
         var observacoes = Limpar(entrada.Observacoes);
         if (observacoes.Length > LimiteTexto) throw new ValidacaoException($"As observações podem ter até {LimiteTexto} caracteres.");
@@ -145,38 +148,14 @@ public static class PetFicha
     }
 
     /// <summary>
-    /// A foto chega como data URI, ja reduzida pelo navegador. Aqui a API
-    /// confere que e mesmo imagem, que o formato e um dos tres que o navegador
-    /// gera, e que o tamanho cabe. Um arquivo que nao e imagem nunca vira foto
-    /// de pet so porque o nome terminava em .jpg.
+    /// Foto do pet: a regra (formatos, tamanho, troca e remocao explicita) e a
+    /// mesma de toda imagem do sistema e vive em ImagemDataUri. Aqui so
+    /// traduzimos o erro para o tipo de validacao da ficha.
     /// </summary>
-    private static string ValidarFoto(string? valor)
+    private static string ResolverFoto(string fotoAtual, string? fotoEnviada, bool removerFoto)
     {
-        var texto = (valor ?? "").Trim();
-        if (texto.Length == 0) return "";
-        if (!texto.StartsWith("data:image/", StringComparison.OrdinalIgnoreCase))
-            throw new ValidacaoException("Formato de imagem não reconhecido. Envie um arquivo JPG, PNG ou WebP.");
-
-        var virgula = texto.IndexOf(',');
-        if (virgula < 0) throw new ValidacaoException("Não foi possível ler a imagem. Tente enviar outra foto.");
-
-        var cabecalho = texto[..virgula].ToLowerInvariant();
-        if (!cabecalho.Contains(";base64"))
-            throw new ValidacaoException("Não foi possível ler a imagem. Tente enviar outra foto.");
-
-        var tipo = cabecalho["data:".Length..].Split(';')[0];
-        if (tipo is not ("image/jpeg" or "image/png" or "image/webp"))
-            throw new ValidacaoException("Formato de imagem não aceito. Envie um arquivo JPG, PNG ou WebP.");
-
-        if (texto.Length > LimiteFotoBytes)
-            throw new ValidacaoException("A foto ficou grande demais. Escolha uma imagem menor.");
-
-        var conteudo = texto[(virgula + 1)..];
-        Span<byte> buffer = new byte[((conteudo.Length * 3) / 4) + 4];
-        if (!Convert.TryFromBase64String(conteudo, buffer, out var escritos) || escritos == 0)
-            throw new ValidacaoException("Não foi possível ler a imagem. Tente enviar outra foto.");
-
-        return texto;
+        try { return ImagemDataUri.Resolver(fotoAtual, fotoEnviada, removerFoto, LimiteFotoBytes); }
+        catch (ImagemDataUri.ImagemInvalidaException ex) { throw new ValidacaoException(ex.Message); }
     }
 
     private static string Limpar(string? valor) => (valor ?? "").Trim();
@@ -193,5 +172,6 @@ public static class PetFicha
     public sealed record FichaEntrada(
         string? Nome, string? Tipo, string? Raca, string? Sexo, string? DataNascimento,
         string? Peso, string? Cor, string? Porte, string? FotoUrl,
-        string? Observacoes, string? NecessidadesEspeciais, string? InfoAtendimento);
+        string? Observacoes, string? NecessidadesEspeciais, string? InfoAtendimento,
+        bool RemoverFoto = false);
 }

@@ -4,9 +4,73 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Área pública &middot; LanePets</title>
-<link rel="stylesheet" href="design-system.css?v=4">
+<link rel="stylesheet" href="design-system.css?v=6">
+<link rel="stylesheet" href="css/admin-acoes.css?v=1">
 <script src="js/config.js"></script>
-<script src="js/admin-permissoes.js"></script>
+<script src="js/admin-permissoes.js?v=5"></script>
+<style>
+  /* ------------------------------------------------------------------
+     Área Pública — só o que é específico desta tela. Cards de módulo e KPI
+     replicam exatamente o padrão já usado no hub de Cadastro (index.html),
+     para a mesma identidade visual em todo o painel.
+     ------------------------------------------------------------------ */
+  .voltar-cadastro {
+    display: inline-flex; align-items: center; gap: 6px; font-size: .84rem; font-weight: 700;
+    color: var(--brand-700); text-decoration: none; margin-bottom: var(--sp-4);
+  }
+  .voltar-cadastro:hover { text-decoration: underline; }
+
+  .modulos-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: var(--sp-4); }
+  .module-card {
+    display: flex; flex-direction: column; gap: var(--sp-3);
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg);
+    padding: var(--sp-5); box-shadow: var(--shadow-sm); text-decoration: none; color: inherit;
+    transition: transform .14s var(--ease), box-shadow .14s var(--ease), border-color .14s var(--ease);
+  }
+  .module-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-lg); border-color: var(--brand-200); }
+  .module-card:focus-visible { outline: none; box-shadow: var(--ring); }
+  .module-card-head { display: flex; align-items: center; gap: var(--sp-3); }
+  .module-card-icon {
+    width: 42px; height: 42px; border-radius: var(--r-md); flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--brand-100); color: var(--brand-700);
+  }
+  .module-card h3 { font-size: 1rem; font-weight: 800; margin: 0; display: flex; align-items: center; gap: 8px; }
+  .module-card p { margin: 0; font-size: .84rem; color: var(--ink-500); line-height: 1.4; }
+  .module-card-foot { display: flex; align-items: center; justify-content: space-between; margin-top: auto; padding-top: var(--sp-2); gap: var(--sp-2); }
+  .module-card-count { font-size: .78rem; font-weight: 700; color: var(--ink-600); }
+  .module-card-count.skeleton { display: inline-block; width: 76px; height: 13px; border-radius: var(--r-sm); }
+  .module-card-cta { display: inline-flex; align-items: center; gap: 4px; font-size: .82rem; font-weight: 800; color: var(--accent-600); white-space: nowrap; }
+  .module-card-cta svg { transition: transform .14s var(--ease); }
+  .module-card:hover .module-card-cta svg { transform: translateX(3px); }
+  .module-card-badge { font-size: .68rem; font-weight: 800; padding: 2px 8px; border-radius: var(--r-full); background: var(--warning-100); color: #9c7415; }
+  .module-card-external { font-size: .68rem; font-weight: 700; color: var(--ink-400); }
+
+  .kpi .value.skeleton { display: inline-block; width: 54px; height: 1.6rem; border-radius: var(--r-sm); margin-top: 8px; }
+  #buscaPublicaVazio, #erroGeralPublica { display: none; }
+
+  /* ---------- Avaliações: cartões (não tabela) — mesma linguagem visual do site ---------- */
+  .avaliacoes-grade { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: var(--sp-4); }
+  .avaliacao-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg);
+    padding: var(--sp-5); display: flex; flex-direction: column; gap: 8px; box-shadow: var(--shadow-sm);
+  }
+  .avaliacao-estrelas { color: var(--accent-600); letter-spacing: 2px; font-size: .92rem; }
+  .avaliacao-card blockquote { margin: 0; font-size: .92rem; color: var(--ink-700); line-height: 1.5; }
+  .avaliacao-card cite { font-style: normal; font-size: .8rem; color: var(--ink-500); font-weight: 700; }
+  .avaliacao-card-foot { display: flex; align-items: center; justify-content: space-between; margin-top: auto; padding-top: var(--sp-2); border-top: 1px solid var(--border); gap: var(--sp-2); flex-wrap: wrap; }
+
+  /* ---------- Prévia pública (modal) — representação fiel, sem duplicar a home ---------- */
+  .preview-plano { border: 1px solid var(--border); border-radius: var(--r-lg); padding: var(--sp-5); background: var(--surface-muted); }
+  .preview-plano h3 { margin: 0 0 4px; font-size: 1.1rem; }
+  .preview-plano .valor { font-family: var(--font-display); font-size: 1.4rem; font-weight: 800; color: var(--brand-700); margin: 8px 0; }
+  .preview-plano ul { margin: 8px 0 0; padding-left: 18px; font-size: .86rem; color: var(--ink-600); }
+  .preview-nota { font-size: .78rem; color: var(--ink-400); margin-top: var(--sp-3); }
+
+  @media (max-width: 620px) {
+    .modulos-grid, .avaliacoes-grade { grid-template-columns: 1fr; }
+  }
+</style>
 </head>
 <body>
 <div class="app-shell">
@@ -19,7 +83,7 @@
         </button>
         <div>
           <div class="topbar-title">Área pública</div>
-          <div class="topbar-breadcrumb hide-mobile">Site / Moderação e planos</div>
+          <div class="topbar-breadcrumb hide-mobile">Site / Conteúdo publicado para o cliente</div>
         </div>
       </div>
       <div class="topbar-right"><a class="topbar-ghost hide-mobile" href="cliente.html" title="Ver o site público"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3.3 9.5h17.4M3.3 14.5h17.4"/><path d="M12 3a15 15 0 0 1 0 18a15 15 0 0 1 0-18Z"/></svg><span>Ver site</span></a><div class="topbar-user"><div class="avatar" aria-hidden="true">LP</div><div class="topbar-user-info hide-mobile"><strong>Administrador</strong><span>LanePets</span></div></div><button class="btn btn-outline btn-sm" type="button" id="btnSair" title="Encerrar sessão"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5.5A1.5 1.5 0 0 1 4 19.5v-15A1.5 1.5 0 0 1 5.5 3H9"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/></svg><span class="hide-mobile">Sair</span></button></div></header>
@@ -29,7 +93,7 @@
         <div class="empty-state" style="padding:0 0 var(--sp-4)">
           <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
           <h3>Acesso à gestão da área pública</h3>
-          <p>Modere depoimentos, acompanhe contratações e gerencie os planos exibidos no site.</p>
+          <p>Confirme sua senha para gerenciar planos, avaliações e solicitações exibidos no site LanePets.</p>
         </div>
         <div class="field">
           <label for="email">E-mail administrativo</label>
@@ -44,50 +108,242 @@
       </section>
 
       <section id="gestao" style="display:none">
-        <div class="page-header">
-          <div>
-            <h1>Gestão da área pública</h1>
-            <p>Planos de seguro, depoimentos e solicitações vindas do site LanePets.</p>
+
+        <!-- ================================================================
+             VISÃO 1 — HUB: central de conteúdo da área pública
+             ================================================================ -->
+        <div id="viewHub">
+          <div class="page-header">
+            <div>
+              <h1>Área Pública</h1>
+              <p>Gerencie o conteúdo e as informações exibidas para os clientes do LanePets.</p>
+            </div>
+          </div>
+
+          <div class="empty-state" id="erroGeralPublica" style="text-align:left;padding:var(--sp-5)">
+            <p style="margin:0 0 var(--sp-3)">Não foi possível carregar o conteúdo da área pública.</p>
+            <button class="btn btn-outline btn-sm" type="button" id="btnTentarDeNovoPublica">Tentar novamente</button>
+          </div>
+
+          <div class="kpi-grid" id="kpiPublica">
+            <article class="kpi">
+              <div class="eyebrow">Publicados</div>
+              <div class="value skeleton" data-kpi="publicados">&nbsp;</div>
+              <div class="meta">Planos visíveis + avaliações aprovadas</div>
+              <div class="accent"></div>
+            </article>
+            <article class="kpi">
+              <div class="eyebrow">Ocultos</div>
+              <div class="value skeleton" data-kpi="ocultos">&nbsp;</div>
+              <div class="meta">Planos desativados + avaliações recusadas</div>
+              <div class="accent"></div>
+            </article>
+            <article class="kpi">
+              <div class="eyebrow">Pendentes</div>
+              <div class="value skeleton" data-kpi="pendentes">&nbsp;</div>
+              <div class="meta">Avaliações e solicitações aguardando você</div>
+              <div class="accent"></div>
+            </article>
+            <article class="kpi kpi-accent">
+              <div class="eyebrow">Última atividade</div>
+              <div class="value skeleton" data-kpi="ultimaAtividade" style="font-size:1.1rem">&nbsp;</div>
+              <div class="meta">Avaliação ou solicitação mais recente</div>
+              <div class="accent"></div>
+            </article>
+          </div>
+
+          <div class="toolbar">
+            <div class="search-box">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+              <input class="input" type="text" id="buscaPublica" placeholder="Buscar módulo..." aria-label="Buscar módulo">
+            </div>
+          </div>
+
+          <div class="modulos-grid" id="gradeModulosPublica">
+
+            <a class="module-card" data-permissao="seguros:visualizar" data-search="seguro pet planos coberturas protecao" href="#seguro">
+              <div class="module-card-head">
+                <div class="module-card-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5 5 6v5.2c0 4.6 3 8 7 9.3 4-1.3 7-4.7 7-9.3V6Z"/><path d="m9.3 12 1.9 1.9 3.6-3.7"/></svg></div>
+                <h3>Seguro Pet</h3>
+              </div>
+              <p>Gerencie os planos de proteção exibidos no site.</p>
+              <div class="module-card-foot">
+                <span class="module-card-count skeleton" data-count="seguro">&nbsp;</span>
+                <span class="module-card-cta">Gerenciar <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></span>
+              </div>
+            </a>
+
+            <a class="module-card" data-permissao="seguros:visualizar" data-search="solicitacoes seguro contratacoes pedidos" href="#solicitacoes">
+              <div class="module-card-head">
+                <div class="module-card-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3.5h8l3 3.5v12a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 5 19V7Z"/><path d="M8 12h8M8 16h5"/></svg></div>
+                <h3>Solicitações de Seguro<span class="module-card-badge" data-badge="solicitacoes" hidden></span></h3>
+              </div>
+              <p>Acompanhe os pedidos de contratação enviados pelo site.</p>
+              <div class="module-card-foot">
+                <span class="module-card-count skeleton" data-count="solicitacoes">&nbsp;</span>
+                <span class="module-card-cta">Gerenciar <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></span>
+              </div>
+            </a>
+
+            <a class="module-card" data-permissao="avaliacoes:visualizar" data-search="avaliacoes depoimentos comentarios moderacao" href="#avaliacoes">
+              <div class="module-card-head">
+                <div class="module-card-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3.3 2.6 5.4 5.9.9-4.3 4.1 1 5.9-5.2-2.8-5.2 2.8 1-5.9-4.3-4.1 5.9-.9Z"/></svg></div>
+                <h3>Avaliações<span class="module-card-badge" data-badge="avaliacoes" hidden></span></h3>
+              </div>
+              <p>Modere os depoimentos enviados pelos clientes do site.</p>
+              <div class="module-card-foot">
+                <span class="module-card-count skeleton" data-count="avaliacoes">&nbsp;</span>
+                <span class="module-card-cta">Gerenciar <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></span>
+              </div>
+            </a>
+
+            <a class="module-card" data-permissao="produtos:visualizar" data-search="produtos loja catalogo" href="Produtos.html">
+              <div class="module-card-head">
+                <div class="module-card-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m3 8 9-5 9 5-9 5-9-5Z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v8"/></svg></div>
+                <h3>Produtos</h3>
+              </div>
+              <p>Gerencie os produtos exibidos na loja do site.</p>
+              <div class="module-card-foot">
+                <span class="module-card-count skeleton" data-count="produtos">&nbsp;</span>
+                <span class="module-card-external">Abrir Produtos ↗</span>
+              </div>
+            </a>
+
+            <a class="module-card" data-permissao="servicos:visualizar" data-search="servicos banho tosa hidratacao" href="index.html#servicos">
+              <div class="module-card-head">
+                <div class="module-card-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m21 8-9-5-9 5 9 5 9-5Z"/><path d="M3 8v8l9 5 9-5V8"/></svg></div>
+                <h3>Serviços</h3>
+              </div>
+              <p>Gerencie os serviços oferecidos aos clientes.</p>
+              <div class="module-card-foot">
+                <span class="module-card-count skeleton" data-count="servicos">&nbsp;</span>
+                <span class="module-card-external">Abrir Cadastro ↗</span>
+              </div>
+            </a>
+
+          </div>
+
+          <div class="empty-state" id="buscaPublicaVazio">
+            <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+            <h3>Nenhum módulo encontrado</h3>
+            <p>Tente buscar por outro termo.</p>
           </div>
         </div>
 
-        <div class="grid" style="grid-template-columns:minmax(280px,360px) 1fr;align-items:start">
-          <section class="card">
-            <h2 class="section-title">Novo plano de seguro</h2>
-            <div class="field"><label for="nome">Nome do plano</label><input class="input" id="nome" placeholder="Ex.: Essencial"></div>
-            <div class="field"><label for="descricao">Descrição</label><textarea class="input" id="descricao" rows="2" placeholder="Resumo apresentado ao cliente"></textarea></div>
-            <div class="field"><label for="coberturas">Coberturas</label><textarea class="input" id="coberturas" rows="2" placeholder="Separe por ponto e vírgula"></textarea><span class="hint">Cada item separado por “;” vira um tópico da lista no site.</span></div>
-            <div class="field"><label for="beneficios">Benefícios</label><textarea class="input" id="beneficios" rows="2"></textarea></div>
-            <div class="field"><label for="condicoes">Condições</label><textarea class="input" id="condicoes" rows="2" placeholder="Carência, limites, regras de uso"></textarea><span class="hint">Aparece para o cliente junto do plano.</span></div>
-            <div class="field"><label for="valor">Valor mensal (R$)</label><input class="input" id="valor" type="number" step="0.01" min="0" placeholder="0,00"></div>
-            <button class="btn btn-primary" id="criar-plano" type="button" style="width:100%">Salvar plano</button>
-            <button class="btn btn-outline" id="cancelar-edicao" type="button" style="width:100%;margin-top:var(--sp-2);display:none">Cancelar edição</button>
-          </section>
+        <!-- ================================================================
+             VISÃO 2 — SEGURO PET
+             ================================================================ -->
+        <div id="viewSeguro" style="display:none">
+          <a class="voltar-cadastro" href="#"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>Voltar para Área pública</a>
+          <div class="page-header">
+            <div>
+              <h1>Seguro Pet</h1>
+              <p>Planos de proteção exibidos na área pública. Desative um plano para removê-lo do site sem apagar o histórico.</p>
+            </div>
+          </div>
+
+          <div class="toolbar">
+            <div class="search-box">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+              <input class="input" type="text" id="buscaSeguro" placeholder="Buscar plano..." aria-label="Buscar plano">
+            </div>
+            <select class="input" id="filtroSeguroStatus" style="max-width:190px">
+              <option value="todos">Todos os planos</option>
+              <option value="visiveis">Visíveis no site</option>
+              <option value="ocultos">Ocultos</option>
+            </select>
+            <button class="btn btn-outline btn-sm" type="button" id="limparFiltrosSeguro">Limpar filtros</button>
+          </div>
+
+          <div class="grid" style="grid-template-columns:minmax(280px,360px) 1fr;align-items:start">
+            <section class="card">
+              <h2 class="section-title">Novo plano de seguro</h2>
+              <div class="field"><label for="nome">Nome do plano</label><input class="input" id="nome" placeholder="Ex.: Essencial"></div>
+              <div class="field"><label for="descricao">Descrição</label><textarea class="input" id="descricao" rows="2" placeholder="Resumo apresentado ao cliente"></textarea></div>
+              <div class="field"><label for="coberturas">Coberturas</label><textarea class="input" id="coberturas" rows="2" placeholder="Separe por ponto e vírgula"></textarea><span class="hint">Cada item separado por “;” vira um tópico da lista no site.</span></div>
+              <div class="field"><label for="beneficios">Benefícios</label><textarea class="input" id="beneficios" rows="2"></textarea></div>
+              <div class="field"><label for="condicoes">Condições</label><textarea class="input" id="condicoes" rows="2" placeholder="Carência, limites, regras de uso"></textarea><span class="hint">Aparece para o cliente junto do plano.</span></div>
+              <div class="field"><label for="valor">Valor mensal (R$)</label><input class="input" id="valor" type="number" step="0.01" min="0" placeholder="0,00"></div>
+              <button class="btn btn-primary" id="criar-plano" type="button" style="width:100%">Salvar plano</button>
+              <button class="btn btn-outline" id="cancelar-edicao" type="button" style="width:100%;margin-top:var(--sp-2);display:none">Cancelar edição</button>
+            </section>
+
+            <section class="card">
+              <h2 class="section-title">Planos cadastrados</h2>
+              <p class="section-sub">Ações rápidas: visualizar como o cliente vê, editar, publicar/ocultar ou excluir.</p>
+              <div id="planos"></div>
+            </section>
+          </div>
+        </div>
+
+        <!-- ================================================================
+             VISÃO 3 — SOLICITAÇÕES DE SEGURO
+             ================================================================ -->
+        <div id="viewSolicitacoes" style="display:none">
+          <a class="voltar-cadastro" href="#"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>Voltar para Área pública</a>
+          <div class="page-header">
+            <div>
+              <h1>Solicitações de Seguro</h1>
+              <p>Atualize o status conforme o contato com a família.</p>
+            </div>
+          </div>
+
+          <div class="toolbar">
+            <div class="search-box">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+              <input class="input" type="text" id="buscaSolicitacoes" placeholder="Buscar por cliente ou pet..." aria-label="Buscar solicitação">
+            </div>
+            <select class="input" id="filtroSolicitacaoStatus" style="max-width:190px">
+              <option value="todos">Todos os status</option>
+              <option value="Pendente">Pendente</option>
+              <option value="Em contato">Em contato</option>
+              <option value="Concluída">Concluída</option>
+              <option value="Cancelada">Cancelada</option>
+            </select>
+            <button class="btn btn-outline btn-sm" type="button" id="limparFiltrosSolicitacoes">Limpar filtros</button>
+          </div>
 
           <section class="card">
-            <h2 class="section-title">Planos cadastrados</h2>
-            <p class="section-sub">Desative um plano para removê-lo do site sem apagar o histórico.</p>
-            <div id="planos"></div>
+            <div id="solicitacoes"></div>
           </section>
         </div>
 
-        <section class="card">
-          <h2 class="section-title">Depoimentos para moderação</h2>
-          <p class="section-sub">Somente depoimentos aprovados aparecem na página inicial.</p>
-          <div id="depoimentos"></div>
-        </section>
+        <!-- ================================================================
+             VISÃO 4 — AVALIAÇÕES
+             ================================================================ -->
+        <div id="viewAvaliacoes" style="display:none">
+          <a class="voltar-cadastro" href="#"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>Voltar para Área pública</a>
+          <div class="page-header">
+            <div>
+              <h1>Avaliações</h1>
+              <p>Somente avaliações aprovadas aparecem na página inicial do site.</p>
+            </div>
+          </div>
 
-        <section class="card">
-          <h2 class="section-title">Solicitações de seguro</h2>
-          <p class="section-sub">Atualize o status conforme o contato com a família.</p>
-          <div id="solicitacoes"></div>
-        </section>
+          <div class="toolbar">
+            <div class="search-box">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+              <input class="input" type="text" id="buscaAvaliacoes" placeholder="Buscar por cliente ou comentário..." aria-label="Buscar avaliação">
+            </div>
+            <select class="input" id="filtroAvaliacaoStatus" style="max-width:190px">
+              <option value="todos">Todos os status</option>
+              <option value="Pendente">Pendente</option>
+              <option value="Aprovado">Aprovado</option>
+              <option value="Recusado">Recusado</option>
+            </select>
+            <button class="btn btn-outline btn-sm" type="button" id="limparFiltrosAvaliacoes">Limpar filtros</button>
+          </div>
+
+          <div id="avaliacoesGrade" class="avaliacoes-grade"></div>
+        </div>
+
       </section>
 
     </main>
   </div>
 </div>
 <script src="ui-kit.js"></script>
-<script src="js/gestao-publica.js?v=5"></script>
+<script src="js/admin-acoes.js"></script>
+<script src="js/gestao-publica.js?v=6"></script>
 </body>
 </html>

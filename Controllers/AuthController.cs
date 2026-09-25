@@ -6,10 +6,10 @@ using Microsoft.EntityFrameworkCore;
 
 namespace LanePets.Controllers;
 [Route("api")]
-public class AuthController(SessionService sessions, LanePetsDbContext db, PermissaoService permissoes) : ApiControllerBase
+public class AuthController(SessionService sessions, LanePetsDbContext db, PermissaoService permissoes, EventosService eventos) : ApiControllerBase
 {
     [HttpGet("health")]
-    public IActionResult Health() => OkApi(new { ok=true, system="Lane Pets", version="CSharp-1.0", timezone="America/Sao_Paulo", unidades=new[]{"Franco","Caieiras"}, api="ASP.NET Core + SQLite", banco="lanepets.db", escrita=new { habilitada=true, modo="DADOS_REAIS" } });
+    public IActionResult Health() => OkApi(new { ok=true, system="Lane Pets", version="CSharp-1.0", timezone="America/Sao_Paulo", unidades=Normalizador.Unidades.Where(u=>u.Ativa).Select(u=>u.Nome), api="ASP.NET Core + SQLite", banco="lanepets.db", escrita=new { habilitada=true, modo="DADOS_REAIS" } });
 
     // -----------------------------------------------------------------------
     // LOGIN ADMINISTRATIVO — UM SO, o que ja existia.
@@ -31,22 +31,37 @@ public class AuthController(SessionService sessions, LanePetsDbContext db, Permi
             if (string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(body.Senha))
                 throw new Exception("Informe e-mail e senha.");
 
-            var admin = await db.UsuariosAdministradores.FirstOrDefaultAsync(u => u.Email == email)
-                ?? throw new Exception("E-mail ou senha inválidos.");
+            // Item 15: toda recusa de login vira evento (o motivo real fica so no
+            // log; a tela continua com a mensagem generica, para nao revelar se
+            // o e-mail existe).
+            var admin = await db.UsuariosAdministradores.FirstOrDefaultAsync(u => u.Email == email);
+            if (admin is null)
+            {
+                await eventos.RegistrarAsync(new("autenticacao", "Login administrativo recusado", "aviso", "admin", Autor: email, Detalhes: "E-mail não cadastrado."), HttpContext);
+                throw new Exception("E-mail ou senha inválidos.");
+            }
 
             if (!SessionService.VerifyPassword(body.Senha, admin.SenhaHash, admin.SenhaSalt))
+            {
+                await eventos.RegistrarAsync(new("autenticacao", "Login administrativo recusado", "aviso", "admin", admin.Id, admin.Email, Detalhes: "Senha incorreta."), HttpContext);
                 throw new Exception("E-mail ou senha inválidos.");
+            }
 
             // Conta desativada nao entra. A mensagem e distinta da de senha
             // errada porque aqui a credencial estava certa — esconder isso so
             // faria o usuario tentar de novo achando que errou a senha.
             if (!admin.Ativo)
+            {
+                await eventos.RegistrarAsync(new("autenticacao", "Login administrativo recusado", "aviso", "admin", admin.Id, admin.Email, Detalhes: "Conta desativada."), HttpContext);
                 throw new UnauthorizedAccessException("Esta conta administrativa está desativada. Procure o Administrador Geral.");
+            }
 
             admin.UltimoAcesso = DateTime.UtcNow;
             await db.SaveChangesAsync();
 
             var t = sessions.CreateAdmin(admin.Id);
+            await eventos.RegistrarAsync(new("autenticacao", "Login administrativo", "info", "admin", admin.Id, admin.Email,
+                Detalhes: $"Perfil {PerfilAdmin.Rotulo(admin.Perfil)}."), HttpContext);
             Response.Cookies.Append("lanePetsAdmin", t, new CookieOptions { HttpOnly=true, SameSite=SameSiteMode.Lax, IsEssential=true, MaxAge=TimeSpan.FromHours(2) });
 
             var contexto = await permissoes.ResolverAsync(t);

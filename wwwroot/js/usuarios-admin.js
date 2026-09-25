@@ -10,6 +10,9 @@
   const $ = id => document.getElementById(id);
   const esc = v => { const d = document.createElement('div'); d.textContent = v == null ? '' : v; return d.innerHTML; };
 
+  /* Mesma regra do servidor (Services/Validacao.cs). Aviso na tela; quem decide e a API. */
+  const senhaValida = v => v.length >= 8 && /\p{L}/u.test(v) && /\d/.test(v) && v.trim() === v;
+
   const token = () => { try { return sessionStorage.getItem(CHAVE_TOKEN) || ''; } catch (_) { return ''; } };
 
   let usuarios = [];
@@ -17,6 +20,42 @@
   let meuId = '';
   let editandoId = '';      /* vazio = criando */
   let permissoesDe = null;  /* usuario aberto no modal de permissoes */
+  let unidades = [];        /* [{ id, nome }] da tabela Unidades */
+
+  const NOTA_PERFIL = {
+    Admin: 'Recebe as permissões que o Administrador Geral liberar, podendo chegar a acesso total.',
+    Funcionario: 'Perfil de operação: fica preso a uma unidade, nunca recebe acesso total e só pode ganhar permissão em Dashboard, Agendamentos, Pedidos, Clientes, Pets e consulta de Produtos.'
+  };
+  const nomeUnidade = id => (unidades.find(u => u.id === id) || {}).nome || id || '';
+
+  /** Selo de perfil da tabela e do modal de permissoes. */
+  function seloPerfil(u) {
+    if (u.adminGeral) return '<span class="badge badge-info">Administrador Geral</span>';
+    if (u.funcionario) return `<span class="badge badge-neutral">Funcionário${u.unidade ? ' · ' + esc(nomeUnidade(u.unidade)) : ''}</span>`;
+    return '<span class="badge badge-neutral">Administrador</span>';
+  }
+
+  /* Unidades vem do endpoint publico (nome e id das unidades ativas) — a
+     mesma tabela que o backend confere ao gravar o funcionario. */
+  async function carregarUnidades() {
+    try {
+      const r = await fetch('/api/public/unidades');
+      const corpo = await r.json();
+      unidades = (corpo && corpo.ok && Array.isArray(corpo.data) ? corpo.data : [])
+        .map(u => ({ id: u.id || u.Id, nome: u.nome || u.Nome }));
+    } catch (e) {
+      console.error('LanePets: não foi possível carregar as unidades.', e);
+      unidades = [];
+    }
+    $('campoUnidade').innerHTML = '<option value="">Selecione a unidade</option>' +
+      unidades.map(u => `<option value="${esc(u.id)}">${esc(u.nome)}</option>`).join('');
+  }
+
+  function aplicarPerfilNoForm() {
+    const perfil = $('campoPerfil').value;
+    $('blocoUnidade').style.display = perfil === 'Funcionario' ? 'block' : 'none';
+    $('notaPerfil').textContent = NOTA_PERFIL[perfil] || '';
+  }
 
   /* ------------------------------------------------------------------
      ICONES
@@ -196,7 +235,7 @@
       <tr>
         <td><strong>${esc(u.nome)}</strong>${u.ehVoce ? ' <span class="chip">você</span>' : ''}</td>
         <td>${esc(u.email)}</td>
-        <td>${u.adminGeral ? '<span class="badge badge-info">Administrador Geral</span>' : '<span class="badge badge-neutral">Administrador</span>'}</td>
+        <td>${seloPerfil(u)}</td>
         <td>${u.ativo ? '<span class="badge badge-success">Ativo</span>' : '<span class="badge badge-danger">Inativo</span>'}</td>
         <td>${u.acessoTotal ? '<span class="badge badge-warning">Acesso total</span>' : esc(u.acessoResumo)}</td>
         <td class="small-note">${dataCurta(u.ultimoAcesso)}</td>
@@ -257,6 +296,11 @@
     $('campoEmail').value = u ? u.email : '';
     $('campoTelefone').value = u ? (u.telefone || '') : '';
     $('campoStatus').value = u ? (u.ativo ? 'ativo' : 'inativo') : 'ativo';
+    // Administrador Geral nao troca de perfil por aqui; nem voce troca o seu.
+    $('blocoPerfil').style.display = (u && (u.adminGeral || u.ehVoce)) ? 'none' : 'block';
+    $('campoPerfil').value = u && u.funcionario ? 'Funcionario' : 'Admin';
+    $('campoUnidade').value = u && u.funcionario ? (u.unidade || '') : '';
+    aplicarPerfilNoForm();
     $('campoSenha').value = '';
     $('campoSenha2').value = '';
     // Na edicao a senha nao aparece: trocar senha e outra acao, com registro proprio.
@@ -277,10 +321,27 @@
       email: $('campoEmail').value.trim(),
       telefone: $('campoTelefone').value.trim()
     };
+    if ($('blocoPerfil').style.display !== 'none') {
+      dados.perfil = $('campoPerfil').value;
+      dados.unidade = dados.perfil === 'Funcionario' ? $('campoUnidade').value : '';
+    }
     try {
+      if (dados.perfil === 'Funcionario' && !dados.unidade) throw new Error('Escolha a unidade em que o funcionário trabalha.');
+      const u = editandoId && usuarios.find(x => x.id === editandoId);
+      if (u && !u.funcionario && dados.perfil === 'Funcionario') {
+        const ok = await confirmar({
+          titulo: 'Transformar em funcionário?',
+          texto: 'O acesso total será desligado e as permissões fora do perfil Funcionário serão removidas de:',
+          nome: u.nome, email: u.email,
+          aviso: 'Voltar para Administrador depois não devolve as permissões removidas.',
+          rotuloOk: 'Transformar em funcionário', perigo: true
+        });
+        if (!ok) return;
+      }
       if (editandoId) {
         await enviar('PUT', '/admin/usuarios/' + encodeURIComponent(editandoId), dados);
       } else {
+        if (!senhaValida($('campoSenha').value)) throw new Error('A senha precisa ter ao menos 8 caracteres, com pelo menos uma letra e um número.');
         if ($('campoSenha').value !== $('campoSenha2').value) throw new Error('A confirmação de senha não confere.');
         dados.senha = $('campoSenha').value;
         dados.confirmarSenha = $('campoSenha2').value;
@@ -347,15 +408,38 @@
         </article>`;
     }
 
-    const linhas = ACOES.map(acao => `
-      <label class="perm-linha">
+    // Funcionario: o backend manda "permitidas" com o teto do perfil. Modulo
+    // sem nenhuma acao permitida aparece travado; acao fora do teto aparece
+    // desligada e bloqueada (data-teto). O backend descarta as duas coisas
+    // de qualquer jeito.
+    const teto = Array.isArray(m.permitidas) ? m.permitidas : null;
+    if (teto && teto.length === 0) {
+      return `
+        <article class="perm-card travado">
+          <div class="perm-card-topo">
+            ${icone}
+            <div class="perm-card-txt"><strong>${esc(m.rotulo)}</strong><span>${esc(ui.d || '')}</span></div>
+          </div>
+          <p class="perm-travado-nota">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4.5" y="10.3" width="15" height="10.2" rx="2.2"/><path d="M8 10.3V7.4a4 4 0 0 1 8 0"/></svg>
+            Fora do perfil Funcionário
+          </p>
+        </article>`;
+    }
+
+    const linhas = ACOES.map(acao => {
+      const bloqueada = teto && !teto.includes(acao);
+      return `
+      <label class="perm-linha"${bloqueada ? ' title="Fora do perfil Funcionário"' : ''}>
         <span>${ROTULO_ACAO[acao]}</span>
         <span class="chave">
-          <input type="checkbox" data-modulo="${m.chave}" data-acao="${acao}" ${m[acao] ? 'checked' : ''}
+          <input type="checkbox" data-modulo="${m.chave}" data-acao="${acao}" ${m[acao] && !bloqueada ? 'checked' : ''}
+                 ${bloqueada ? 'disabled data-teto' : ''}
                  aria-label="${ROTULO_ACAO[acao]} em ${esc(m.rotulo)}">
           <span class="chave-trilho"></span>
         </span>
-      </label>`).join('');
+      </label>`;
+    }).join('');
 
     return `
       <article class="perm-card" data-card="${m.chave}">
@@ -369,7 +453,7 @@
   }
 
   /** Caixas que o usuario realmente pode mexer (exclui as travadas). */
-  const caixasPermissao = () => $('listaModulos').querySelectorAll('input[type=checkbox]');
+  const caixasPermissao = () => $('listaModulos').querySelectorAll('input[type=checkbox]:not([data-teto])');
 
   /**
    * Recalcula tudo que e derivado do estado das caixas: o contador de cada
@@ -426,12 +510,14 @@
       $('permNome').textContent = dados.usuario.nome;
       $('permEmail').textContent = dados.usuario.email;
       $('permSelos').innerHTML =
-        `<span class="badge ${dados.usuario.adminGeral ? 'badge-info' : 'badge-neutral'}">${esc(dados.usuario.adminGeral ? 'Administrador Geral' : 'Administrador')}</span>` +
+        seloPerfil(dados.usuario) +
         (daLista.ativo === undefined ? ''
           : daLista.ativo ? '<span class="badge badge-success">Ativo</span>'
                           : '<span class="badge badge-danger">Inativo</span>');
 
-      $('permAcessoTotal').checked = !!dados.acessoTotal;
+      // Funcionario nunca recebe acesso total: o cartao some.
+      $('permTotalCartao').style.display = dados.usuario.funcionario ? 'none' : '';
+      $('permAcessoTotal').checked = !dados.usuario.funcionario && !!dados.acessoTotal;
 
       const grupos = {};
       (dados.modulos || []).forEach(m => { (grupos[m.grupo] = grupos[m.grupo] || []).push(m); });
@@ -523,6 +609,7 @@
     e.preventDefault();
     erro('erroSenha', '');
     try {
+      if (!senhaValida($('novaSenha').value)) throw new Error('A senha precisa ter ao menos 8 caracteres, com pelo menos uma letra e um número.');
       if ($('novaSenha').value !== $('novaSenha2').value) throw new Error('A confirmação de senha não confere.');
       await enviar('POST', '/admin/usuarios/' + encodeURIComponent(senhaDe) + '/senha', {
         senha: $('novaSenha').value, confirmarSenha: $('novaSenha2').value
@@ -591,5 +678,8 @@
 
   // Espera as permissoes chegarem: se este usuario nao pode ver o modulo,
   // admin-permissoes.js ja tera redirecionado antes daqui rodar.
-  window.LanePermissoes ? window.LanePermissoes.pronto(carregar) : carregar();
+  $('campoPerfil').addEventListener('change', aplicarPerfilNoForm);
+
+  const iniciar = () => carregarUnidades().then(carregar);
+  window.LanePermissoes ? window.LanePermissoes.pronto(iniciar) : iniciar();
 })();

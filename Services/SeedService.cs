@@ -87,6 +87,9 @@ public class SeedService(LanePetsDbContext db, IWebHostEnvironment env, ILogger<
         await GarantirColunaAsync("UsuariosAdministradores", "Perfil", "TEXT NOT NULL DEFAULT 'Admin'");
         await GarantirColunaAsync("UsuariosAdministradores", "AcessoTotal", "INTEGER NOT NULL DEFAULT 0");
         await GarantirColunaAsync("UsuariosAdministradores", "UltimoAcesso", "TEXT NULL");
+        // Item 1 do roadmap (24/09): unidade do perfil Funcionario. Opcional,
+        // nasce vazia — administradores existentes continuam vendo tudo.
+        await GarantirColunaAsync("UsuariosAdministradores", "Unidade", "TEXT NOT NULL DEFAULT ''");
 
         // -------------------------------------------------------------------
         // FICHA DO PET (area do cliente)
@@ -113,6 +116,42 @@ public class SeedService(LanePetsDbContext db, IWebHostEnvironment env, ILogger<
         await db.Database.ExecuteSqlRawAsync("CREATE TABLE IF NOT EXISTS UsuariosAdminPermissoes (Id TEXT NOT NULL PRIMARY KEY, UsuarioAdminId TEXT NOT NULL, Modulo TEXT NOT NULL, PodeVisualizar INTEGER NOT NULL DEFAULT 0, PodeCriar INTEGER NOT NULL DEFAULT 0, PodeEditar INTEGER NOT NULL DEFAULT 0, PodeExcluir INTEGER NOT NULL DEFAULT 0)");
         await db.Database.ExecuteSqlRawAsync("CREATE UNIQUE INDEX IF NOT EXISTS IX_UsuariosAdminPermissoes_Usuario_Modulo ON UsuariosAdminPermissoes (UsuarioAdminId, Modulo)");
         await db.Database.ExecuteSqlRawAsync("CREATE TABLE IF NOT EXISTS AuditoriasAdmin (Id TEXT NOT NULL PRIMARY KEY, DataHora TEXT NOT NULL, AutorId TEXT NOT NULL, AutorEmail TEXT NOT NULL, Acao TEXT NOT NULL, AlvoId TEXT NOT NULL, AlvoEmail TEXT NOT NULL, Detalhes TEXT NOT NULL)");
+
+        // Item 5 do roadmap (24/09): unidades com capacidade por horario e servicos
+        // oferecidos; pedido com unidade de retirada. Tudo opcional com padrao
+        // que preserva o comportamento antigo (capacidade 1, todos os servicos,
+        // pedido antigo "sem unidade").
+        await GarantirColunaAsync("Unidades", "Capacidade", "INTEGER NOT NULL DEFAULT 1");
+        await GarantirColunaAsync("Unidades", "ServicosJson", "TEXT NOT NULL DEFAULT '[]'");
+        await GarantirColunaAsync("Pedidos", "Unidade", "TEXT NOT NULL DEFAULT ''");
+
+        // Item 4 do roadmap (24/09): funcionario responsavel + status novos.
+        // A conversao roda a cada subida, mas so toca linha com nome antigo —
+        // depois da primeira vez nao encontra mais nada (idempotente).
+        await GarantirColunaAsync("Agendamentos", "ResponsavelId", "TEXT NOT NULL DEFAULT ''");
+        await db.Database.ExecuteSqlRawAsync(@"UPDATE Agendamentos SET Status = CASE lower(trim(Status))
+                WHEN 'pendente' THEN 'Solicitado' WHEN 'aguardando' THEN 'Solicitado' WHEN 'agendado' THEN 'Solicitado' WHEN '' THEN 'Solicitado'
+                WHEN 'em processo' THEN 'Em andamento' WHEN 'em_andamento' THEN 'Em andamento' WHEN 'iniciado' THEN 'Em andamento'
+                WHEN 'pronto' THEN 'Concluído' WHEN 'entregue' THEN 'Concluído' WHEN 'finalizado' THEN 'Concluído' WHEN 'concluido' THEN 'Concluído'
+                ELSE Status END
+            WHERE lower(trim(Status)) IN ('pendente','aguardando','agendado','','em processo','em_andamento','iniciado','pronto','entregue','finalizado','concluido')");
+
+        // Item 15 do roadmap (24/09): log de eventos. Tabela nova, nada existente muda.
+        await db.Database.ExecuteSqlRawAsync("CREATE TABLE IF NOT EXISTS EventosLog (Id TEXT NOT NULL PRIMARY KEY, DataHora TEXT NOT NULL, Nivel TEXT NOT NULL DEFAULT 'info', Categoria TEXT NOT NULL DEFAULT '', Acao TEXT NOT NULL DEFAULT '', Origem TEXT NOT NULL DEFAULT 'sistema', AutorId TEXT NOT NULL DEFAULT '', Autor TEXT NOT NULL DEFAULT '', AlvoId TEXT NOT NULL DEFAULT '', Detalhes TEXT NOT NULL DEFAULT '', Ip TEXT NOT NULL DEFAULT '', Referencia TEXT NOT NULL DEFAULT '')");
+
+        // Itens 6 e 7 do roadmap (24/09): produto com descricao, foto e
+        // "visivel na loja" (padrao 1 = todos os produtos atuais continuam na
+        // loja) + livro de movimentacao de estoque.
+        await GarantirColunaAsync("Produtos", "Descricao", "TEXT NOT NULL DEFAULT ''");
+        await GarantirColunaAsync("Produtos", "FotoUrl", "TEXT NOT NULL DEFAULT ''");
+        await GarantirColunaAsync("Produtos", "VisivelLoja", "INTEGER NOT NULL DEFAULT 1");
+        await db.Database.ExecuteSqlRawAsync("CREATE TABLE IF NOT EXISTS MovimentacoesEstoque (Id TEXT NOT NULL PRIMARY KEY, DataHora TEXT NOT NULL, ProdutoId TEXT NOT NULL DEFAULT '', ProdutoNome TEXT NOT NULL DEFAULT '', Tipo TEXT NOT NULL DEFAULT '', Quantidade INTEGER NOT NULL DEFAULT 0, SaldoAnterior INTEGER NOT NULL DEFAULT 0, SaldoNovo INTEGER NOT NULL DEFAULT 0, Motivo TEXT NOT NULL DEFAULT '', PedidoId TEXT NOT NULL DEFAULT '', Origem TEXT NOT NULL DEFAULT 'admin', AutorId TEXT NOT NULL DEFAULT '', Autor TEXT NOT NULL DEFAULT '')");
+
+        // Item 8 do roadmap (25/09): pagamentos. Tabela nova; o preenchimento a
+        // partir dos agendamentos, pedidos e seguros existentes e feito pelo
+        // PagamentosService.ReconciliarAsync na subida (Program.cs).
+        await db.Database.ExecuteSqlRawAsync("CREATE TABLE IF NOT EXISTS Pagamentos (Id TEXT NOT NULL PRIMARY KEY, Origem TEXT NOT NULL DEFAULT '', OrigemId TEXT NOT NULL DEFAULT '', ClienteId TEXT NOT NULL DEFAULT '', Cliente TEXT NOT NULL DEFAULT '', Descricao TEXT NOT NULL DEFAULT '', Valor TEXT NOT NULL DEFAULT '0', Forma TEXT NOT NULL DEFAULT '', Status TEXT NOT NULL DEFAULT 'Pendente', ReembolsoPendente INTEGER NOT NULL DEFAULT 0, Unidade TEXT NOT NULL DEFAULT '', DataReferencia TEXT NOT NULL DEFAULT '', CriadoEm TEXT NOT NULL DEFAULT '', AtualizadoEm TEXT NOT NULL DEFAULT '', AtualizadoPor TEXT NOT NULL DEFAULT '', Observacao TEXT NOT NULL DEFAULT '')");
+        await db.Database.ExecuteSqlRawAsync("CREATE UNIQUE INDEX IF NOT EXISTS IX_Pagamentos_Origem ON Pagamentos (Origem, OrigemId)");
     }
 
     /// <summary>Acrescenta uma coluna se ela ainda nao existir (SQLite nao tem IF NOT EXISTS para colunas).</summary>

@@ -4,9 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Agendamentos &middot; LanePets</title>
-<link rel="stylesheet" href="design-system.css?v=4">
+<link rel="stylesheet" href="design-system.css?v=6">
 <link rel="stylesheet" href="css/admin-acoes.css?v=2">
-<link rel="stylesheet" href="css/admin-agendamentos.css?v=1">
+<link rel="stylesheet" href="css/admin-agendamentos.css?v=2">
 <style>
   /* Seletor de unidade: continua sendo desta tela, mantido como estava. */
   .unit-switcher { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:var(--sp-3); margin:0 0 var(--sp-5); }
@@ -22,9 +22,10 @@
   <script src="js/config.js"></script>
   <script src="js/api.js"></script>
   <script src="lib/signalr/signalr.min.js"></script>
-  <script src="js/admin-dados.js"></script>
+  <script src="js/admin-dados.js?v=2"></script>
   <script src="js/admin-store.js?v=1"></script>
-  <script src="js/admin-permissoes.js"></script>
+  <script src="js/admin-permissoes.js?v=5"></script>
+  <script src="js/unidades.js?v=3"></script>
 </head>
 <body>
 <div class="app-shell">
@@ -61,17 +62,8 @@
 
       <!-- Unidades: a agenda de cada loja é separada, como já era. -->
       <section aria-label="Unidade da agenda">
-        <div class="unit-switcher" id="unitSwitcher">
-          <button type="button" class="unit-tab" data-unit="franco">
-            <strong>Franco da Rocha</strong><span>Agenda e indicadores da unidade</span><span class="unit-badge" id="countFranco">0 agendamentos</span>
-          </button>
-          <button type="button" class="unit-tab" data-unit="caieiras">
-            <strong>Caieiras</strong><span>Agenda e indicadores da unidade</span><span class="unit-badge" id="countCaieiras">0 agendamentos</span>
-          </button>
-          <button type="button" class="unit-tab" data-unit="sem-unidade">
-            <strong>Antigos / sem unidade</strong><span>Agendamentos criados antes da atualização</span><span class="unit-badge" id="countSemUnidade">0 agendamentos</span>
-          </button>
-        </div>
+        <!-- Item 5: abas montadas pela lista de unidades do banco (js/unidades.js). -->
+        <div class="unit-switcher" id="unitSwitcher"></div>
       </section>
 
       <!-- Indicadores: contados sobre os agendamentos reais da unidade. -->
@@ -233,11 +225,7 @@
           <h4>Data, hora e unidade</h4>
           <div class="field"><label for="edDataHora">Data e hora</label><input type="datetime-local" id="edDataHora" required></div>
           <div class="field" style="margin-bottom:0"><label for="edUnidade">Unidade</label>
-            <select id="edUnidade">
-              <option value="">Sem unidade / antigo</option>
-              <option value="franco">Franco da Rocha</option>
-              <option value="caieiras">Caieiras</option>
-            </select>
+            <select id="edUnidade"><option value="">Sem unidade / antigo</option></select>
           </div>
         </section>
         <section class="ag-bloco" style="grid-column:1/-1">
@@ -263,7 +251,9 @@
               <option value="Débito">Débito</option><option value="Pix">Pix</option><option value="Dinheiro">Dinheiro</option>
             </select>
           </div>
-          <div class="field" style="margin-bottom:0"><label for="edStatus">Status</label><select id="edStatus" required></select></div>
+          <div class="field"><label for="edStatus">Status</label><select id="edStatus" required></select></div>
+          <div class="field" style="margin-bottom:0"><label for="edResponsavel">Funcionário responsável</label><select id="edResponsavel"></select>
+            <small class="ag-etapa-ajuda" id="edResponsavelAjuda" style="display:block;margin-top:4px"></small></div>
         </section>
         <section class="ag-bloco" style="grid-column:1/-1">
           <h4>Observação</h4>
@@ -321,7 +311,7 @@
 </div>
 
 
-<script src="ui-kit.js?v=4"></script>
+<script src="ui-kit.js?v=5"></script>
 <script src="js/admin-acoes.js"></script>
 <script>
 /* ===========================================================================
@@ -368,6 +358,8 @@ function carregarDadosAgenda() {
   servicos = safeJsonParse(localStorage.getItem("servicos"), []);
   agendamentos = safeJsonParse(localStorage.getItem("agendamentos"), []);
   if (!Array.isArray(agendamentos)) agendamentos = [];
+  /* Item 4: so em memoria — o servidor ja devolve o nome novo. */
+  agendamentos.forEach(a => { if (a && typeof a === "object") a.status = statusNovo(a.status); });
   return { pets, servicos, agendamentos };
 }
 
@@ -398,14 +390,33 @@ function inicioSemana(d) {
 }
 
 /* --------------------------------------------------------------- UNIDADES */
+/* Item 5: nomes e ids vêm do cadastro de unidades (js/unidades.js). */
 function nomeUnidade(unidade) {
-  return unidade === "franco" ? "Franco da Rocha" : unidade === "caieiras" ? "Caieiras" : "Sem unidade / antigo";
+  return unidade === "sem-unidade" || !unidade ? "Sem unidade / antigo" : LaneUnidades.nome(unidade);
 }
 function unidadeDoAgendamento(a) {
-  const raw = String(a && a.unidade != null ? a.unidade : "").trim().toLowerCase();
-  if (["franco", "franco da rocha", "franco-da-rocha", "franco_da_rocha"].includes(raw)) return "franco";
-  if (["caieiras", "caieira"].includes(raw)) return "caieiras";
-  return "sem-unidade";
+  return LaneUnidades.idDe(a && a.unidade != null ? a.unidade : "") || "sem-unidade";
+}
+/* Abas: unidades ativas + inativas que ainda têm agendamento + "sem unidade". */
+function renderAbasUnidades() {
+  const alvo = $("unitSwitcher");
+  if (!alvo) return;
+  const usadas = new Set(agendamentos.map(unidadeDoAgendamento));
+  const abas = LaneUnidades.lista()
+    .filter(u => u.ativa || usadas.has(u.id))
+    .map(u => ({ id: u.id, titulo: u.nome + (u.ativa ? "" : " (inativa)"), sub: u.capacidade > 1 ? `Até ${u.capacidade} atendimentos por horário` : "Agenda e indicadores da unidade" }));
+  abas.push({ id: "sem-unidade", titulo: "Antigos / sem unidade", sub: "Agendamentos criados antes da atualização" });
+  alvo.innerHTML = abas.map(t => `
+    <button type="button" class="unit-tab" data-unit="${escapeHtml(t.id)}">
+      <strong>${escapeHtml(t.titulo)}</strong><span>${escapeHtml(t.sub)}</span><span class="unit-badge" data-contagem="${escapeHtml(t.id)}">0 agendamentos</span>
+    </button>`).join("");
+  const sel = $("edUnidade");
+  if (sel) {
+    const atual = sel.value;
+    sel.innerHTML = '<option value="">Sem unidade / antigo</option>' + LaneUnidades.lista()
+      .map(u => `<option value="${escapeHtml(u.id)}">${escapeHtml(u.nome)}${u.ativa ? "" : " (inativa)"}</option>`).join("");
+    sel.value = atual;
+  }
 }
 function selecionarUnidade(unidade) {
   unidadeSelecionada = unidade;
@@ -415,12 +426,11 @@ function selecionarUnidade(unidade) {
 window.selecionarUnidade = selecionarUnidade;
 
 function atualizarResumoUnidades() {
-  const counts = { franco: 0, caieiras: 0, "sem-unidade": 0 };
-  agendamentos.forEach(a => counts[unidadeDoAgendamento(a)]++);
-  const ids = { franco: "countFranco", caieiras: "countCaieiras", "sem-unidade": "countSemUnidade" };
-  Object.keys(ids).forEach(chave => {
-    const el = $(ids[chave]);
-    if (el) el.textContent = `${counts[chave]} ${counts[chave] === 1 ? "agendamento" : "agendamentos"}`;
+  const counts = {};
+  agendamentos.forEach(a => { const id = unidadeDoAgendamento(a); counts[id] = (counts[id] || 0) + 1; });
+  document.querySelectorAll("#unitSwitcher [data-contagem]").forEach(el => {
+    const n = counts[el.dataset.contagem] || 0;
+    el.textContent = `${n} ${n === 1 ? "agendamento" : "agendamentos"}`;
   });
   document.querySelectorAll("#unitSwitcher .unit-tab").forEach(tab => {
     tab.classList.toggle("active", tab.dataset.unit === unidadeSelecionada);
@@ -428,24 +438,36 @@ function atualizarResumoUnidades() {
 }
 
 /* ----------------------------------------------------------------- STATUS
-   Os status sao os que o sistema ja grava. "Cancelado" nao e novo: e o valor
-   que POST /api/cliente/agendamentos/{id}/cancelar escreve e que o
-   Normalizador e o dashboard ja conhecem. A tela administrativa apenas
-   passou a exibi-lo e a permitir chegar nele. */
-const STATUS_LISTA = ["Pendente", "Em processo", "Pronto", "Entregue", "Cancelado"];
-const STATUS_TOM = {
-  "pendente": "aguarda",
-  "em processo": "info", "em andamento": "info",
-  "pronto": "ok", "confirmado": "ok",
-  "entregue": "feito", "concluido": "feito", "concluído": "feito",
-  "cancelado": "erro"
+   Item 4 do roadmap (24/09): Solicitado -> Confirmado -> Em andamento ->
+   Concluído (+ Cancelado). O banco foi convertido na subida do servidor; os
+   nomes antigos ainda sao traduzidos aqui para o caso de cache local antigo. */
+const STATUS_LISTA = ["Solicitado", "Confirmado", "Em andamento", "Concluído", "Cancelado"];
+const STATUS_ANTIGO = {
+  "pendente": "Solicitado", "aguardando": "Solicitado", "agendado": "Solicitado", "solicitado": "Solicitado",
+  "confirmado": "Confirmado",
+  "em processo": "Em andamento", "em andamento": "Em andamento", "em atendimento": "Em andamento",
+  "pronto": "Concluído", "entregue": "Concluído", "concluido": "Concluído", "concluído": "Concluído", "finalizado": "Concluído",
+  "cancelado": "Cancelado"
 };
-const tomDoStatus = s => STATUS_TOM[String(s || "Pendente").trim().toLowerCase()] || "neutro";
-const ehCancelado = a => String(a && a.status || "").trim().toLowerCase() === "cancelado";
-const ehEntregue = a => ["entregue", "concluido", "concluído"].includes(String(a && a.status || "").trim().toLowerCase());
+const statusNovo = s => STATUS_ANTIGO[String(s || "").trim().toLowerCase()] || (String(s || "").trim() || "Solicitado");
+const STATUS_TOM = {
+  "solicitado": "aguarda", "confirmado": "ok", "em andamento": "info", "concluído": "feito", "cancelado": "erro"
+};
+const tomDoStatus = s => STATUS_TOM[statusNovo(s).toLowerCase()] || "neutro";
+const ehCancelado = a => statusNovo(a && a.status) === "Cancelado";
+const ehConcluido = a => statusNovo(a && a.status) === "Concluído";
+const ehEntregue = ehConcluido;   /* nome antigo, mantido para as chamadas existentes */
+
+/* Responsavel (item 4): nome vem do servidor; se a lista de funcionarios da
+   unidade ja chegou, ela tem prioridade (nome atualizado). */
+function nomeResponsavel(a) {
+  if (!a || !a.responsavelId) return "";
+  const f = LaneUnidades.funcionarios(unidadeDoAgendamento(a)).find(x => x.id === a.responsavelId);
+  return (f && f.nome) || a.responsavelNome || "";
+}
 
 function statusBadge(status) {
-  const texto = String(status || "Pendente").trim() || "Pendente";
+  const texto = statusNovo(status);
   return `<span class="ag-status ag-status--${tomDoStatus(texto)}">${escapeHtml(texto)}</span>`;
 }
 
@@ -552,7 +574,7 @@ function aplicarFiltros(lista) {
       if (!alvo.includes(busca)) return false;
     }
     if (agFiltros.servico && !(a.servicos || []).some(s => s && s.nome === agFiltros.servico)) return false;
-    if (agFiltros.status && String(a.status || "Pendente") !== agFiltros.status) return false;
+    if (agFiltros.status && statusNovo(a.status) !== agFiltros.status) return false;
     if (agFiltros.pagamento && String(a.pagamentoStatus || "A pagar") !== agFiltros.pagamento) return false;
     if (inicio || fim) {
       if (!a.dataHora) return false;
@@ -600,10 +622,10 @@ function renderKpis() {
 
   const kpis = [
     { id: "hoje", rotulo: "Hoje", tom: "hoje", ico: ICO.relogio, valor: conta(a => soData(a.dataHora) === hoje && !ehCancelado(a)) },
-    { id: "Pendente", rotulo: "Pendentes", tom: "aguarda", ico: ICO.alerta, valor: conta(a => (a.status || "Pendente") === "Pendente") },
-    { id: "Em processo", rotulo: "Em atendimento", tom: "info", ico: ICO.giro, valor: conta(a => a.status === "Em processo") },
-    { id: "Pronto", rotulo: "Prontos", tom: "ok", ico: ICO.check, valor: conta(a => a.status === "Pronto") },
-    { id: "Entregue", rotulo: "Concluídos", tom: "feito", ico: ICO.entregue, valor: conta(a => a.status === "Entregue") },
+    { id: "Solicitado", rotulo: "Solicitados", tom: "aguarda", ico: ICO.alerta, valor: conta(a => statusNovo(a.status) === "Solicitado") },
+    { id: "Confirmado", rotulo: "Confirmados", tom: "ok", ico: ICO.check, valor: conta(a => statusNovo(a.status) === "Confirmado") },
+    { id: "Em andamento", rotulo: "Em andamento", tom: "info", ico: ICO.giro, valor: conta(a => statusNovo(a.status) === "Em andamento") },
+    { id: "Concluído", rotulo: "Concluídos", tom: "feito", ico: ICO.entregue, valor: conta(ehConcluido) },
     { id: "Cancelado", rotulo: "Cancelados", tom: "erro", ico: ICO.banido, valor: conta(ehCancelado) }
   ];
 
@@ -740,7 +762,8 @@ function linhaTabela(a) {
       ${a.transporte ? `<small>Com transporte · ${brl(a.valorTransporte)}</small>` : ""}</div></td>
     <td><div class="ag-cel-quando"><strong>${dataCurta(a.dataHora)}${hoje ? '<span class="ag-hoje-tag">Hoje</span>' : ""}</strong>
       <span>${horaDe(a.dataHora)}</span></div></td>
-    <td>${escapeHtml(nomeUnidade(unidadeDoAgendamento(a)))}</td>
+    <td><div class="ag-cel-quando"><strong style="font-weight:600">${escapeHtml(nomeUnidade(unidadeDoAgendamento(a)))}</strong>
+      <span>${nomeResponsavel(a) ? "Resp.: " + escapeHtml(nomeResponsavel(a)) : "Sem responsável"}</span></div></td>
     <td><div class="ag-cel-valor">${brl(a.total)}
       <span class="ag-pgto ag-pgto--${pago ? "pago" : "aberto"}">${pago ? "Pago" : "A pagar"}</span></div></td>
     <td>${statusBadge(a.status)}</td>
@@ -762,6 +785,7 @@ function cardMobile(a) {
       <span>${svg(ICO.tesoura, 14)} ${escapeHtml(servicosResumo(a))}</span>
       <span>${svg(ICO.relogio, 14)} ${dataCurta(a.dataHora)} · ${horaDe(a.dataHora)}</span>
       <span>${svg(ICO.local, 14)} ${escapeHtml(nomeUnidade(unidadeDoAgendamento(a)))}</span>
+      ${nomeResponsavel(a) ? `<span>${svg(ICO.pessoa, 14)} ${escapeHtml(nomeResponsavel(a))}</span>` : ""}
       <span>${svg(ICO.cartao, 14)} ${escapeHtml(a.formaPagamento || "A combinar")}</span>
     </div>
     <div class="ag-card-mob__pe">
@@ -775,7 +799,7 @@ function cardMobile(a) {
 const COLUNAS = [
   { campo: "cliente", rotulo: "Cliente" }, { campo: "pet", rotulo: "Pet" },
   { campo: "servico", rotulo: "Serviço" }, { campo: "dataHora", rotulo: "Data e hora" },
-  { campo: "", rotulo: "Unidade" }, { campo: "total", rotulo: "Valor" },
+  { campo: "", rotulo: "Unidade / resp." }, { campo: "total", rotulo: "Valor" },
   { campo: "status", rotulo: "Status" }, { campo: "", rotulo: "" }
 ];
 
@@ -989,6 +1013,22 @@ document.addEventListener("keydown", e => {
 const porId = id => agendamentos.find(a => a.id === id) || null;
 /* Registros antigos importados do navegador podem não ter id; nesse caso o
    índice na lista é o que identifica a linha. */
+/* Posicao ATUAL de um agendamento guardado quando o modal abriu. A lista e
+   recarregada do banco a cada aviso em tempo real ("lanepets:dados"), entao o
+   objeto guardado deixa de ser o mesmo da lista — procurar so pela referencia
+   dava "Agendamento não encontrado". Procura pela referencia, depois pelo id
+   e, para registro ainda sem id, por pet + dono + data. */
+function indiceAtual(alvo) {
+  if (!alvo) return -1;
+  let i = agendamentos.indexOf(alvo);
+  if (i !== -1) return i;
+  if (alvo.id) {
+    i = agendamentos.findIndex(a => a && a.id === alvo.id);
+    if (i !== -1) return i;
+  }
+  return agendamentos.findIndex(a => a && !a.id && a.pet === alvo.pet && a.dono === alvo.dono && a.dataHora === alvo.dataHora);
+}
+
 function resolver(id, idx) {
   const achado = id ? porId(id) : null;
   if (achado) return { ag: achado, index: agendamentos.indexOf(achado) };
@@ -1083,6 +1123,7 @@ function abrirDetalhes(id, idx) {
     <section class="ag-bloco">
       <h4>Status</h4>
       ${linhaInfo("Situação atual", statusBadge(ag.status))}
+      ${linhaInfo("Responsável", escapeHtml(nomeResponsavel(ag) || "Não definido"))}
       ${linhaInfo("Código", escapeHtml(ag.id || "—"))}
       ${ag.clienteId ? linhaInfo("Origem", "Conta do cliente") : linhaInfo("Origem", "Cadastrado no painel")}
     </section>
@@ -1118,7 +1159,7 @@ function abrirStatus(id, idx) {
   const { ag } = resolver(id, idx);
   if (!ag) { toast("Agendamento não encontrado. Atualize a página.", "error"); return; }
   stAlvo = ag;
-  stEscolhido = ag.status || "Pendente";
+  stEscolhido = statusNovo(ag.status);
   $("stSub").textContent = `${ag.pet || "Pet"} · ${dataCurta(ag.dataHora)} às ${horaDe(ag.dataHora)}`;
   pintarStatusOpcoes();
   $("stMsg").textContent = "";
@@ -1135,10 +1176,10 @@ function pintarStatusOpcoes() {
 }
 
 const DESCRICAO_STATUS = {
-  "Pendente": "Aguardando confirmação da equipe.",
-  "Em processo": "O pet está sendo atendido agora.",
-  "Pronto": "Atendimento concluído, aguardando retirada.",
-  "Entregue": "Pet entregue e atendimento finalizado.",
+  "Solicitado": "Pedido recebido, aguardando a equipe confirmar.",
+  "Confirmado": "Horário confirmado com o cliente.",
+  "Em andamento": "O pet está sendo atendido agora.",
+  "Concluído": "Atendimento finalizado.",
   "Cancelado": "O atendimento não será realizado. O registro é preservado."
 };
 
@@ -1151,7 +1192,7 @@ $("stOpcoes").addEventListener("click", e => {
 
 $("stConfirmar").addEventListener("click", async e => {
   if (!stAlvo) return;
-  if (stEscolhido === (stAlvo.status || "Pendente")) { fecharModal("modalStatus"); return; }
+  if (stEscolhido === statusNovo(stAlvo.status)) { fecharModal("modalStatus"); return; }
   /* O botao e guardado ANTES do await: depois que o evento termina de ser
      despachado, e.currentTarget volta a ser null. */
   const botao = e.currentTarget;
@@ -1163,7 +1204,7 @@ $("stConfirmar").addEventListener("click", async e => {
   });
   if (!ok) return;
   comLoading(botao, "Salvando...", () => {
-    const i = agendamentos.indexOf(stAlvo);
+    const i = indiceAtual(stAlvo);
     if (i === -1) { toast("Agendamento não encontrado.", "error"); return; }
     agendamentos[i] = { ...agendamentos[i], status: stEscolhido };
     fecharModal("modalStatus");
@@ -1193,7 +1234,7 @@ function abrirCancelar(id, idx) {
 $("cnConfirmar").addEventListener("click", e => {
   if (!cnAlvo) return;
   comLoading(e.currentTarget, "Cancelando...", () => {
-    const i = agendamentos.indexOf(cnAlvo);
+    const i = indiceAtual(cnAlvo);
     if (i === -1) { toast("Agendamento não encontrado.", "error"); return; }
     /* Status vira "Cancelado". O registro continua no banco — é o mesmo que a
        área do cliente faz, e é o que mantém o histórico e o dashboard certos. */
@@ -1262,9 +1303,9 @@ function abrirNovoAgendamento() {
   carregarDadosAgenda();
   fluxo = {
     etapa: 0, dono: "", petsEscolhidos: [], servicosIdx: [],
-    unidade: (unidadeSelecionada === "franco" || unidadeSelecionada === "caieiras") ? unidadeSelecionada : "franco",
+    unidade: LaneUnidades.ativas().some(u => u.id === unidadeSelecionada) ? unidadeSelecionada : ((LaneUnidades.ativas()[0] || {}).id || ""),
     data: "", hora: "", transporte: false, valorTransporte: "",
-    pagamentoStatus: "A pagar", formaPagamento: "", obs: "",
+    pagamentoStatus: "A pagar", formaPagamento: "", obs: "", responsavelId: "",
     buscaCliente: "", concluido: false, salvos: []
   };
   pintarEtapa();
@@ -1373,21 +1414,38 @@ const CORPO = {
 
   unidade: () => `
     <div class="ag-etapa-titulo">Unidade do atendimento</div>
-    <p class="ag-etapa-ajuda">Onde o pet será atendido. A agenda de cada unidade é separada.</p>
+    <p class="ag-etapa-ajuda">Onde o pet será atendido. A agenda de cada unidade é separada. Unidade que não oferece algum serviço escolhido aparece bloqueada.</p>
     <div class="ag-opcoes ag-opcoes--largas">
-      ${[["franco", "Franco da Rocha"], ["caieiras", "Caieiras"]].map(([id, nome]) => `
-        <button type="button" class="ag-opcao${fluxo.unidade === id ? " is-ativa" : ""}" data-fx-unidade="${id}">
+      ${LaneUnidades.ativas().map(u => {
+        const faltando = servicosDoFluxo().filter(s => (u.servicos || []).length && !u.servicos.includes(s.id));
+        return `
+        <button type="button" class="ag-opcao${fluxo.unidade === u.id ? " is-ativa" : ""}" data-fx-unidade="${escapeHtml(u.id)}" ${faltando.length ? "disabled" : ""}>
           <span class="ag-opcao__ico">${svg(ICO.local, 18)}</span>
-          <span><span class="ag-opcao__nome">${nome}</span>
-          <span class="ag-opcao__meta">${daUnidadeNome(id)} agendamento(s) nesta unidade</span></span>
-        </button>`).join("")}
-    </div>`,
+          <span><span class="ag-opcao__nome">${escapeHtml(u.nome)}</span>
+          <span class="ag-opcao__meta">${faltando.length
+            ? `Não oferece: ${escapeHtml(faltando.map(s => s.nome).join(", "))}`
+            : `${daUnidadeNome(u.id)} agendamento(s) · até ${u.capacidade} por horário`}</span></span>
+        </button>`;
+      }).join("")}
+    </div>
+    ${fluxo.unidade ? (() => {
+      const equipe = LaneUnidades.funcionarios(fluxo.unidade);
+      return `
+      <div class="ag-etapa-titulo" style="font-size:.84rem;margin-top:var(--sp-5)">Funcionário responsável <span style="font-weight:500;color:var(--ink-500)">(opcional)</span></div>
+      ${equipe.length ? `<div class="ag-opcoes">
+        <button type="button" class="ag-opcao${!fluxo.responsavelId ? " is-ativa" : ""}" data-fx-resp="">
+          <span class="ag-opcao__ico">${svg(ICO.pessoa, 18)}</span><span><span class="ag-opcao__nome">Definir depois</span></span></button>
+        ${equipe.map(f => `
+        <button type="button" class="ag-opcao${fluxo.responsavelId === f.id ? " is-ativa" : ""}" data-fx-resp="${escapeHtml(f.id)}">
+          <span class="ag-opcao__ico">${svg(ICO.pessoa, 18)}</span><span><span class="ag-opcao__nome">${escapeHtml(f.nome)}</span></span></button>`).join("")}
+      </div>` : `<p class="ag-etapa-ajuda">Nenhum funcionário vinculado a ${escapeHtml(nomeUnidade(fluxo.unidade))}. Vincule em Usuários Administrativos (perfil Funcionário).</p>`}`;
+    })() : ""}`,
 
   quando: () => {
     const ocupados = horariosOcupados(fluxo.unidade, fluxo.data);
     return `
       <div class="ag-etapa-titulo">Data e horário</div>
-      <p class="ag-etapa-ajuda">Os horários já ocupados nesta unidade aparecem riscados. O painel permite encaixe manual em qualquer horário livre.</p>
+      <p class="ag-etapa-ajuda">Horários que já atingiram a capacidade da unidade (${LaneUnidades.capacidade(fluxo.unidade)} por horário) aparecem bloqueados. O painel permite encaixe manual em qualquer horário com vaga.</p>
       <div class="field"><label for="fxData">Data</label><input type="date" id="fxData" value="${escapeHtml(fluxo.data)}" min="" ></div>
       ${fluxo.data ? `
         <div class="ag-etapa-titulo" style="font-size:.84rem;margin-top:var(--sp-4)">Horários em ${dataCurta(fluxo.data + "T12:00:00")}</div>
@@ -1395,7 +1453,7 @@ const CORPO = {
           <button type="button" class="ag-hora-btn${fluxo.hora === h ? " is-ativa" : ""}" data-fx-hora="${h}" ${ocupados.includes(h) ? "disabled" : ""}>${h}</button>`).join("")}</div>
         <div class="field" style="margin-top:var(--sp-4)"><label for="fxHoraLivre">Outro horário</label>
           <input type="time" id="fxHoraLivre" value="${escapeHtml(fluxo.hora)}"></div>
-        ${ocupados.length ? `<p class="ag-ocupados">Já ocupados neste dia: ${ocupados.join(", ")}.</p>` : ""}
+        ${ocupados.length ? `<p class="ag-ocupados">Lotados neste dia: ${ocupados.join(", ")}.</p>` : ""}
       ` : '<p class="ag-etapa-ajuda">Escolha uma data para ver os horários.</p>'}`;
   },
 
@@ -1453,6 +1511,7 @@ const CORPO = {
           ${linhaInfo("Data", dataCurta(fluxo.data + "T12:00:00"))}
           ${linhaInfo("Horário", escapeHtml(fluxo.hora))}
           ${linhaInfo("Unidade", nomeUnidade(fluxo.unidade))}
+          ${linhaInfo("Responsável", escapeHtml((LaneUnidades.funcionarios(fluxo.unidade).find(f => f.id === fluxo.responsavelId) || {}).nome || "Definir depois"))}
         </section>
         <section class="ag-bloco">
           <h4>Pagamento</h4>
@@ -1472,14 +1531,19 @@ function daUnidadeNome(id) {
   return agendamentos.filter(a => unidadeDoAgendamento(a) === id && !ehCancelado(a)).length;
 }
 
-/* Horários já tomados na unidade e no dia — lidos dos próprios agendamentos,
-   os mesmos que a área do cliente consulta em GET /api/cliente/horarios. */
+/* Horários LOTADOS na unidade e no dia: os que já têm tantos agendamentos
+   quanto a capacidade da unidade (item 5). Mesma regra de
+   GET /api/cliente/horarios e da gravação no servidor. */
 function horariosOcupados(unidade, data) {
   if (!data) return [];
-  return agendamentos
+  const contagem = {};
+  agendamentos
     .filter(a => unidadeDoAgendamento(a) === unidade && soData(a.dataHora) === data && !ehCancelado(a))
     .map(a => String(a.dataHora || "").slice(11, 16))
-    .filter(Boolean);
+    .filter(Boolean)
+    .forEach(h => { contagem[h] = (contagem[h] || 0) + 1; });
+  const capacidade = LaneUnidades.capacidade(unidade);
+  return Object.keys(contagem).filter(h => contagem[h] >= capacidade);
 }
 
 function corpoSucesso() {
@@ -1494,7 +1558,8 @@ function corpoSucesso() {
       ${linhaInfo("Serviço", escapeHtml(servicosDoFluxo().map(s => s.nome).join(" + ")))}
       ${linhaInfo("Data", `${dataCurta(fluxo.data + "T12:00:00")} às ${escapeHtml(fluxo.hora)}`)}
       ${linhaInfo("Unidade", nomeUnidade(fluxo.unidade))}
-      ${linhaInfo("Status", statusBadge("Pendente"))}
+      ${linhaInfo("Status", statusBadge("Solicitado"))}
+      ${fluxo.responsavelId ? linhaInfo("Responsável", escapeHtml((LaneUnidades.funcionarios(fluxo.unidade).find(f => f.id === fluxo.responsavelId) || {}).nome || "")) : ""}
       ${linhaInfo("Total por pet", brl(totalDoFluxo()), true)}
     </section>
   </div>`;
@@ -1526,7 +1591,7 @@ function ligarEtapa(id) {
 
 $("novoCorpo").addEventListener("click", e => {
   if (!fluxo || fluxo.concluido) return;
-  const alvo = e.target.closest("[data-fx-dono],[data-fx-pet],[data-fx-servico],[data-fx-unidade],[data-fx-hora],[data-fx-transporte],[data-fx-forma]");
+  const alvo = e.target.closest("[data-fx-dono],[data-fx-pet],[data-fx-servico],[data-fx-unidade],[data-fx-resp],[data-fx-hora],[data-fx-transporte],[data-fx-forma]");
   if (!alvo || alvo.disabled) return;
   const d = alvo.dataset;
 
@@ -1540,7 +1605,9 @@ $("novoCorpo").addEventListener("click", e => {
     const i = fluxo.servicosIdx.indexOf(n);
     if (i === -1) fluxo.servicosIdx.push(n); else fluxo.servicosIdx.splice(i, 1);
   } else if (d.fxUnidade !== undefined) {
-    if (fluxo.unidade !== d.fxUnidade) { fluxo.unidade = d.fxUnidade; fluxo.hora = ""; }
+    if (fluxo.unidade !== d.fxUnidade) { fluxo.unidade = d.fxUnidade; fluxo.hora = ""; fluxo.responsavelId = ""; }
+  } else if (d.fxResp !== undefined) {
+    fluxo.responsavelId = d.fxResp;
   } else if (d.fxHora !== undefined) {
     fluxo.hora = d.fxHora;
   } else if (d.fxTransporte !== undefined) {
@@ -1608,7 +1675,9 @@ function confirmarNovoAgendamento() {
       unidade: fluxo.unidade, pet: pet.pet, dono: pet.dono, telefone: pet.telefone || "",
       dataHora, servicos: listaServicos, total,
       transporte: fluxo.transporte, valorTransporte,
-      status: "Pendente", obs: fluxo.obs,
+      status: "Solicitado", obs: fluxo.obs,
+      responsavelId: fluxo.responsavelId || "",
+      responsavelNome: (LaneUnidades.funcionarios(fluxo.unidade).find(f => f.id === fluxo.responsavelId) || {}).nome || "",
       pagamentoStatus: fluxo.pagamentoStatus, formaPagamento: fluxo.formaPagamento
     });
   });
@@ -1643,6 +1712,20 @@ function confirmarNovoAgendamento() {
    =========================================================================== */
 let edAlvo = null;
 
+/* Serviço já gravado no agendamento -> opção marcada no select.
+   Agendamento feito pela ÁREA DO CLIENTE grava só { id, nome } (sem porte);
+   o do painel grava o serviço inteiro. Antes a comparação exigia nome + porte,
+   então o agendamento do cliente abria SEM serviço marcado e o salvar dava
+   "selecione pelo menos um serviço". Agora: id -> nome + porte -> nome. */
+function servicoFoiEscolhido(s, selecionados) {
+  return (selecionados || []).some(sv => {
+    if (!sv) return false;
+    if (sv.id != null && s.id != null && String(sv.id) === String(s.id)) return true;
+    if (sv.nome !== s.nome) return false;
+    return !sv.porte || sv.porte === s.porte;
+  });
+}
+
 function montarSelectServicos(select, selecionados) {
   select.innerHTML = "";
   const portes = ["Gato", "Pequeno", "Médio", "Grande", "Adicional"];
@@ -1654,11 +1737,25 @@ function montarSelectServicos(select, selecionados) {
       const opt = document.createElement("option");
       opt.value = i;
       opt.text = `${s.nome}${s.pacote ? " (Pacote)" : ""}${s.preco != null ? " - " + brl(s.preco) : ""}`;
-      if ((selecionados || []).some(sv => sv && sv.nome === s.nome && sv.porte === s.porte)) opt.selected = true;
+      if (servicoFoiEscolhido(s, selecionados)) opt.selected = true;
       grupo.appendChild(opt);
     });
     if (grupo.children.length) select.appendChild(grupo);
   });
+  /* Serviço com porte fora da lista (ou sem porte) também precisa aparecer. */
+  const outros = servicos.filter(s => !portes.includes(s.porte) && !(s.adicionais && s.adicionais.length));
+  if (outros.length) {
+    const grupo = document.createElement("optgroup");
+    grupo.label = "Outros serviços";
+    outros.forEach(s => {
+      const opt = document.createElement("option");
+      opt.value = servicos.indexOf(s);
+      opt.text = `${s.nome}${s.pacote ? " (Pacote)" : ""}${s.preco != null ? " - " + brl(s.preco) : ""}`;
+      if (servicoFoiEscolhido(s, selecionados)) opt.selected = true;
+      grupo.appendChild(opt);
+    });
+    select.appendChild(grupo);
+  }
   const compostos = servicos.filter(s => s.adicionais && s.adicionais.length);
   if (compostos.length) {
     const grupo = document.createElement("optgroup");
@@ -1667,7 +1764,7 @@ function montarSelectServicos(select, selecionados) {
       const opt = document.createElement("option");
       opt.value = servicos.indexOf(s);
       opt.text = `${s.nome} (${s.adicionais.join(", ")})${s.pacote ? " (Pacote)" : ""}${s.preco != null ? " - " + brl(s.preco) : ""}`;
-      if ((selecionados || []).some(sv => sv && sv.nome === s.nome && sv.porte === s.porte)) opt.selected = true;
+      if (servicoFoiEscolhido(s, selecionados)) opt.selected = true;
       grupo.appendChild(opt);
     });
     select.appendChild(grupo);
@@ -1693,7 +1790,8 @@ function abrirEdicao(id, idx) {
   $("edPagamentoStatus").value = ag.pagamentoStatus || "A pagar";
   $("edFormaPagamento").value = ag.formaPagamento || "";
   $("edStatus").innerHTML = STATUS_LISTA.map(s => `<option value="${s}">${s}</option>`).join("");
-  $("edStatus").value = STATUS_LISTA.includes(ag.status) ? ag.status : "Pendente";
+  $("edStatus").value = statusNovo(ag.status);
+  montarSelectResponsavel(ag.responsavelId || "", ag.responsavelNome || "");
   $("edObs").value = ag.obs || "";
 
   abrirModal("modalEditar");
@@ -1701,10 +1799,26 @@ function abrirEdicao(id, idx) {
 
 $("edTransporte").addEventListener("change", function () { $("edValorTransporte").disabled = !this.checked; });
 
+/* Item 4: responsavel = funcionario ativo da unidade escolhida no modal. Um
+   responsavel antigo que saiu da lista (desativado) continua visivel como
+   opcao marcada, para nao sumir sem o usuario perceber. */
+function montarSelectResponsavel(atual, nomeAtual) {
+  const unidade = $("edUnidade").value;
+  const equipe = unidade ? LaneUnidades.funcionarios(unidade) : [];
+  const esc = escapeHtml;
+  let html = '<option value="">Sem responsável</option>' + equipe.map(f => `<option value="${esc(f.id)}">${esc(f.nome)}</option>`).join("");
+  if (atual && !equipe.some(f => f.id === atual)) html += `<option value="${esc(atual)}">${esc(nomeAtual || "Responsável atual")} (fora desta unidade)</option>`;
+  $("edResponsavel").innerHTML = html;
+  $("edResponsavel").value = atual || "";
+  $("edResponsavelAjuda").textContent = !unidade ? "Escolha a unidade para ver os funcionários."
+    : equipe.length ? "" : "Nenhum funcionário vinculado a esta unidade.";
+}
+$("edUnidade").addEventListener("change", () => montarSelectResponsavel("", ""));
+
 $("formEditar").addEventListener("submit", function (e) {
   e.preventDefault();
   if (!edAlvo) return;
-  const index = agendamentos.indexOf(edAlvo);
+  const index = indiceAtual(edAlvo);
   if (index === -1) { toast("Agendamento não encontrado.", "error"); return; }
 
   const unidade = $("edUnidade").value;
@@ -1742,6 +1856,8 @@ $("formEditar").addEventListener("submit", function (e) {
     servicos: servicosAgendados, total,
     transporte, valorTransporte,
     status: $("edStatus").value,
+    responsavelId: $("edResponsavel").value || "",
+    responsavelNome: $("edResponsavel").value ? $("edResponsavel").selectedOptions[0].textContent.replace(/ \(fora desta unidade\)$/, "") : "",
     obs: $("edObs").value.trim(),
     pagamentoStatus: $("edPagamentoStatus").value || "A pagar",
     formaPagamento: $("edFormaPagamento").value || ""
@@ -1922,7 +2038,7 @@ function iniciar() {
   carregarDadosAgenda();
 
   const salvos = safeJsonParse(localStorage.getItem("filtrosAgendamento"), {});
-  if (["franco", "caieiras", "sem-unidade"].includes(salvos.unidade)) unidadeSelecionada = salvos.unidade;
+  if (typeof salvos.unidade === "string" && salvos.unidade) unidadeSelecionada = salvos.unidade;
   ["busca", "servico", "status", "pagamento", "inicio", "fim"].forEach(k => {
     if (typeof salvos[k] === "string") agFiltros[k] = salvos[k];
   });
@@ -1931,13 +2047,21 @@ function iniciar() {
      antigos sem unidade, abre a visão legada em vez de uma agenda vazia. */
   const naAtual = agendamentos.filter(a => unidadeDoAgendamento(a) === unidadeSelecionada).length;
   const legados = agendamentos.filter(a => unidadeDoAgendamento(a) === "sem-unidade").length;
-  if (naAtual === 0 && legados > 0 && unidadeSelecionada !== "caieiras") {
+  if (naAtual === 0 && legados > 0 && !LaneUnidades.ativas().some(u => u.id === unidadeSelecionada)) {
     unidadeSelecionada = "sem-unidade";
     localStorage.setItem("unidadeAgendamentoSelecionada", unidadeSelecionada);
   }
 
+  renderAbasUnidades();
   preencherOpcoesFiltro();
   sincronizarCamposFiltro();
+  /* Item 5: quando a lista real de unidades chegar do banco, refaz as abas. */
+  LaneUnidades.carregar().then(() => {
+    if (unidadeSelecionada !== "sem-unidade" && !LaneUnidades.lista().some(u => u.id === unidadeSelecionada))
+      unidadeSelecionada = (LaneUnidades.ativas()[0] || {}).id || "sem-unidade";
+    renderAbasUnidades();
+    renderTudo();
+  });
 
   agEstado = (window.LaneStore && window.LaneStore.pronto && window.LaneStore.pronto()) ? "pronto" : "carregando";
   renderTudo();

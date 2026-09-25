@@ -83,6 +83,7 @@
     post,
     token,
     resumo: filtros => get('admin/resumo', filtros),
+    relatorio: filtros => get('admin/relatorio', filtros),
     agendamentos: filtros => get('agendamentos', { limite: 2000, ...filtros }).then(r => r.agendamentos || []),
     clientes: () => get('clientes', { limite: 2000 }).then(listaDe),
     pets: () => get('pets', { limite: 2000 }).then(listaDe),

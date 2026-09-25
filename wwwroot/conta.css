@@ -209,6 +209,7 @@
 /* ---------- Formulários ---------- */
 .cc-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; }
 .cc-campo { display: flex; flex-direction: column; gap: 6px; }
+.cc-campo[hidden] { display: none; }
 .cc-campo--largo { grid-column: 1 / -1; }
 .cc-campo label { font-size: .78rem; font-weight: 700; color: var(--tinta); }
 .cc-campo input, .cc-campo select, .cc-campo textarea {
@@ -609,12 +610,6 @@ a.cc-metrica:focus-visible { outline: none; box-shadow: var(--anel); }
 }
 .cc-destaque .botao.claro:hover { background: rgba(255,255,255,.22); border-color: rgba(255,255,255,.45); }
 
-/* ---------- Pets: foto real quando existir, símbolo quando não ---------- */
-.cc-pet__foto {
-  width: 52px; height: 52px; border-radius: var(--r-md); margin-bottom: 15px;
-  object-fit: cover; display: block; background: var(--superficie);
-}
-
 /* ---------- Menu da conta no topo ---------- */
 .cc-conta { position: relative; }
 .cc-conta__botao {
@@ -698,24 +693,6 @@ a.cc-metrica:focus-visible { outline: none; box-shadow: var(--anel); }
 #cc-proximo .cc-vazio { padding: 26px 20px; }
 #cc-proximo .cc-vazio p { margin-bottom: 14px; }
 
-/* ---------- Cards de pet: faixa de mídia + conteúdo ----------
-   O cadastro de pet não tem campo de foto. Em vez de um retângulo vazio,
-   a faixa traz o símbolo do tipo do pet, do mesmo tamanho em todos os
-   cards. Quando houver foto, basta trocar o conteúdo de .cc-pet__ico. */
-.cc-pets { gap: 18px; }
-.cc-pet:not(.cc-pet--novo) { padding: 0; overflow: hidden; }
-.cc-pet:not(.cc-pet--novo) .cc-pet__ico {
-  width: 100%; height: 104px; margin: 0; border-radius: 0;
-  background: linear-gradient(150deg, var(--superficie), #e8f2e9);
-  border-bottom: 1px solid var(--borda);
-}
-.cc-pet:not(.cc-pet--novo) .cc-pet__ico svg { width: 40px; height: 40px; opacity: .9; }
-.cc-pet:not(.cc-pet--novo) > :not(.cc-pet__ico) { padding-inline: 20px; }
-.cc-pet:not(.cc-pet--novo) > h3 { padding-top: 16px; }
-.cc-pet:not(.cc-pet--novo) > .cc-pet__tags { padding-bottom: 20px; }
-.cc-pet:not(.cc-pet--novo):hover .cc-pet__ico svg { transform: scale(1.06); }
-.cc-pet__ico svg { transition: transform .2s var(--ease); }
-
 /* =============================================================================
    MEUS PETS — cards de ficha, fluxo em etapas e detalhes
 
@@ -723,29 +700,63 @@ a.cc-metrica:focus-visible { outline: none; box-shadow: var(--anel); }
    convive dentro de .cc-*, que e o escopo da area do cliente.
    ============================================================================= */
 
-/* ---------- Card do pet ---------- */
-.cc-pets { grid-template-columns: repeat(auto-fill, minmax(268px, 1fr)); }
+/* ---------- Card do pet ----------
+   Largura maxima por card (em vez de esticar ate preencher a linha) para
+   nao sobrar espaco vazio dentro do card quando ha poucos pets na tela. */
+.cc-pets { grid-template-columns: repeat(auto-fit, minmax(240px, 300px)); }
 
-.cc-pet--ficha { display: flex; flex-direction: column; text-align: left; padding: 0; }
+/* align-items: stretch sobrescreve o flex-start do .cc-pet base: faixa da foto e
+   corpo ocupam a largura toda do card (sem isso o corpo encolhia ao conteudo e
+   os botoes quebravam linha em pets com pouca informacao). */
+.cc-pet--ficha { display: flex; flex-direction: column; align-items: stretch; text-align: left; padding: 0; overflow: hidden; }
+
+/* Faixa de midia: mesma altura para foto real e para o simbolo da especie
+   (antes eram 132px/104px, uma inconsistencia visivel entre os dois casos).
+   Posicionamento absoluto garante a foto sempre "full-bleed", sem depender
+   de como o filho se comporta dentro do flex do container. */
+/* align-self: stretch e obrigatorio (item 10 do roadmap, 24/09): o .cc-pet base
+   usa align-items: flex-start, entao sem isto a faixa encolhia para a largura
+   do conteudo. Como a foto e position:absolute, esse conteudo tem largura 0 —
+   a foto carregava (naturalWidth > 0) mas era desenhada com 0px de largura e
+   "sumia". O icone de fallback escapava porque o chip transborda a caixa. */
 .cc-pet--ficha .cc-pet__retrato {
-  display: flex; align-items: center; justify-content: center;
-  height: 132px; background: var(--superficie);
+  position: relative; height: 140px; align-self: stretch;
+  background: linear-gradient(150deg, var(--superficie), #e8f2e9);
   border-bottom: 1px solid var(--borda);
 }
 .cc-pet--ficha .cc-pet__retrato .cc-pet__foto {
-  width: 100%; height: 100%; margin: 0; border-radius: 0; object-fit: cover;
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  margin: 0; border-radius: 0; object-fit: cover; display: block;
 }
-.cc-pet--ficha .cc-pet__retrato .cc-pet__ico { margin: 0; }
-.cc-pet--ficha .cc-pet__corpo { display: flex; flex-direction: column; gap: 10px; padding: 16px 18px 18px; flex: 1; }
-.cc-pet--ficha h3 { margin: 0; }
+.cc-pet--ficha .cc-pet__retrato .cc-pet__ico {
+  position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; border-radius: 0;
+  display: grid; place-items: center; background: transparent;
+}
+/* Avatar-chip em vez do simbolo solto: sem isso, um icone fino de 42px num
+   fundo bem claro lia como "vazio" para quem so bate o olho rapido. */
+.cc-pet--ficha .cc-pet__retrato .cc-pet__ico::before {
+  content: ''; position: absolute; width: 64px; height: 64px; border-radius: 50%;
+  background: var(--branco); border: 1px solid var(--borda-forte); box-shadow: var(--sombra-sm, 0 2px 6px rgba(0,0,0,.06));
+}
+.cc-pet--ficha .cc-pet__retrato .cc-pet__ico svg {
+  position: relative; width: 32px; height: 32px; color: var(--verde); opacity: 1;
+  transition: transform .2s var(--ease);
+}
+.cc-pet--ficha:hover .cc-pet__retrato .cc-pet__ico svg { transform: scale(1.06); }
+
+.cc-pet--ficha .cc-pet__corpo { display: flex; flex-direction: column; gap: 12px; padding: 16px 18px 18px; flex: 1; }
+.cc-pet--ficha h3 { margin: 0; font-size: 1.14rem; font-weight: 700; }
 .cc-pet__especie { font-size: .82rem; color: var(--suave); margin: 0; }
 
-.cc-pet__linhas { display: grid; gap: 5px; margin: 2px 0 0; }
-.cc-pet__linhas > div { display: flex; justify-content: space-between; gap: 12px; font-size: .84rem; }
-.cc-pet__linhas dt { color: var(--suave); }
-.cc-pet__linhas dd { margin: 0; color: var(--tinta); font-weight: 600; text-align: right; }
+/* Ficha em grade de 2 colunas (rotulo em cima, valor embaixo) em vez de
+   linhas rotulo/valor esticadas ponta a ponta — em cards mais largos essas
+   linhas deixavam um vao grande e esquisito entre o rotulo e o valor. */
+.cc-pet__linhas { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 16px; margin: 2px 0 0; }
+.cc-pet__linhas > div { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.cc-pet__linhas dt { font-size: .7rem; text-transform: uppercase; letter-spacing: .03em; color: var(--suave); }
+.cc-pet__linhas dd { margin: 0; font-size: .92rem; color: var(--tinta); font-weight: 600; overflow-wrap: anywhere; }
 
-.cc-pet__acoes { display: flex; gap: 8px; margin-top: auto; padding-top: 6px; }
+.cc-pet__acoes { display: flex; gap: 8px; margin-top: auto; padding-top: 8px; }
 .cc-pet__acoes .botao { flex: 1; padding-inline: 10px; font-size: .84rem; }
 
 /* ---------- Retrato grande (detalhes e revisao) ---------- */

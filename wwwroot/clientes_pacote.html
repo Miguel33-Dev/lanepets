@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Pacotes &middot; LanePets</title>
-  <link rel="stylesheet" href="design-system.css?v=4">
+  <link rel="stylesheet" href="design-system.css?v=6">
   <style>
     .pacote-toolbar { display:grid; grid-template-columns:minmax(260px,1fr) 180px auto; gap:var(--sp-3); align-items:end; }
     .pacote-toolbar .field { margin-bottom:0; }
@@ -38,9 +38,9 @@
   <script src="js/config.js"></script>
   <script src="js/api.js"></script>
   <script src="lib/signalr/signalr.min.js"></script>
-  <script src="js/admin-dados.js"></script>
+  <script src="js/admin-dados.js?v=2"></script>
   <script src="js/admin-store.js?v=1"></script>
-<script src="js/admin-permissoes.js"></script>
+<script src="js/admin-permissoes.js?v=5"></script>
 </head>
 <body>
 <div class="app-shell">
@@ -64,7 +64,7 @@
       </section>
       <section class="card">
         <div class="page-header" style="margin-bottom:var(--sp-4);align-items:center;"><div><h2 class="section-title" style="margin-bottom:2px;">Pacotes ativos</h2><p style="margin:0;color:var(--ink-500);font-size:.82rem;">Histórico recente exibido na tabela; use “Ver histórico completo” para consultar tudo.</p></div></div>
-        <div class="table-wrap">
+        <div class="table-wrap tabela-cards">
           <table id="tabelaPacote">
             <thead><tr><th>Nome do Dono</th><th>Nome do Pet</th><th>Raça</th><th>Telefone</th><th>Endereço</th><th>Tipo</th><th>Tipo do Pacote</th><th>Banhos Feitos</th><th>Banhos Restantes</th><th>Histórico de Banhos</th><th>Ações</th><th>Cortesias</th><th>Pacote Renovado em</th></tr></thead>
             <tbody></tbody>
@@ -96,7 +96,7 @@
 
 <div id="modalHistorico" class="modal-overlay"><form id="formHistorico" class="modal-box"><div class="modal-head"><div><h2>Editar histórico de banhos</h2><p>Altere, remova ou adicione datas ao histórico.</p></div><button type="button" class="btn btn-outline" onclick="fecharModalHistorico()">Fechar</button></div><input type="hidden" id="historicoPetIndex"><div id="historicoLista"></div><div class="field"><label for="novaDataHistorico">Adicionar nova data</label><input class="input" type="datetime-local" id="novaDataHistorico"><button type="button" class="btn btn-outline" style="margin-top:8px;align-self:flex-start;" onclick="adicionarDataHistorico()">Adicionar data</button></div><div class="modal-actions"><button type="button" class="btn btn-outline" onclick="fecharModalHistorico()">Cancelar</button><button type="submit" class="btn btn-primary">Salvar histórico</button></div></form></div>
 
-  <script src="ui-kit.js?v=4"></script>
+  <script src="ui-kit.js?v=5"></script>
   <script>
     // Função para carregar e exibir os clientes pacote
       // Função para formatar data no formato DD/MM/YYYY HH:mm
@@ -270,7 +270,7 @@
           <td>${restantes}</td>
           <td class="historico-banho" onclick="event.stopPropagation();">${historico || "-"}</td>
           <td>
-            <button onclick="abrirModalPacote(${p.realIndex})">Editar Pacote</button>
+            <button type="button" class="btn btn-outline btn-sm" onclick="abrirModalPacote(${p.realIndex})">Editar Pacote</button>
           </td>
           <td class="historico-banho">${cortesias || "-"}</td>
           <td>${renovadoEm}</td>

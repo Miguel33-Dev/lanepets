@@ -19,11 +19,13 @@ public class PublicController(LanePetsDbContext db, PermissaoService permissoes,
     /// aparecer como disponivel para compra.
     /// </summary>
     [HttpGet("public/produtos")]
-    public async Task<IActionResult> Produtos() => OkApi((await db.Produtos.AsNoTracking().OrderBy(p => p.Nome).ToListAsync()).Select(p => new
+    public async Task<IActionResult> Produtos() => OkApi((await db.Produtos.AsNoTracking().Where(p => p.VisivelLoja).OrderBy(p => p.Nome).ToListAsync()).Select(p => new
     {
         p.Id,
         p.Nome,
         p.Categoria,
+        p.Descricao,
+        p.FotoUrl,
         p.ValorVenda,
         p.Estoque,
         p.ControlaEstoque,
@@ -35,6 +37,15 @@ public class PublicController(LanePetsDbContext db, PermissaoService permissoes,
 
     [HttpGet("public/seguros")]
     public async Task<IActionResult> Seguros() => OkApi(await db.PlanosSeguro.AsNoTracking().Where(p => p.Ativo).OrderBy(p => p.ValorMensal).ToListAsync());
+
+    /// <summary>
+    /// Unidades para a area publica (secao "Encontre uma unidade" e Contato).
+    /// Mesma tabela Unidades que o cadastro administrativo usa — sem dado
+    /// inventado: se a unidade nao tem telefone cadastrado, o campo volta
+    /// vazio e a tela decide como tratar.
+    /// </summary>
+    [HttpGet("public/unidades")]
+    public async Task<IActionResult> UnidadesPublicas() => OkApi((await db.Unidades.AsNoTracking().Where(u => u.Ativa).OrderBy(u => u.Nome).ToListAsync()).Select(u => new { u.Id, u.Nome, u.Endereco, u.Telefone, u.HorarioFuncionamento }));
 
 
     [HttpPost("public/depoimentos")]
@@ -62,17 +73,13 @@ public class PublicController(LanePetsDbContext db, PermissaoService permissoes,
         {
             var plano = await db.PlanosSeguro.FirstOrDefaultAsync(p => p.Id == request.PlanoId && p.Ativo) ?? throw new Exception("Plano indisponível.");
             if (string.IsNullOrWhiteSpace(request.Nome) || NormalizarTelefone(request.Telefone).Length < 8 || string.IsNullOrWhiteSpace(request.Pet)) throw new Exception("Informe seu nome, telefone e nome do pet.");
-            // Formulario publico: quem preenche pode nao ter conta. Quando o
-            // cadastro e o pet sao localizados, o contrato ja nasce vinculado —
-            // e assim ele aparece em "Meu Seguro" se essa pessoa tiver login.
-            var telefonePublico = NormalizarTelefone(request.Telefone);
-            var clientePublico = (await db.Clientes.AsNoTracking().ToListAsync())
-                .FirstOrDefault(c => NormalizarTelefone(c.Telefone) == telefonePublico
-                                     && string.Equals(c.Nome, request.Nome.Trim(), StringComparison.OrdinalIgnoreCase));
-            var petPublico = clientePublico is null ? null : await db.Pets.AsNoTracking()
-                .FirstOrDefaultAsync(p => p.ClienteId == clientePublico.Id && p.PetNome.ToLower() == request.Pet.Trim().ToLower());
-
-            db.SolicitacoesSeguro.Add(new SolicitacaoSeguro { Id = "SOL-" + Guid.NewGuid().ToString("N")[..12].ToUpperInvariant(), PlanoSeguroId = plano.Id, NomePlano = plano.Nome, ClienteId = clientePublico?.Id ?? "", PetId = petPublico?.Id ?? "", NomeCliente = request.Nome.Trim(), Telefone = request.Telefone.Trim(), NomePet = request.Pet.Trim(), Observacao = (request.Observacao ?? "").Trim() });
+            // Formulario publico, sem login (item 1 do roadmap, 24/09): o pedido
+            // NAO e mais vinculado a conta nenhuma. Antes bastava saber nome +
+            // telefone de um cliente para criar um contrato que aparecia em
+            // "Meu Seguro" dele. Agora o pedido entra como solicitacao solta
+            // para a equipe tratar; quem tem conta contrata pela area do
+            // cliente (POST /api/cliente/seguros), que usa a sessao.
+            db.SolicitacoesSeguro.Add(new SolicitacaoSeguro { Id = "SOL-" + Guid.NewGuid().ToString("N")[..12].ToUpperInvariant(), PlanoSeguroId = plano.Id, NomePlano = plano.Nome, ClienteId = "", PetId = "", NomeCliente = request.Nome.Trim(), Telefone = request.Telefone.Trim(), NomePet = request.Pet.Trim(), Observacao = (request.Observacao ?? "").Trim() });
             await db.SaveChangesAsync(); await realtime.NotificarAsync("seguros", "solicitado"); return OkApi(new { message = "Recebemos seu pedido. A equipe LanePets entrará em contato para concluir a contratação." });
         }
         catch (Exception ex) { return ErrorApi(ex); }
@@ -179,7 +186,7 @@ public class PublicController(LanePetsDbContext db, PermissaoService permissoes,
     [HttpPost("admin/depoimentos/{id}/status")]
     public async Task<IActionResult> Moderar(string id, [FromBody] StatusRequest request) { try { await permissoes.ExigirAsync(request.Token ?? "", ModulosAdmin.Avaliacoes, AcaoPermissao.Editar); var item = await db.Depoimentos.FindAsync(id) ?? throw new Exception("Depoimento não encontrado."); item.Status = request.Status is "Aprovado" or "Recusado" ? request.Status : throw new Exception("Status inválido."); await db.SaveChangesAsync(); return OkApi(item); } catch (Exception ex) { return ErrorApi(ex); } }
     [HttpPost("admin/solicitacoes/{id}/status")]
-    public async Task<IActionResult> AtualizarSolicitacao(string id, [FromBody] StatusRequest request) { try { await permissoes.ExigirAsync(request.Token ?? "", ModulosAdmin.Seguros, AcaoPermissao.Editar); var item = await db.SolicitacoesSeguro.FindAsync(id) ?? throw new Exception("Solicitação não encontrada."); item.Status = request.Status is "Pendente" or "Em contato" or "Concluída" or "Cancelada" ? request.Status : throw new Exception("Status inválido."); await db.SaveChangesAsync(); return OkApi(item); } catch (Exception ex) { return ErrorApi(ex); } }
+    public async Task<IActionResult> AtualizarSolicitacao(string id, [FromBody] StatusRequest request) { try { await permissoes.ExigirAsync(request.Token ?? "", ModulosAdmin.Seguros, AcaoPermissao.Editar); var item = await db.SolicitacoesSeguro.FindAsync(id) ?? throw new Exception("Solicitação não encontrada."); item.Status = request.Status is "Pendente" or "Em contato" or "Concluída" or "Cancelada" ? request.Status : throw new Exception("Status inválido."); await db.SaveChangesAsync(); await PagamentosService.ReconciliarAsync(db); return OkApi(item); } catch (Exception ex) { return ErrorApi(ex); } }
     private static string NormalizarTelefone(string? value) => new string((value ?? "").Where(char.IsDigit).ToArray());
     public record DepoimentoRequest(string? Nome, string? Telefone, string? Pet, int Avaliacao, string? Comentario);
     public record SeguroRequest(string PlanoId, string? Nome, string? Telefone, string? Pet, string? Observacao);

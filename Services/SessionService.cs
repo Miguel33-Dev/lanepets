@@ -66,6 +66,17 @@ public class SessionService(IConfiguration config)
     public Session RequireClient(string token) { if (!_clients.TryGetValue(token, out var s) || s.ExpiresAt <= DateTime.UtcNow) { _clients.TryRemove(token, out _); throw new UnauthorizedAccessException("Sessão de cliente inválida ou expirada."); } return s; }
     public void LogoutClient(string token) => _clients.TryRemove(token, out _);
 
+    /// <summary>
+    /// Derruba as sessoes de um cliente, menos a informada. Usado quando o
+    /// proprio cliente troca a senha: quem estava logado com a senha antiga em
+    /// outro aparelho sai, e o navegador que fez a troca continua logado.
+    /// </summary>
+    public void EncerrarSessoesDoCliente(string clienteId, string exceto = "")
+    {
+        foreach (var par in _clients.Where(x => x.Value.AdminToken == clienteId && x.Key != exceto).ToList())
+            _clients.TryRemove(par.Key, out _);
+    }
+
     // -----------------------------------------------------------------------
     // Senhas: novos cadastros usam BCrypt. A verificacao continua aceitando os
     // hashes PBKDF2 gravados pelas versoes anteriores, para nao invalidar as

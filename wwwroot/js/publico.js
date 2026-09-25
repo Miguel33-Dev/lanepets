@@ -136,11 +136,14 @@
     return `<article class="card loja-card${fora ? ' fora' : ''}">
       <div class="loja-media">
         <span class="loja-selo loja-selo--${estado.chave}">${estado.texto}</span>
-        <span class="loja-simbolo">${icone(produto.nome + ' ' + (produto.categoria || ''), 'racao')}</span>
+        ${produto.fotoUrl && /^data:image\//.test(produto.fotoUrl)
+          ? `<img src="${esc(produto.fotoUrl)}" alt="${esc(produto.nome)}" loading="lazy">`
+          : `<span class="loja-simbolo">${icone(produto.nome + ' ' + (produto.categoria || ''), 'racao')}</span>`}
       </div>
       <div class="loja-corpo">
         <span class="tag">${categoria}</span>
         <h3>${esc(produto.nome)}</h3>
+        ${produto.descricao ? `<p class="loja-desc">${esc(produto.descricao)}</p>` : ''}
         <div class="loja-preco"><strong>${money(produto.valorVenda)}</strong></div>
         ${fora
           ? '<button class="botao claro" type="button" disabled>Indisponível</button>'
@@ -293,11 +296,68 @@
     </article>`;
   }
 
+  /* ---------- Unidades / Contato -----------------------------------------
+     Uma única chamada a /api/public/unidades alimenta as duas seções: o card
+     completo em #unidades e a versão resumida (endereço + telefone) em
+     #contato. Nenhum dado de contato é inventado — o que a unidade não tem
+     cadastrado simplesmente não aparece.
+     ------------------------------------------------------------------------- */
+  const ICONE_PIN = svg('<path d="M12 21.5s7.5-6.6 7.5-12.4A7.5 7.5 0 0 0 4.5 9.1c0 5.8 7.5 12.4 7.5 12.4Z"/><circle cx="12" cy="9" r="2.6"/>');
+  const ICONE_TEL = svg('<path d="M4.5 4h3.6l1.6 4.4-2.1 1.8a13 13 0 0 0 6.2 6.2l1.8-2.1 4.4 1.6v3.6c0 1-.9 1.8-1.9 1.7A17 17 0 0 1 3 5.9 1.8 1.8 0 0 1 4.5 4Z"/>');
+  const ICONE_RELOGIO = svg('<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>');
+
+  function cardUnidade(unidade) {
+    const telefone = String(unidade.telefone || '').trim();
+    return `<article class="card unidade-card">
+      <span class="servico-icone">${ICONE_PIN}</span>
+      <h3>${esc(unidade.nome)}</h3>
+      <div class="unidade-linha"><span>${ICONE_PIN}</span><span>${esc(unidade.endereco || 'Endereço a confirmar com a equipe LanePets.')}</span></div>
+      ${telefone ? `<div class="unidade-linha"><span>${ICONE_TEL}</span><span>${esc(telefone)}</span></div>` : ''}
+      ${unidade.horarioFuncionamento ? `<div class="unidade-linha discreta"><span>${ICONE_RELOGIO}</span><span>${esc(unidade.horarioFuncionamento)}</span></div>` : ''}
+    </article>`;
+  }
+
+  function itemContato(unidade) {
+    const telefone = String(unidade.telefone || '').trim();
+    return `<div class="contato-item">
+      <span class="servico-icone">${ICONE_PIN}</span>
+      <div>
+        <h3>${esc(unidade.nome)}</h3>
+        <p>${esc(unidade.endereco || 'Endereço a confirmar com a equipe LanePets.')}${telefone ? ' · ' + esc(telefone) : ''}</p>
+        ${unidade.horarioFuncionamento ? `<p>${esc(unidade.horarioFuncionamento)}</p>` : ''}
+      </div>
+    </div>`;
+  }
+
+  async function carregarUnidades() {
+    const alvoUnidades = $('#lista-unidades');
+    const alvoContato = $('#lista-contato');
+    try {
+      const unidades = await api('/api/public/unidades');
+      if (alvoUnidades) {
+        alvoUnidades.innerHTML = unidades.length
+          ? unidades.map(cardUnidade).join('')
+          : vazio('Novas unidades em breve', 'Estamos organizando as próximas unidades LanePets.');
+      }
+      if (alvoContato) {
+        alvoContato.innerHTML = unidades.length
+          ? unidades.map(itemContato).join('')
+          : '<p class="contato-estado">Fale com a equipe LanePets pelo agendamento na sua conta.</p>';
+      }
+    } catch (erro) {
+      console.error(erro);
+      if (alvoUnidades) alvoUnidades.innerHTML = vazio('Não foi possível carregar as unidades', 'Atualize a página em instantes.');
+      if (alvoContato) alvoContato.innerHTML = '<p class="contato-estado">Não foi possível carregar os contatos agora. Atualize a página em instantes.</p>';
+    }
+  }
+
   /* ---------- Carregamento ----------------------------------------------- */
   $('#lista-servicos').innerHTML = esqueleto(6);
   $('#lista-produtos').innerHTML = esqueleto(4);
   $('#lista-depoimentos').innerHTML = esqueleto(3);
   $('#lista-seguros').innerHTML = '<p style="opacity:.7">Carregando planos…</p>';
+  if ($('#lista-unidades')) $('#lista-unidades').innerHTML = esqueleto(2);
+  if ($('#lista-contato')) $('#lista-contato').innerHTML = '<p class="contato-estado">Carregando contatos…</p>';
 
   async function carregarSecao(seletor, url, montar, tituloVazio, textoVazio, limite) {
     try {
@@ -338,6 +398,8 @@
 
     await carregarSecao('#lista-depoimentos', '/api/public/depoimentos',
       cardDepoimento, 'Seja a primeira família a avaliar', 'Clientes LanePets podem enviar um depoimento para a nossa moderação.', 6);
+
+    await carregarUnidades();
   }
 
   /* ---------- Envio dos formulários --------------------------------------- */
@@ -490,4 +552,28 @@
       if (aviso) aviso.textContent = '';
     });
   });
+})();
+
+/* =============================================================================
+   Aparecimento suave das seções ao rolar
+   Uma vez visível, a seção fica visível — sem "piscar" ao rolar para cima e
+   para baixo. Sem IntersectionObserver no navegador, as seções já nascem
+   visíveis (a classe .reveal só esconde depois de confirmado que o recurso existe).
+   ============================================================================= */
+(function () {
+  const secoes = document.querySelectorAll('.reveal');
+  if (!secoes.length) return;
+  if (!('IntersectionObserver' in window)) {
+    secoes.forEach(secao => secao.classList.add('em-vista'));
+    return;
+  }
+  const observador = new IntersectionObserver(entradas => {
+    entradas.forEach(entrada => {
+      if (entrada.isIntersecting) {
+        entrada.target.classList.add('em-vista');
+        observador.unobserve(entrada.target);
+      }
+    });
+  }, { threshold: .12, rootMargin: '0px 0px -40px 0px' });
+  secoes.forEach(secao => observador.observe(secao));
 })();

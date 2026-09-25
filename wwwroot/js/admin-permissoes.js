@@ -37,7 +37,11 @@
     'gestao-publica.html': ['seguros', 'avaliacoes'],
     'migrar-dados.html': ['configuracoes'],
     'pedidos.html': ['pedidos'],
-    'usuarios-admin.html': ['usuarios']
+    'usuarios-admin.html': ['usuarios'],
+    'eventos.html': ['usuarios'],
+    'unidades.html': ['unidades'],
+    'pagamentos.html': ['pagamentos'],
+    'integridade.html': ['usuarios']
   };
 
   let estado = null;
@@ -85,6 +89,7 @@
       if (modulos && !podeVerAlgum(modulos)) link.remove();
     });
 
+    inserirItemPagamentos(nav);
     inserirItemUsuarios(nav);
 
     nav.querySelectorAll('p.nav-group').forEach(titulo => {
@@ -103,25 +108,72 @@
      nem um administrador com acesso total ve este item, porque administrar
      administradores nao e uma ferramenta do petshop, e a autoridade sobre os
      outros administradores. O backend recusa a rota do mesmo jeito. */
-  function inserirItemUsuarios(nav) {
-    if (!souAdminGeral()) return;
-    if (nav.querySelector('a[href="usuarios-admin.html"]')) return;
-
-    const grupo = document.createElement('p');
-    grupo.className = 'nav-group';
-    grupo.textContent = 'Administração';
-
+  /* Item 8 (25/09): "Pagamentos" entra no grupo Financeiro, logo depois de
+     "Entradas e Saídas", para quem tem o modulo pagamentos. Injetado aqui para
+     nao ter de editar o menu das 14 paginas. */
+  function inserirItemPagamentos(nav) {
+    if (!pode('pagamentos', 'visualizar') || nav.querySelector('a[href="pagamentos.html"]')) return;
     const item = document.createElement('a');
     item.className = 'nav-item';
-    item.href = 'usuarios-admin.html';
-    item.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 20v-1.8a3.6 3.6 0 0 0-3.6-3.6H6.6A3.6 3.6 0 0 0 3 18.2V20"/><circle cx="9.5" cy="7.5" r="3.4"/><path d="M19 11.5v3M20.5 13h-3"/></svg><span>Usuários Administrativos</span>';
-    if (arquivoDe(location.pathname) === 'usuarios-admin.html') {
-      item.classList.add('active');
-      item.setAttribute('aria-current', 'page');
+    item.href = 'pagamentos.html';
+    item.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.5" y="5.5" width="19" height="13" rx="2.5"/><path d="M2.5 10h19M6.5 15h4"/></svg><span>Pagamentos</span>';
+    if (arquivoDe(location.pathname) === 'pagamentos.html') { item.classList.add('active'); item.setAttribute('aria-current', 'page'); }
+    const ancora = nav.querySelector('a[href="entradas_e_saidas.html"]') || nav.querySelector('a[href="relatorio.html"]');
+    if (ancora) ancora.insertAdjacentElement('afterend', item);
+    else {
+      const grupo = document.createElement('p'); grupo.className = 'nav-group'; grupo.textContent = 'Financeiro';
+      nav.appendChild(grupo); nav.appendChild(item);
+    }
+  }
+
+  function inserirItemUsuarios(nav) {
+    /* Item 5 do roadmap: "Unidades" aparece para quem tem o modulo unidades
+       (nao so para o Geral). Usuarios e Log de eventos continuam exclusivos
+       do Administrador Geral. */
+    const itens = [];
+    if (pode('unidades', 'visualizar')) {
+      itens.push({ href: 'unidades.html', rotulo: 'Unidades',
+        icone: '<path d="M3 21h18"/><path d="M5 21V8l7-5 7 5v13"/><path d="M9 21v-6h6v6"/><path d="M9 10h.01M15 10h.01"/>' });
+    }
+    if (!souAdminGeral()) { adicionarItens(nav, itens); return; }
+
+    /* Item 15 do roadmap: "Log de eventos" entra no mesmo grupo, tambem so
+       para o Administrador Geral (o backend recusa a rota com 403 para os
+       demais, e o middleware bloqueia a pagina). */
+    itens.push(
+      { href: 'usuarios-admin.html', rotulo: 'Usuários Administrativos',
+        icone: '<path d="M16 20v-1.8a3.6 3.6 0 0 0-3.6-3.6H6.6A3.6 3.6 0 0 0 3 18.2V20"/><circle cx="9.5" cy="7.5" r="3.4"/><path d="M19 11.5v3M20.5 13h-3"/>' },
+      { href: 'eventos.html', rotulo: 'Log de eventos',
+        icone: '<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8Z"/><path d="M14 3v5h5"/><path d="M9 13h6M9 17h4"/>' },
+      /* Item 19: integridade do banco (so Geral). */
+      { href: 'integridade.html', rotulo: 'Integridade do banco',
+        icone: '<ellipse cx="12" cy="5.5" rx="7.5" ry="2.8"/><path d="M4.5 5.5v6c0 1.5 3.4 2.8 7.5 2.8s7.5-1.3 7.5-2.8v-6"/><path d="M4.5 11.5v6c0 1.5 3.4 2.8 7.5 2.8"/><path d="m15 18 2 2 4-4"/>' }
+    );
+    adicionarItens(nav, itens);
+  }
+
+  function adicionarItens(nav, itens) {
+    const faltando = itens.filter(i => !nav.querySelector(`a[href="${i.href}"]`));
+    if (!faltando.length) return;
+
+    if (![...nav.querySelectorAll('p.nav-group')].some(g => g.textContent.trim() === 'Administração')) {
+      const grupo = document.createElement('p');
+      grupo.className = 'nav-group';
+      grupo.textContent = 'Administração';
+      nav.appendChild(grupo);
     }
 
-    nav.appendChild(grupo);
-    nav.appendChild(item);
+    faltando.forEach(i => {
+      const item = document.createElement('a');
+      item.className = 'nav-item';
+      item.href = i.href;
+      item.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${i.icone}</svg><span>${i.rotulo}</span>`;
+      if (arquivoDe(location.pathname) === i.href) {
+        item.classList.add('active');
+        item.setAttribute('aria-current', 'page');
+      }
+      nav.appendChild(item);
+    });
   }
 
   /* ------------------------------------------------------------------

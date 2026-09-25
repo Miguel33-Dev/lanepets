@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pagamentos &middot; LanePets</title>
+<link rel="stylesheet" href="design-system.css?v=6">
+<script src="js/config.js"></script>
+<script src="js/api.js"></script>
+<script src="js/admin-permissoes.js?v=5"></script>
+<script src="js/unidades.js?v=3"></script>
+<!--
+  PAGAMENTOS (item 8 do roadmap, 25/09)
+  Um pagamento por agendamento, pedido da loja ou contratacao de seguro.
+  Status: Pendente, Aprovado, Recusado, Cancelado, Reembolsado.
+  Dados de GET /api/admin/pagamentos e POST /api/admin/pagamentos/{id}/status
+  (modulo "pagamentos"). A regra de transicao e do servidor (PagamentosService).
+-->
+<style>
+  .pg-filtros { display:grid; grid-template-columns: repeat(auto-fit, minmax(min(170px, 100%), 1fr)); gap: var(--sp-3); align-items:end; }
+  @media (max-width: 480px) { .pg-filtros { grid-template-columns: minmax(0, 1fr); } }
+  .pg-filtros .field { margin-bottom:0; }
+  .pg-status { display:inline-flex; align-items:center; gap:6px; white-space:nowrap; }
+  .pg-reembolso { display:inline-block; margin-top:4px; padding:1px 7px; border-radius:999px; font-size:11px; font-weight:700; background: var(--warning-100); color:#9c7415; }
+  .pg-origem { font-size:.72rem; text-transform:uppercase; letter-spacing:.03em; color: var(--ink-500); font-weight:700; }
+  .pg-acoes { display:flex; gap:6px; flex-wrap:wrap; justify-content:flex-end; }
+  .pg-alerta { margin-top: var(--sp-4); padding: var(--sp-3) var(--sp-4); border-radius: var(--r-sm, 10px); background: var(--warning-100); color:#7a5a0f; font-weight:600; display:none; }
+  .pg-alerta button { margin-left: var(--sp-3); }
+  td.pg-valor { font-variant-numeric: tabular-nums; white-space:nowrap; font-weight:700; }
+  @media (max-width: 860px) { .pg-acoes { justify-content:flex-start; } }
+</style>
+</head>
+<body><div class="app-shell"><aside class="sidebar" id="menu-lateral"><div class="sidebar-brand"><a class="brand-home" href="cliente.html" title="Abrir o site LanePets"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="var(--accent-500)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="7" cy="8" r="2"/><circle cx="12" cy="5.5" r="2"/><circle cx="17" cy="8" r="2"/><path d="M12 13c-3.3 0-6 2.1-6 4.7 0 1.6 1.5 2.3 3 1.8.9-.3 1.9-.5 3-.5s2.1.2 3 .5c1.5.5 3-.2 3-1.8 0-2.6-2.7-4.7-6-4.7Z"/></svg><span class="brand-text"><span class="brand-name">LanePets</span><span class="brand-sub">Franco + Caieiras</span></span><svg class="brand-home-ico" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg></a><button class="sidebar-close hide-desktop" type="button" aria-label="Fechar menu"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div><nav class="sidebar-nav" aria-label="Menu do painel"><p class="nav-group">Operação</p><a class="nav-item" href="dashboard_financeiro.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 13h8V3H3v10Zm0 8h8v-6H3v6Zm10 0h8V11h-8v10Zm0-18v6h8V3h-8Z"/></svg><span>Dashboard</span></a><a class="nav-item" href="agendamentos.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4.5" width="18" height="16.5" rx="2.5"/><path d="M16 2.5v4M8 2.5v4M3 10h18"/></svg><span>Agendamentos</span></a><a class="nav-item" href="pedidos.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="20" r="1.4"/><circle cx="18" cy="20" r="1.4"/><path d="M2.5 3h2.2l2.3 11.2a1.6 1.6 0 0 0 1.6 1.3h8.7a1.6 1.6 0 0 0 1.6-1.25L21 7H6"/></svg><span>Pedidos</span></a><a class="nav-item" href="clientes.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 20v-1.8a3.6 3.6 0 0 0-3.6-3.6H6.6A3.6 3.6 0 0 0 3 18.2V20"/><circle cx="9.5" cy="7.5" r="3.4"/><path d="M21 20v-1.8a3.6 3.6 0 0 0-2.7-3.48"/><path d="M15.5 4.2a3.4 3.4 0 0 1 0 6.6"/></svg><span>Clientes</span></a><a class="nav-item" href="clientes_pacote.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.3 7.5 12 12l8.7-4.5"/><path d="M12 12v9.2"/><path d="M20.4 7.2v9.6a1.4 1.4 0 0 1-.76 1.24l-7 3.6a1.4 1.4 0 0 1-1.28 0l-7-3.6A1.4 1.4 0 0 1 3.6 16.8V7.2a1.4 1.4 0 0 1 .76-1.24l7-3.6a1.4 1.4 0 0 1 1.28 0l7 3.6A1.4 1.4 0 0 1 20.4 7.2Z"/></svg><span>Pacotes</span></a><a class="nav-item" href="index.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6.2" cy="9" r="1.9"/><circle cx="11" cy="6.4" r="1.9"/><circle cx="15.8" cy="9" r="1.9"/><path d="M11 13.4c-3.1 0-5.6 2-5.6 4.4 0 1.5 1.4 2.2 2.8 1.7.85-.3 1.8-.45 2.8-.45s1.95.15 2.8.45c1.4.5 2.8-.2 2.8-1.7 0-2.4-2.5-4.4-5.6-4.4Z"/><path d="M19 4.5v5M21.5 7h-5"/></svg><span>Cadastro</span></a><p class="nav-group">Catálogo</p><a class="nav-item" href="Produtos.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 8 9-5 9 5-9 5-9-5Z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v8"/></svg><span>Produtos</span></a><p class="nav-group">Financeiro</p><a class="nav-item" href="entradas_e_saidas.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.5v19"/><path d="M16.8 6H9.6a3.4 3.4 0 0 0 0 6.8h4.8a3.4 3.4 0 0 1 0 6.8H6.8"/></svg><span>Entradas e Saídas</span></a><a class="nav-item" href="relatorio.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 3.5v17h17"/><path d="M18 16.5V9M13 16.5V5.5M8 16.5v-4"/></svg><span>Relatório</span></a><p class="nav-group">Site público</p><a class="nav-item" href="gestao-publica.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3.3 9.5h17.4M3.3 14.5h17.4"/><path d="M12 3a15 15 0 0 1 0 18a15 15 0 0 1 0-18Z"/></svg><span>Área pública</span></a></nav><div class="sidebar-foot">LanePets &copy; 2026 &middot; Painel de gestão</div></aside><div class="main-area">
+<header class="topbar">
+  <div class="topbar-left"><button class="menu-toggle hide-desktop" aria-label="Abrir menu">&#9776;</button><div><div class="topbar-title">Pagamentos</div><div class="topbar-breadcrumb hide-mobile">Financeiro / Pagamentos</div></div></div>
+  <div class="topbar-right"><a class="topbar-ghost hide-mobile" href="cliente.html">Ver site</a><div class="topbar-user"><div class="avatar" aria-hidden="true">LP</div><div class="topbar-user-info hide-mobile"><strong>Administrador</strong><span>LanePets</span></div></div><button class="btn btn-outline btn-sm" type="button" id="btnSair">Sair</button></div>
+</header>
+<main class="page-content">
+  <div class="page-header">
+    <div>
+      <h1>Pagamentos</h1>
+      <p>Tudo o que os clientes pagam: servi&ccedil;os, pedidos da loja e Seguro Pet. Aprove, recuse, cancele ou registre o reembolso.</p>
+    </div>
+    <div style="display:flex;gap:var(--sp-3);flex-wrap:wrap"><button class="btn btn-outline" type="button" id="btnAtualizar">Atualizar</button></div>
+  </div>
+
+  <div class="kpi-grid">
+    <section class="card kpi"><div class="accent"></div><div class="eyebrow">Pendentes</div><div class="value" id="kpiPendentes">&mdash;</div><div class="meta" id="kpiPendentesValor">&nbsp;</div></section>
+    <section class="card kpi"><div class="accent"></div><div class="eyebrow">Aprovados</div><div class="value" id="kpiAprovados">&mdash;</div><div class="meta" id="kpiAprovadosValor">&nbsp;</div></section>
+    <section class="card kpi"><div class="accent"></div><div class="eyebrow">Recusados / cancelados</div><div class="value" id="kpiRecusados">&mdash;</div><div class="meta">No filtro atual</div></section>
+    <section class="card kpi kpi-accent"><div class="accent"></div><div class="eyebrow">Reembolsos pendentes</div><div class="value" id="kpiReembolsos">&mdash;</div><div class="meta">Origem cancelada depois de pago</div></section>
+  </div>
+
+  <div class="pg-alerta" id="alertaReembolso"></div>
+
+  <section class="card" style="margin-top:var(--sp-5)">
+    <div class="pg-filtros">
+      <div class="field"><label for="fBusca">Buscar</label><input class="input" type="search" id="fBusca" placeholder="Cliente, descri&ccedil;&atilde;o, forma ou c&oacute;digo" autocomplete="off"></div>
+      <div class="field"><label for="fStatus">Status</label><select class="input" id="fStatus"><option value="">Todos</option><option>Pendente</option><option>Aprovado</option><option>Recusado</option><option>Cancelado</option><option>Reembolsado</option></select></div>
+      <div class="field"><label for="fOrigem">Origem</label><select class="input" id="fOrigem"><option value="">Todas</option><option value="agendamento">Servi&ccedil;os</option><option value="pedido">Pedidos da loja</option><option value="seguro">Seguro Pet</option></select></div>
+      <div class="field"><label for="fUnidade">Unidade</label><select class="input" id="fUnidade"><option value="todas">Todas</option></select></div>
+      <div class="field"><label for="fDe">De</label><input class="input" type="date" id="fDe"></div>
+      <div class="field"><label for="fAte">At&eacute;</label><input class="input" type="date" id="fAte"></div>
+      <label class="field" style="display:flex;flex-direction:row;gap:8px;align-items:center;font-weight:600;grid-column:1/-1"><input type="checkbox" id="fReembolso"> S&oacute; reembolso pendente</label>
+    </div>
+    <p class="small-note" id="erro" style="display:none;color:var(--danger-500);margin-top:var(--sp-3)"></p>
+    <div class="table-wrap tabela-cards" style="margin-top:var(--sp-4)">
+      <table class="data-table"><thead><tr><th>Data</th><th>Origem</th><th>Cliente</th><th>Unidade</th><th>Forma</th><th>Valor</th><th>Status</th><th></th></tr></thead>
+      <tbody id="corpo"><tr><td colspan="8">Carregando&hellip;</td></tr></tbody></table>
+    </div>
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:var(--sp-3);flex-wrap:wrap;margin-top:var(--sp-3)">
+      <p class="small-note" id="contagem" style="margin:0" aria-live="polite"></p>
+      <button type="button" class="btn btn-outline btn-sm" id="btnLimparPag" data-limpar-filtros>Limpar filtros</button>
+    </div>
+  </section>
+</main></div></div>
+
+<div class="modal-overlay" id="modalStatus">
+  <div class="modal-box">
+    <div class="modal-head">
+      <div><h2 id="msTitulo">Alterar pagamento</h2><p class="small-note" id="msSub" style="margin:4px 0 0"></p></div>
+      <button class="modal-close" type="button" data-fechar aria-label="Fechar">&times;</button>
+    </div>
+    <form id="formStatus">
+      <p id="msTexto" style="margin-top:0"></p>
+      <div class="field"><label for="msObs">Observa&ccedil;&atilde;o <span class="small-note">(opcional, fica no registro)</span></label><input class="input" id="msObs" maxlength="300" placeholder="Ex.: Pix confirmado no extrato"></div>
+      <p class="small-note" id="msErro" style="display:none;color:var(--danger-500)"></p>
+      <div class="modal-actions">
+        <button class="btn btn-outline" type="button" data-fechar>Voltar</button>
+        <button class="btn btn-primary" type="submit" id="msConfirmar">Confirmar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script src="ui-kit.js?v=5"></script>
+<script src="js/busca.js?v=1"></script>
+<script src="js/pagamentos-admin.js?v=2"></script>
+</body>
+</html>

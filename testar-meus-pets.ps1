@@ -144,6 +144,31 @@ Checar 'Nome persistiu apos recarga'  ($conferido.corpo.data.petNome -eq 'Thor E
 Checar 'Peso persistiu apos recarga'  ([decimal]$conferido.corpo.data.peso -eq 30)
 
 # ---------------------------------------------------------------------------
+Titulo 'Foto — troca, preservacao e remocao explicita (item 10 do roadmap)'
+
+# JPEG minimo valido (1x1), em data URI — o mesmo formato que a tela envia.
+$fotoTeste = 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAP//////////////////////////////////////////////////////////////////////////////////////wgALCAABAAEBAREA/8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABPxA='
+$comFoto = $edicao.Clone(); $comFoto.fotoUrl = $fotoTeste
+$r = Chamar PUT "/cliente/pets/$($petA.id)" $comFoto $tokenA
+Checar 'Enviar foto: 200'                 ($r.status -eq 200) "(HTTP $($r.status): $($r.corpo.error))"
+Checar 'Foto gravada igual ao enviado'    ((Chamar GET "/cliente/pets/$($petA.id)" $null $tokenA).corpo.data.fotoUrl -eq $fotoTeste)
+
+$semFoto = $edicao.Clone(); $semFoto.fotoUrl = ''; $semFoto.cor = 'Caramelo'
+Chamar PUT "/cliente/pets/$($petA.id)" $semFoto $tokenA | Out-Null
+$depois = (Chamar GET "/cliente/pets/$($petA.id)" $null $tokenA).corpo.data
+Checar 'Editar outro campo sem reenviar a foto PRESERVA a foto' ($depois.fotoUrl -eq $fotoTeste)
+Checar 'e o outro campo mudou'                                  ($depois.cor -eq 'Caramelo')
+
+$remover = $edicao.Clone(); $remover.fotoUrl = ''; $remover.removerFoto = $true
+Chamar PUT "/cliente/pets/$($petA.id)" $remover $tokenA | Out-Null
+Checar 'removerFoto=true apaga a foto' (-not (Chamar GET "/cliente/pets/$($petA.id)" $null $tokenA).corpo.data.fotoUrl)
+
+$grande = $edicao.Clone(); $grande.fotoUrl = 'data:image/jpeg;base64,' + ('A' * 210000)
+Checar 'Foto acima de 200 KB e recusada (400)' ((Chamar PUT "/cliente/pets/$($petA.id)" $grande $tokenA).status -eq 400)
+$gif = $edicao.Clone(); $gif.fotoUrl = 'data:image/gif;base64,R0lGODlhAQABAAAAACw='
+Checar 'GIF e recusado (400)' ((Chamar PUT "/cliente/pets/$($petA.id)" $gif $tokenA).status -eq 400)
+
+# ---------------------------------------------------------------------------
 Titulo 'Validacao no backend (a tela nao e a defesa)'
 
 $casos = @(

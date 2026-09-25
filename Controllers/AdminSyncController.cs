@@ -1,9 +1,11 @@
 using System.Text.Json;
 using LanePets.Data;
+using LanePets.DTOs;
 using LanePets.Models;
 using LanePets.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using static LanePets.Services.IndicadoresFinanceiros;
 
 namespace LanePets.Controllers;
 
@@ -18,7 +20,7 @@ namespace LanePets.Controllers;
 /// so existia no navegador. Nenhum endpoint antigo foi alterado.
 /// </summary>
 [Route("api/admin")]
-public class AdminSyncController(LanePetsDbContext db, PermissaoService permissoes, RealtimeNotifier realtime) : ApiControllerBase
+public class AdminSyncController(LanePetsDbContext db, PermissaoService permissoes, RealtimeNotifier realtime, EventosService eventos) : ApiControllerBase
 {
     // -----------------------------------------------------------------------
     // DASHBOARD
@@ -35,17 +37,30 @@ public class AdminSyncController(LanePetsDbContext db, PermissaoService permisso
             var contexto = await permissoes.ExigirAsync(token, ModulosAdmin.Dashboard, AcaoPermissao.Visualizar);
             var podeFinanceiro = contexto.Pode(ModulosAdmin.Pagamentos, AcaoPermissao.Visualizar);
 
-            var agendamentos = await db.Agendamentos.AsNoTracking().ToListAsync();
+            // Funcionario (item 1) so enxerga a agenda da propria unidade.
+            var agendamentos = (await db.Agendamentos.AsNoTracking().ToListAsync())
+                .Where(a => contexto.VeUnidade(a.Unidade)).ToList();
             List<EntradaSaida> lancamentos = podeFinanceiro ? await db.EntradasESaidas.AsNoTracking().ToListAsync() : new();
-            var pedidos = await db.Pedidos.AsNoTracking().ToListAsync();
+            var pedidos = (await db.Pedidos.AsNoTracking().ToListAsync()).Where(p => contexto.VeUnidade(p.Unidade)).ToList();
             var produtos = await db.Produtos.AsNoTracking().ToListAsync();
+            var servicosCadastrados = await db.Servicos.AsNoTracking().ToListAsync();
 
             var filtro = (unidade ?? "todas").Trim().ToLowerInvariant();
             var periodo = Calcular(agendamentos, lancamentos, pedidos, de, ate, filtro);
+
+            // Item 9: pagamentos lidos da ENTIDADE Pagamento (item 8), nao do
+            // campo espelho do agendamento. So para quem pode ver Pagamentos;
+            // sem a permissao o dado nem sai do banco.
+            var pagamentos = podeFinanceiro
+                ? (await db.Pagamentos.AsNoTracking().ToListAsync())
+                    .Where(p => contexto.VeUnidade(p.Unidade) && NaUnidade(p.Unidade, filtro)).ToList()
+                : new List<Pagamento>();
+            var pagamentosPendentes = pagamentos.Where(p => p.Status == PagamentosService.Pendente).ToList();
+            var reembolsosPendentes = pagamentos.Count(p => p.ReembolsoPendente);
             var (deAnterior, ateAnterior) = PeriodoAnterior(de, ate);
             var anterior = Calcular(agendamentos, lancamentos, pedidos, deAnterior, ateAnterior, filtro);
 
-            var porUnidade = new[] { "franco", "caieiras", "sem-unidade" }.Select(u =>
+            var porUnidade = IdsPorUnidade().Select(u =>
             {
                 var d = Calcular(agendamentos, lancamentos, pedidos, de, ate, u);
                 return new
@@ -62,8 +77,9 @@ public class AdminSyncController(LanePetsDbContext db, PermissaoService permisso
             }).ToList();
 
             var alertas = new List<string>();
-            if (periodo.PagamentosPendentes > 0) alertas.Add($"Existem {periodo.PagamentosPendentes} atendimentos com pagamento nao marcado como pago.");
-            if (periodo.Resultado < 0) alertas.Add("O resultado do periodo esta negativo. Revise despesas e recebimentos.");
+            if (pagamentosPendentes.Count > 0) alertas.Add($"{pagamentosPendentes.Count} pagamento(s) pendente(s), somando {pagamentosPendentes.Sum(p => p.Valor):C}.");
+            if (reembolsosPendentes > 0) alertas.Add($"{reembolsosPendentes} reembolso(s) pendente(s) em Financeiro > Pagamentos.");
+            if (podeFinanceiro && periodo.Resultado < 0) alertas.Add("O resultado do periodo esta negativo. Revise despesas e recebimentos.");
             if (agendamentos.Any(a => string.IsNullOrWhiteSpace(Normalizador.Unidade(a.Unidade)))) alertas.Add("Ha agendamentos sem unidade definida; eles aparecem como \"Sem unidade / antigos\".");
             var semEstoque = produtos.Where(p => p.ControlaEstoque && p.Estoque <= p.EstoqueMinimo).OrderBy(p => p.Estoque).ToList();
             if (semEstoque.Count > 0) alertas.Add($"{semEstoque.Count} produto(s) no estoque minimo ou abaixo dele.");
@@ -73,13 +89,60 @@ public class AdminSyncController(LanePetsDbContext db, PermissaoService permisso
             if (segurosPendentes > 0) alertas.Add($"{segurosPendentes} solicitacao(oes) de seguro aguardando contato.");
             if (alertas.Count == 0) alertas.Add("Nenhum alerta importante para o periodo selecionado.");
 
+            var totalClientes = await db.Clientes.CountAsync();
+            var totalPets = await db.Pets.CountAsync();
+
+            // Item 9: agenda de HOJE (unidade do filtro, sem cancelados).
+            var hojeDia = DateTime.Now.ToString("yyyy-MM-dd");
+            var agendaHoje = agendamentos
+                .Where(a => Normalizador.Data(a.DataHora) == hojeDia && NaUnidade(a.Unidade, filtro)
+                         && StatusAgendamento.Exibir(a.Status) != StatusAgendamento.Cancelado)
+                .ToList();
+
+            // Item 9: servicos mais realizados no periodo, por frequencia (o valor
+            // de cada servico nao fica gravado separado, entao nao ha receita por servico).
+            var nomesServicos = servicosCadastrados.GroupBy(s => s.Id).ToDictionary(g => g.Key, g => g.First().Nome);
+            var contagemServicos = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+            foreach (var a in periodo.Atendimentos)
+                foreach (var nome in NomesDosServicos(a.ServicosJson, nomesServicos))
+                    contagemServicos[nome] = contagemServicos.TryGetValue(nome, out var n) ? n + 1 : 1;
+            var topServicos = contagemServicos.Select(kv => new { servico = kv.Key, quantidade = kv.Value })
+                .OrderByDescending(s => s.quantidade).ThenBy(s => s.servico).Take(5).ToList();
+
+            // Sem permissao de Pagamentos, nenhum valor em dinheiro sai daqui
+            // (regra 6.31 do CONTEXTO). A tela mostra "Restrito".
+            decimal M(decimal valor) => podeFinanceiro ? valor : 0m;
+
             return OkApi(new
             {
                 periodo = new { de, ate, unidade = filtro },
+                restrito = !podeFinanceiro,
+                // Item 9: os 8 indicadores principais do topo do dashboard.
+                indicadores = new
+                {
+                    clientes = totalClientes,
+                    pets = totalPets,
+                    agendamentosHoje = agendaHoje.Count,
+                    agendaHoje = new
+                    {
+                        solicitados = agendaHoje.Count(a => StatusAgendamento.Exibir(a.Status) == StatusAgendamento.Solicitado),
+                        confirmados = agendaHoje.Count(a => StatusAgendamento.Exibir(a.Status) == StatusAgendamento.Confirmado),
+                        emAndamento = agendaHoje.Count(a => StatusAgendamento.Exibir(a.Status) == StatusAgendamento.EmAndamento),
+                        concluidos = agendaHoje.Count(a => StatusAgendamento.Exibir(a.Status) == StatusAgendamento.Concluido)
+                    },
+                    agendamentosPeriodo = periodo.Atendimentos.Count,
+                    faturamento = podeFinanceiro ? periodo.Receita : (decimal?)null,
+                    estoqueBaixo = semEstoque.Count,
+                    semEstoque = semEstoque.Count(p => p.Estoque <= 0),
+                    pagamentosPendentes = podeFinanceiro ? pagamentosPendentes.Count : (int?)null,
+                    valorPendente = podeFinanceiro ? pagamentosPendentes.Sum(p => p.Valor) : (decimal?)null,
+                    reembolsosPendentes = podeFinanceiro ? reembolsosPendentes : (int?)null,
+                    servicosMaisRealizados = topServicos
+                },
                 totais = new
                 {
-                    clientes = await db.Clientes.CountAsync(),
-                    pets = await db.Pets.CountAsync(),
+                    clientes = totalClientes,
+                    pets = totalPets,
                     agendamentos = agendamentos.Count,
                     agendamentosAtivos = agendamentos.Count(a => Normalizador.Status(a.Status) != "Cancelado"),
                     agendamentosCancelados = agendamentos.Count(a => Normalizador.Status(a.Status) == "Cancelado"),
@@ -98,20 +161,20 @@ public class AdminSyncController(LanePetsDbContext db, PermissaoService permisso
                 },
                 financeiro = new
                 {
-                    receita = periodo.Receita,
-                    despesas = periodo.Despesas,
-                    resultado = periodo.Resultado,
-                    margem = periodo.Margem,
+                    receita = M(periodo.Receita),
+                    despesas = M(periodo.Despesas),
+                    resultado = M(periodo.Resultado),
+                    margem = M(periodo.Margem),
                     atendimentos = periodo.Atendimentos.Count,
-                    ticketMedio = periodo.Ticket
+                    ticketMedio = M(periodo.Ticket)
                 },
                 anterior = new
                 {
                     de = deAnterior,
                     ate = ateAnterior,
-                    receita = anterior.Receita,
-                    despesas = anterior.Despesas,
-                    resultado = anterior.Resultado,
+                    receita = M(anterior.Receita),
+                    despesas = M(anterior.Despesas),
+                    resultado = M(anterior.Resultado),
                     atendimentos = anterior.Atendimentos.Count
                 },
                 operacional = new
@@ -119,15 +182,18 @@ public class AdminSyncController(LanePetsDbContext db, PermissaoService permisso
                     atendimentos = periodo.Atendimentos.Count,
                     pagos = periodo.PagamentosPagos,
                     pendentes = periodo.PagamentosPendentes,
-                    transporteFaturado = periodo.Transporte,
+                    transporteFaturado = M(periodo.Transporte),
                     cancelados = periodo.Cancelados,
                     pedidosDoPeriodo = periodo.Pedidos.Count,
-                    receitaDePedidos = periodo.ReceitaPedidos
+                    receitaDePedidos = M(periodo.ReceitaPedidos)
                 },
-                categorias = periodo.Categorias.Where(c => c.Value > 0).OrderByDescending(c => c.Value).Select(c => new { nome = c.Key, valor = c.Value }),
-                porUnidade,
-                mensal = SerieMensal(agendamentos, lancamentos, pedidos, filtro),
-                estoqueBaixo = semEstoque.Take(10).Select(p => new { p.Id, p.Codigo, p.Nome, p.Estoque, p.EstoqueMinimo }),
+                categorias = podeFinanceiro
+                    ? periodo.Categorias.Where(c => c.Value > 0).OrderByDescending(c => c.Value).Select(c => new { nome = c.Key, valor = c.Value }).ToList()
+                    : new(),
+                porUnidade = podeFinanceiro ? porUnidade : new(),
+                mensal = podeFinanceiro ? SerieMensal(agendamentos, lancamentos, pedidos, filtro) : Array.Empty<object>(),
+                estoqueBaixoTotal = semEstoque.Count,
+                estoqueBaixo = semEstoque.Take(10).Select(p => new { p.Id, p.Codigo, p.Nome, p.Estoque, p.EstoqueMinimo, situacao = EstoqueService.Situacao(p), p.VisivelLoja }),
                 alertas,
                 atualizadoEm = DateTime.UtcNow.ToString("O")
             });
@@ -135,102 +201,168 @@ public class AdminSyncController(LanePetsDbContext db, PermissaoService permisso
         catch (Exception ex) { return ErrorApi(ex); }
     }
 
-    private sealed record Consolidado(
-        List<Agendamento> Atendimentos, List<Pedido> Pedidos, decimal Receita, decimal ReceitaPedidos,
-        decimal Despesas, decimal Transporte, int PagamentosPagos, int PagamentosPendentes, int Cancelados,
-        Dictionary<string, decimal> Categorias)
-    {
-        public decimal Resultado => Receita - Despesas;
-        public decimal Margem => Receita == 0 ? 0 : Math.Round(Resultado / Receita * 100, 1);
-        public decimal Ticket => Atendimentos.Count == 0 ? 0 : Math.Round(Receita / Atendimentos.Count, 2);
-    }
+    // -----------------------------------------------------------------------
+    // RELATORIO FINANCEIRO — visao analitica dedicada, reaproveitando o
+    // mesmo Calcular() do resumo. Nao duplica calculo nenhum: so acrescenta
+    // as agregacoes que faltavam (formas de pagamento, serie adaptada ao
+    // periodo, pedidos/pagamentos detalhados, top produtos e servicos).
+    // -----------------------------------------------------------------------
 
     /// <summary>
-    /// Consolida um periodo. Agendamentos cancelados NAO entram na receita nem
-    /// na contagem de atendimentos — sao reportados a parte.
+    /// Visao analitica do Relatorio Financeiro (ADM > Financeiro > Relatorio).
+    ///
+    /// Item 11.2 (26/09):
+    ///   - Blocos de PAGAMENTO (resumo, formas de pagamento, "valor efetivamente recebido" dos pedidos)
+    ///     leem a entidade Pagamento (item 8), nao mais o campo espelho Agendamento.PagamentoStatus.
+    ///     Receita continua sendo por competencia (atendimento/pedido do periodo), igual ao Dashboard.
+    ///   - Sem pagamentos:visualizar nenhum valor em dinheiro sai daqui (regra 6.31): os campos de
+    ///     dinheiro vem null e as listas de dinheiro vem vazias. Antes so os lancamentos eram cortados
+    ///     e a receita de agendamentos/pedidos ia para o navegador.
+    ///   - Funcionario (se um dia tiver o modulo) so enxerga a propria unidade.
     /// </summary>
-    private static Consolidado Calcular(List<Agendamento> agendamentos, List<EntradaSaida> lancamentos, List<Pedido> pedidos, string? de, string? ate, string filtroUnidade)
+    [HttpGet("relatorio")]
+    public async Task<IActionResult> Relatorio([FromQuery] string token = "", [FromQuery] string? de = null, [FromQuery] string? ate = null, [FromQuery] string? unidade = "todas")
     {
-        bool DaUnidade(string? valor)
+        try
         {
-            if (filtroUnidade is "todas" or "") return true;
-            var norm = Normalizador.Unidade(valor);
-            return filtroUnidade switch
+            var contexto = await permissoes.ExigirAsync(token, ModulosAdmin.Relatorios, AcaoPermissao.Visualizar);
+            var podeFinanceiro = contexto.Pode(ModulosAdmin.Pagamentos, AcaoPermissao.Visualizar);
+
+            var agendamentos = (await db.Agendamentos.AsNoTracking().ToListAsync()).Where(a => contexto.VeUnidade(a.Unidade)).ToList();
+            List<EntradaSaida> lancamentos = podeFinanceiro ? await db.EntradasESaidas.AsNoTracking().ToListAsync() : new();
+            var pedidos = (await db.Pedidos.AsNoTracking().ToListAsync()).Where(p => contexto.VeUnidade(p.Unidade)).ToList();
+            var servicosCadastrados = await db.Servicos.AsNoTracking().ToListAsync();
+
+            var filtro = (unidade ?? "todas").Trim().ToLowerInvariant();
+            var periodo = Calcular(agendamentos, lancamentos, pedidos, de, ate, filtro);
+            var (deAnterior, ateAnterior) = PeriodoAnterior(de, ate);
+            var anterior = (deAnterior != null && ateAnterior != null) ? Calcular(agendamentos, lancamentos, pedidos, deAnterior, ateAnterior, filtro) : null;
+
+            // Pagamentos do periodo (entidade), mesmo filtro de unidade dos outros blocos.
+            // Sem a permissao de Pagamentos o dado nem sai do banco.
+            var pagamentos = podeFinanceiro
+                ? (await db.Pagamentos.AsNoTracking().ToListAsync())
+                    .Where(p => contexto.VeUnidade(p.Unidade) && NaUnidade(p.Unidade, filtro)
+                             && Normalizador.Dentro(Normalizador.Data(p.DataReferencia), de, ate))
+                    .ToList()
+                : new List<Pagamento>();
+            var aprovados = pagamentos.Where(p => p.Status == PagamentosService.Aprovado).ToList();
+
+            decimal? M(decimal valor) => podeFinanceiro ? valor : null;
+            decimal? Variacao(decimal atual, decimal baseAnterior) => baseAnterior == 0 ? null : Math.Round((atual - baseAnterior) / Math.Abs(baseAnterior) * 100, 1);
+
+            var porUnidade = IdsPorUnidade().Select(u =>
             {
-                "franco" => norm == "Franco",
-                "caieiras" => norm == "Caieiras",
-                "sem-unidade" => norm == "",
-                _ => true
+                var d = Calcular(agendamentos, lancamentos, pedidos, de, ate, u);
+                return new
+                {
+                    id = u,
+                    nome = NomeUnidade(u),
+                    receita = M(d.Receita),
+                    despesas = M(d.Despesas),
+                    saldo = M(d.Resultado),
+                    pedidos = d.Pedidos.Count,
+                    atendimentos = d.Atendimentos.Count,
+                    temMovimento = d.Receita != 0 || d.Despesas != 0 || d.Pedidos.Count != 0 || d.Atendimentos.Count != 0
+                };
+            }).Where(u => u.temMovimento).ToList();
+
+            // Pedidos do periodo, incluindo cancelados (necessario para o resumo de status).
+            var pedidosPeriodoTodos = pedidos.Where(p => Normalizador.Dentro(p.CriadoEm.ToString("yyyy-MM-dd"), de, ate) && NaUnidade(p.Unidade, filtro)).ToList();
+            var pedidosResumo = new
+            {
+                total = pedidosPeriodoTodos.Count,
+                pendentes = pedidosPeriodoTodos.Count(p => string.Equals(p.Status, "Pendente", StringComparison.OrdinalIgnoreCase)),
+                confirmados = pedidosPeriodoTodos.Count(p => string.Equals(p.Status, "Confirmado", StringComparison.OrdinalIgnoreCase)),
+                entregues = pedidosPeriodoTodos.Count(p => string.Equals(p.Status, "Entregue", StringComparison.OrdinalIgnoreCase)),
+                cancelados = pedidosPeriodoTodos.Count(p => string.Equals(p.Status, "Cancelado", StringComparison.OrdinalIgnoreCase)),
+                valorTotalPedidos = M(pedidosPeriodoTodos.Where(p => !string.Equals(p.Status, "Cancelado", StringComparison.OrdinalIgnoreCase)).Sum(p => p.Total)),
+                // Antes: soma dos pedidos nao cancelados. Agora: o que foi de fato aprovado no pagamento do pedido.
+                valorRecebido = M(aprovados.Where(p => p.Origem == PagamentosService.OrigemPedido).Sum(p => p.Valor))
             };
+
+            // Pagamentos (entidade): contagem por status + recebido e a receber, de todas as origens
+            // (servicos, pedidos da loja e Seguro Pet).
+            object? pagamentosResumo = podeFinanceiro ? new
+            {
+                pagos = aprovados.Count,
+                pendentes = pagamentos.Count(p => p.Status == PagamentosService.Pendente),
+                recusados = pagamentos.Count(p => p.Status == PagamentosService.Recusado),
+                cancelados = pagamentos.Count(p => p.Status == PagamentosService.Cancelado),
+                reembolsados = pagamentos.Count(p => p.Status == PagamentosService.Reembolsado),
+                reembolsosPendentes = pagamentos.Count(p => p.ReembolsoPendente),
+                totalRecebido = aprovados.Sum(p => p.Valor),
+                totalPendente = pagamentos.Where(p => p.Status == PagamentosService.Pendente).Sum(p => p.Valor)
+            } : null;
+
+            // Formas de pagamento: pagamentos APROVADOS do periodo, agrupados pela forma registrada.
+            var formas = aprovados
+                .Where(p => !string.IsNullOrWhiteSpace(p.Forma) && !string.Equals(p.Forma.Trim(), "A combinar", StringComparison.OrdinalIgnoreCase))
+                .GroupBy(p => p.Forma.Trim(), StringComparer.OrdinalIgnoreCase)
+                .Select(g => (Forma: g.Key, Quantidade: g.Count(), Valor: g.Sum(p => p.Valor)))
+                .ToList();
+            var totalFormas = formas.Sum(f => f.Valor);
+            var formasPagamento = formas.Select(f => new
+            {
+                forma = f.Forma,
+                quantidade = f.Quantidade,
+                valor = f.Valor,
+                percentual = totalFormas == 0 ? 0 : Math.Round(f.Valor / totalFormas * 100, 1)
+            }).OrderByDescending(f => f.valor).ToList();
+
+            // Top produtos vendidos (pedidos nao cancelados do periodo) — e ranking por faturamento,
+            // entao so vai para quem pode ver dinheiro.
+            var topProdutos = podeFinanceiro
+                ? periodo.Pedidos
+                    .GroupBy(p => string.IsNullOrWhiteSpace(p.ProdutoNome) ? "(sem nome)" : p.ProdutoNome)
+                    .Select(g => new { produto = g.Key, quantidade = g.Sum(p => p.Quantidade), receita = g.Sum(p => p.Total) })
+                    .OrderByDescending(g => g.receita).Take(5).ToList()
+                : new();
+
+            // Top servicos realizados por frequencia — o valor de cada servico
+            // dentro do agendamento nao fica gravado individualmente (so o
+            // total do agendamento), entao nao inventamos receita por servico.
+            var nomesServicos = servicosCadastrados.GroupBy(s => s.Id).ToDictionary(g => g.Key, g => g.First().Nome);
+            var contagemServicos = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+            foreach (var a in periodo.Atendimentos)
+                foreach (var nome in NomesDosServicos(a.ServicosJson, nomesServicos))
+                    contagemServicos[nome] = contagemServicos.TryGetValue(nome, out var n) ? n + 1 : 1;
+            var topServicos = contagemServicos.Select(kv => new { servico = kv.Key, quantidade = kv.Value })
+                .OrderByDescending(s => s.quantidade).Take(5).ToList();
+
+            return OkApi(new
+            {
+                periodo = new { de, ate, unidade = filtro },
+                restrito = !podeFinanceiro,
+                cards = new
+                {
+                    entradas = M(periodo.Receita),
+                    saidas = M(periodo.Despesas),
+                    saldo = M(periodo.Resultado),
+                    totalPagamentos = periodo.Atendimentos.Count + periodo.Pedidos.Count,
+                    ticketMedio = M(periodo.Ticket)
+                },
+                variacao = (!podeFinanceiro || anterior is null) ? null : new
+                {
+                    entradas = Variacao(periodo.Receita, anterior.Receita),
+                    saidas = Variacao(periodo.Despesas, anterior.Despesas),
+                    saldo = Variacao(periodo.Resultado, anterior.Resultado)
+                },
+                categorias = podeFinanceiro
+                    ? periodo.Categorias.Where(c => c.Value > 0).OrderByDescending(c => c.Value).Select(c => (object)new { nome = c.Key, valor = c.Value }).ToList()
+                    : new List<object>(),
+                formasPagamento,
+                porUnidade,
+                pedidosResumo,
+                pagamentosResumo,
+                topProdutos,
+                topServicos,
+                serie = podeFinanceiro ? SeriePeriodo(agendamentos, lancamentos, pedidos, de, ate, filtro) : new List<object>(),
+                atualizadoEm = DateTime.UtcNow.ToString("O")
+            });
         }
-
-        var doPeriodo = agendamentos
-            .Where(a => Normalizador.Dentro(Normalizador.Data(a.DataHora), de, ate) && DaUnidade(a.Unidade))
-            .ToList();
-
-        var cancelados = doPeriodo.Count(a => Normalizador.Status(a.Status) == "Cancelado");
-        var ativos = doPeriodo.Where(a => Normalizador.Status(a.Status) != "Cancelado").ToList();
-
-        var lancamentosDoPeriodo = lancamentos
-            .Where(e => Normalizador.Dentro(Normalizador.Data(e.Data), de, ate) && DaUnidade(e.Unidade))
-            .ToList();
-
-        // Pedidos da loja nao tem unidade propria: entram em "todas" e em "sem-unidade".
-        var pedidosDoPeriodo = (filtroUnidade is "todas" or "" or "sem-unidade")
-            ? pedidos.Where(p => Normalizador.Dentro(p.CriadoEm.ToString("yyyy-MM-dd"), de, ate)
-                                 && !string.Equals(p.Status, "Cancelado", StringComparison.OrdinalIgnoreCase)).ToList()
-            : new List<Pedido>();
-
-        var receitaAgendamentos = ativos.Sum(a => a.Total);
-        var receitaPedidos = pedidosDoPeriodo.Sum(p => p.Total);
-        var entradasManuais = lancamentosDoPeriodo.Where(e => Normalizador.Texto(e.Tipo) == "entrada").Sum(e => e.Valor);
-        var despesas = lancamentosDoPeriodo.Where(e => Normalizador.Texto(e.Tipo).StartsWith("saida") || Normalizador.Texto(e.Tipo) == "saida").Sum(e => e.Valor);
-
-        var transporte = ativos.Sum(a => a.ValorTransporte);
-        var categorias = new Dictionary<string, decimal>
-        {
-            ["Servicos"] = ativos.Sum(a => Math.Max(0, a.Total - a.ValorTransporte)),
-            ["Transporte"] = transporte,
-            ["Produtos"] = receitaPedidos,
-            ["Outros"] = entradasManuais
-        };
-
-        return new Consolidado(
-            ativos, pedidosDoPeriodo,
-            receitaAgendamentos + receitaPedidos + entradasManuais,
-            receitaPedidos, despesas, transporte,
-            ativos.Count(a => Normalizador.Texto(a.PagamentoStatus) == "pago"),
-            ativos.Count(a => Normalizador.Texto(a.PagamentoStatus) != "pago"),
-            cancelados, categorias);
+        catch (Exception ex) { return ErrorApi(ex); }
     }
-
-    private static (string? De, string? Ate) PeriodoAnterior(string? de, string? ate)
-    {
-        if (!DateTime.TryParse(de, out var inicio) || !DateTime.TryParse(ate, out var fim)) return (null, null);
-        var dias = (fim - inicio).Days + 1;
-        var fimAnterior = inicio.AddDays(-1);
-        return (fimAnterior.AddDays(-dias + 1).ToString("yyyy-MM-dd"), fimAnterior.ToString("yyyy-MM-dd"));
-    }
-
-    private static object SerieMensal(List<Agendamento> agendamentos, List<EntradaSaida> lancamentos, List<Pedido> pedidos, string filtroUnidade)
-    {
-        var hoje = DateTime.Today;
-        return Enumerable.Range(0, 6).Select(i =>
-        {
-            var referencia = new DateTime(hoje.Year, hoje.Month, 1).AddMonths(-(5 - i));
-            var de = referencia.ToString("yyyy-MM-dd");
-            var ate = referencia.AddMonths(1).AddDays(-1).ToString("yyyy-MM-dd");
-            var d = Calcular(agendamentos, lancamentos, pedidos, de, ate, filtroUnidade);
-            return new { mes = referencia.ToString("yyyy-MM"), receita = d.Receita, despesas = d.Despesas };
-        }).ToArray();
-    }
-
-    private static string NomeUnidade(string id) => id switch
-    {
-        "franco" => "Franco da Rocha",
-        "caieiras" => "Caieiras",
-        _ => "Sem unidade / antigos"
-    };
 
     // -----------------------------------------------------------------------
     // LISTAS QUE FALTAVAM NA API
@@ -243,7 +375,7 @@ public class AdminSyncController(LanePetsDbContext db, PermissaoService permisso
         {
             await permissoes.ExigirAsync(token, ModulosAdmin.Produtos, AcaoPermissao.Visualizar);
             var produtos = await db.Produtos.AsNoTracking().OrderBy(p => p.Nome).ToListAsync();
-            return OkApi(produtos.Select(p => new { p.Id, p.Codigo, p.Nome, p.Categoria, p.ValorCompra, p.ValorVenda, p.Estoque, p.EstoqueMinimo, p.ControlaEstoque, margem = p.ValorCompra == 0 ? 0 : Math.Round((p.ValorVenda - p.ValorCompra) / p.ValorCompra * 100, 1) }));
+            return OkApi(produtos.Select(p => new { p.Id, p.Codigo, p.Nome, p.Categoria, p.ValorCompra, p.ValorVenda, p.Estoque, p.EstoqueMinimo, p.ControlaEstoque, p.VisivelLoja, situacaoEstoque = EstoqueService.Situacao(p), margem = p.ValorCompra == 0 ? 0 : Math.Round((p.ValorVenda - p.ValorCompra) / p.ValorCompra * 100, 1) }));
         }
         catch (Exception ex) { return ErrorApi(ex); }
     }
@@ -256,20 +388,126 @@ public class AdminSyncController(LanePetsDbContext db, PermissaoService permisso
         try
         {
             // Ajustar estoque altera o produto: exige Produtos > Editar.
-            await permissoes.ExigirAsync(request.Token ?? "", ModulosAdmin.Produtos, AcaoPermissao.Editar);
+            var contextoEstoque = await permissoes.ExigirAsync(request.Token ?? "", ModulosAdmin.Produtos, AcaoPermissao.Editar);
             var produto = await db.Produtos.FindAsync(id) ?? throw new Exception("Produto nao encontrado.");
-            if (request.Estoque < 0 || request.EstoqueMinimo < 0) throw new Exception("O estoque nao pode ser negativo.");
-            produto.Estoque = request.Estoque;
+            var estoqueAnterior = produto.Estoque;
+            if (request.Estoque < 0 || request.EstoqueMinimo < 0) throw new Exception("O estoque não pode ser negativo.");
             produto.EstoqueMinimo = request.EstoqueMinimo;
             produto.ControlaEstoque = request.ControlaEstoque;
+            // Item 7: o saldo novo entra pelo livro como "ajuste".
+            var alerta = EstoqueService.AjustarPara(db, produto, request.Estoque,
+                string.IsNullOrWhiteSpace(request.Motivo) ? "Ajuste no painel" : request.Motivo!,
+                contextoEstoque.Usuario.Id, contextoEstoque.Usuario.Email);
+            if (!produto.ControlaEstoque) produto.Estoque = request.Estoque;
             await db.SaveChangesAsync();
+            if (alerta is not null) await AlertarEstoqueAsync(alerta);
             await realtime.NotificarAsync("produtos", "estoque", new { produto.Id, produto.Nome, produto.Estoque });
+            await eventos.RegistrarAsync(new("produto", "Estoque ajustado", "info", "admin", contextoEstoque.Usuario.Id, contextoEstoque.Usuario.Email,
+                produto.Id, $"{produto.Nome}: {estoqueAnterior} → {produto.Estoque} (mínimo {produto.EstoqueMinimo})."), HttpContext);
             return OkApi(new { produto.Id, produto.Nome, produto.Estoque, produto.EstoqueMinimo, produto.ControlaEstoque, message = "Estoque atualizado." });
         }
         catch (Exception ex) { return ErrorApi(ex); }
     }
 
-    public record EstoqueRequest(string? Token, int Estoque, int EstoqueMinimo, bool ControlaEstoque);
+    public record EstoqueRequest(string? Token, int Estoque, int EstoqueMinimo, bool ControlaEstoque, string? Motivo = null);
+
+    // -----------------------------------------------------------------------
+    // ITEM 7 — LIVRO DE ESTOQUE
+    // -----------------------------------------------------------------------
+
+    /// <summary>Entrada, saida ou ajuste manual de estoque (Produtos > Editar).</summary>
+    [HttpPost("produtos/{id}/movimentacao")]
+    public async Task<IActionResult> Movimentar(string id, [FromBody] MovimentacaoRequest request)
+    {
+        try
+        {
+            var contexto = await permissoes.ExigirAsync(request.Token ?? "", ModulosAdmin.Produtos, AcaoPermissao.Editar);
+            var produto = await db.Produtos.FindAsync(id) ?? throw new Exception("Produto não encontrado.");
+            if (!produto.ControlaEstoque) throw new Exception("Ligue o controle de estoque deste produto antes de lançar movimentações.");
+            var tipo = Normalizador.Texto(request.Tipo);
+            if (!EstoqueService.TiposManuais.Contains(tipo)) throw new Exception("Tipo de movimentação inválido. Use entrada, saída ou ajuste.");
+            var motivo = (request.Motivo ?? "").Trim();
+            if (motivo.Length < 3) throw new Exception("Informe o motivo da movimentação (ex.: compra do fornecedor, avaria, inventário).");
+            if (motivo.Length > 200) throw new Exception("O motivo pode ter no máximo 200 caracteres.");
+            var antes = produto.Estoque;
+            EstoqueService.Alerta? alerta;
+            if (tipo == EstoqueService.Ajuste)
+            {
+                if (request.Quantidade < 0) throw new Exception("No ajuste, informe o saldo correto (0 ou mais).");
+                if (request.Quantidade == produto.Estoque) throw new Exception($"O saldo já é {produto.Estoque}.");
+                alerta = EstoqueService.AjustarPara(db, produto, request.Quantidade, motivo, contexto.Usuario.Id, contexto.Usuario.Email);
+            }
+            else
+            {
+                if (request.Quantidade < 1 || request.Quantidade > 100000) throw new Exception("Informe uma quantidade entre 1 e 100000.");
+                alerta = EstoqueService.Movimentar(db, produto, tipo == EstoqueService.Entrada ? request.Quantidade : -request.Quantidade,
+                    tipo, motivo, contexto.Usuario.Id, contexto.Usuario.Email);
+            }
+            await db.SaveChangesAsync();
+            await realtime.NotificarAsync("produtos", "estoque", new { produto.Id, produto.Nome, produto.Estoque });
+            await eventos.RegistrarAsync(new("estoque", $"Estoque: {EstoqueService.RotuloTipo(tipo).ToLowerInvariant()}", "info", "admin",
+                contexto.Usuario.Id, contexto.Usuario.Email, produto.Id, $"{produto.Nome}: {antes} → {produto.Estoque} · {motivo}"), HttpContext);
+            if (alerta is not null) await AlertarEstoqueAsync(alerta);
+            return OkApi(new { produto.Id, produto.Nome, produto.Estoque, produto.EstoqueMinimo, situacaoEstoque = EstoqueService.Situacao(produto), message = "Movimentação registrada." });
+        }
+        catch (Exception ex) { return ErrorApi(ex); }
+    }
+
+    /// <summary>Historico de movimentacoes (de um produto ou de todos), mais recentes primeiro.</summary>
+    [HttpGet("estoque/movimentacoes")]
+    public async Task<IActionResult> Movimentacoes([FromQuery] string token = "", [FromQuery] string? produtoId = null, [FromQuery] int limite = 50)
+    {
+        try
+        {
+            await permissoes.ExigirAsync(token, ModulosAdmin.Produtos, AcaoPermissao.Visualizar);
+            limite = Math.Clamp(limite, 1, 500);
+            var consulta = db.MovimentacoesEstoque.AsNoTracking();
+            if (!string.IsNullOrWhiteSpace(produtoId)) consulta = consulta.Where(m => m.ProdutoId == produtoId);
+            var lista = (await consulta.ToListAsync()).OrderByDescending(m => m.DataHora).Take(limite);
+            return OkApi(lista.Select(m => new
+            {
+                m.Id, dataHora = DateTime.SpecifyKind(m.DataHora, DateTimeKind.Utc).ToString("O"), m.ProdutoId, m.ProdutoNome,
+                m.Tipo, tipoRotulo = EstoqueService.RotuloTipo(m.Tipo), m.Quantidade, m.SaldoAnterior, m.SaldoNovo,
+                m.Motivo, m.PedidoId, m.Origem, m.Autor
+            }));
+        }
+        catch (Exception ex) { return ErrorApi(ex); }
+    }
+
+    /// <summary>Muda o status de um pedido. Cancelar devolve o estoque baixado.</summary>
+    [HttpPost("pedidos/{id}/status")]
+    public async Task<IActionResult> StatusPedido(string id, [FromBody] StatusPedidoRequest request)
+    {
+        try
+        {
+            var contexto = await permissoes.ExigirAsync(request.Token ?? "", ModulosAdmin.Pedidos, AcaoPermissao.Editar);
+            var pedido = await db.Pedidos.FirstOrDefaultAsync(p => p.Id == id) ?? throw new Exception("Pedido não encontrado.");
+            if (!contexto.VeUnidade(pedido.Unidade)) throw new AcessoNegadoException("Este pedido é de outra unidade.");
+            var antes = PedidosService.Exibir(pedido.Status);
+            var devolvido = await PedidosService.AlterarStatusAsync(db, pedido, request.Status, contexto.Usuario.Id, contexto.Usuario.Email, "admin");
+            await db.SaveChangesAsync();
+            await PagamentosService.ReconciliarAsync(db);   // item 8
+            await realtime.NotificarAsync("pedidos", "status", new { pedido.Id, pedido.Status });
+            await eventos.RegistrarAsync(new("pedido", pedido.Status == PedidosService.Cancelado ? "Pedido cancelado" : "Status do pedido alterado",
+                pedido.Status == PedidosService.Cancelado ? "aviso" : "info", "admin", contexto.Usuario.Id, contexto.Usuario.Email, pedido.Id,
+                $"{antes} → {pedido.Status} · {pedido.Quantidade}× {pedido.ProdutoNome}" + (devolvido > 0 ? $" · {devolvido} unidade(s) devolvida(s) ao estoque" : "")), HttpContext);
+            return OkApi(new
+            {
+                pedido.Id, pedido.Status, devolvido,
+                message = pedido.Status == PedidosService.Cancelado
+                    ? devolvido > 0 ? $"Pedido cancelado. {devolvido} unidade(s) voltaram ao estoque." : "Pedido cancelado. Não havia baixa de estoque para devolver."
+                    : $"Pedido marcado como {pedido.Status}."
+            });
+        }
+        catch (Exception ex) { return ErrorApi(ex); }
+    }
+
+    private Task AlertarEstoqueAsync(EstoqueService.Alerta a) =>
+        eventos.RegistrarAsync(new("estoque", a.Zerado ? "Produto sem estoque" : "Estoque baixo", "aviso", "sistema", "", "",
+            a.ProdutoId, $"{a.ProdutoNome}: saldo {a.Saldo} (mínimo {a.Minimo})."), HttpContext);
+
+    public record MovimentacaoRequest(string? Token, string? Tipo, int Quantidade, string? Motivo);
+    public record StatusPedidoRequest(string? Token, string? Status);
 
     [HttpGet("entradas-saidas")]
     public async Task<IActionResult> Lancamentos([FromQuery] string token = "", [FromQuery] string? de = null, [FromQuery] string? ate = null)
@@ -291,8 +529,9 @@ public class AdminSyncController(LanePetsDbContext db, PermissaoService permisso
     {
         try
         {
-            await permissoes.ExigirAsync(token, ModulosAdmin.Pets, AcaoPermissao.Visualizar);
-            return OkApi(await db.Pacotes.AsNoTracking().OrderByDescending(p => p.DataInicio).ToListAsync());
+            var contexto = await permissoes.ExigirAsync(token, ModulosAdmin.Pets, AcaoPermissao.Visualizar);
+            var pacotes = await db.Pacotes.AsNoTracking().OrderByDescending(p => p.DataInicio).ToListAsync();
+            return OkApi(pacotes.Where(p => contexto.VeUnidade(p.Unidade)).ToList());
         }
         catch (Exception ex) { return ErrorApi(ex); }
     }
@@ -303,8 +542,10 @@ public class AdminSyncController(LanePetsDbContext db, PermissaoService permisso
     {
         try
         {
-            await permissoes.ExigirAsync(token, ModulosAdmin.Pedidos, AcaoPermissao.Visualizar);
-            var pedidos = await db.Pedidos.AsNoTracking().OrderByDescending(p => p.CriadoEm).ToListAsync();
+            var contextoPedidos = await permissoes.ExigirAsync(token, ModulosAdmin.Pedidos, AcaoPermissao.Visualizar);
+            // Item 5: pedido tem unidade de retirada; funcionario ve so a dele.
+            var pedidos = (await db.Pedidos.AsNoTracking().OrderByDescending(p => p.CriadoEm).ToListAsync())
+                .Where(p => contextoPedidos.VeUnidade(p.Unidade)).ToList();
             var clientes = await db.Clientes.AsNoTracking().ToDictionaryAsync(c => c.Id, c => c);
             return OkApi(pedidos.Select(p => new
             {
@@ -318,6 +559,8 @@ public class AdminSyncController(LanePetsDbContext db, PermissaoService permisso
                 p.Total,
                 p.FormaPagamento,
                 p.Status,
+                unidade = Normalizador.IdUnidade(p.Unidade),
+                unidadeNome = Normalizador.NomeUnidade(p.Unidade) is { Length: > 0 } nomeUnidade ? nomeUnidade : "Sem unidade",
                 criadoEm = p.CriadoEm.ToString("O")
             }));
         }
@@ -341,232 +584,21 @@ public class AdminSyncController(LanePetsDbContext db, PermissaoService permisso
         {
             // A importacao grava em varias colecoes de uma vez, entao so quem
             // tem Configurações pode dispara-la.
-            await permissoes.ExigirAsync(Texto(corpo, "token"), ModulosAdmin.Configuracoes, AcaoPermissao.Criar);
+            var contexto = await permissoes.ExigirAsync(ImportacaoService.Texto(corpo, "token"), ModulosAdmin.Configuracoes, AcaoPermissao.Criar);
             var simular = corpo.TryGetProperty("simular", out var s) && s.ValueKind == JsonValueKind.True;
-            var relatorio = new Dictionary<string, object>();
 
-            relatorio["servicos"] = await ImportarServicos(Lista(corpo, "servicos"), simular);
-            relatorio["produtos"] = await ImportarProdutos(Lista(corpo, "produtos"), simular);
-            relatorio["pets"] = await ImportarPets(Lista(corpo, "pets"), simular);
-            relatorio["agendamentos"] = await ImportarAgendamentos(Lista(corpo, "agendamentos"), simular);
-            relatorio["entradasESaidas"] = await ImportarLancamentos(Lista(corpo, "entradasESaidas"), simular);
+            // Item 11.3: a regra da importacao mora no ImportacaoService.
+            var relatorio = await ImportacaoService.ExecutarAsync(db, corpo, simular);
 
             if (!simular)
             {
-                await db.SaveChangesAsync();
                 await realtime.NotificarAsync("importacao", "concluida", relatorio);
+                await eventos.RegistrarAsync(new("painel", "Importação de dados do navegador", "info", "admin",
+                    contexto.Usuario.Id, contexto.Usuario.Email, "", ImportacaoService.Resumir(relatorio)), HttpContext);
             }
 
-            return OkApi(new { simulacao = simular, relatorio, message = simular ? "Simulacao concluida: nada foi gravado." : "Importacao concluida." });
+            return OkApi(new ImportacaoResposta(simular, relatorio, simular ? "Simulacao concluida: nada foi gravado." : "Importacao concluida."));
         }
         catch (Exception ex) { return ErrorApi(ex); }
     }
-
-    private sealed record ResultadoImportacao(int Novos, int JaExistiam, int Ignorados);
-
-    private async Task<ResultadoImportacao> ImportarServicos(List<JsonElement> linhas, bool simular)
-    {
-        var existentes = (await db.Servicos.AsNoTracking().ToListAsync())
-            .Select(x => Chave(x.Nome, x.Porte)).ToHashSet();
-        int novos = 0, repetidos = 0, ignorados = 0;
-        foreach (var linha in linhas)
-        {
-            var nome = Texto(linha, "nome");
-            if (nome.Length == 0) { ignorados++; continue; }
-            var porte = Texto(linha, "porte");
-            if (!existentes.Add(Chave(nome, porte))) { repetidos++; continue; }
-            novos++;
-            if (simular) continue;
-            db.Servicos.Add(new Servico
-            {
-                Id = NovoId("SRV"),
-                Nome = nome,
-                Preco = Numero(linha, "preco"),
-                Porte = porte,
-                AdicionaisJson = Bruto(linha, "adicionais") ?? "[]",
-                Pacote = Booleano(linha, "pacote") ? "Sim" : "",
-                Adicional = Texto(linha, "adicional")
-            });
-        }
-        return new ResultadoImportacao(novos, repetidos, ignorados);
-    }
-
-    private async Task<ResultadoImportacao> ImportarProdutos(List<JsonElement> linhas, bool simular)
-    {
-        var existentes = (await db.Produtos.AsNoTracking().ToListAsync())
-            .Select(x => Chave(x.Codigo)).ToHashSet();
-        int novos = 0, repetidos = 0, ignorados = 0;
-        foreach (var linha in linhas)
-        {
-            var codigo = Texto(linha, "codigo");
-            var nome = Texto(linha, "nome");
-            if (codigo.Length == 0 && nome.Length == 0) { ignorados++; continue; }
-            if (!existentes.Add(Chave(codigo.Length > 0 ? codigo : nome))) { repetidos++; continue; }
-            novos++;
-            if (simular) continue;
-            db.Produtos.Add(new Produto
-            {
-                Id = NovoId("PRD"),
-                Codigo = codigo,
-                Nome = nome,
-                Categoria = Texto(linha, "categoria"),
-                ValorCompra = Numero(linha, "valorCompra"),
-                ValorVenda = Numero(linha, "valorVenda"),
-                Estoque = (int)Numero(linha, "estoque"),
-                EstoqueMinimo = (int)Numero(linha, "estoqueMinimo"),
-                ControlaEstoque = Numero(linha, "estoque") > 0
-            });
-        }
-        return new ResultadoImportacao(novos, repetidos, ignorados);
-    }
-
-    private async Task<ResultadoImportacao> ImportarPets(List<JsonElement> linhas, bool simular)
-    {
-        var existentes = (await db.Pets.AsNoTracking().ToListAsync())
-            .Select(x => Chave(x.Dono, x.PetNome)).ToHashSet();
-        var clientes = await db.Clientes.ToListAsync();
-        int novos = 0, repetidos = 0, ignorados = 0;
-        foreach (var linha in linhas)
-        {
-            var dono = Texto(linha, "dono");
-            var pet = Texto(linha, "pet");
-            if (pet.Length == 0) { ignorados++; continue; }
-            if (!existentes.Add(Chave(dono, pet))) { repetidos++; continue; }
-            novos++;
-            if (simular) continue;
-
-            var telefone = Texto(linha, "telefone");
-            var endereco = Texto(linha, "endereco");
-            var cliente = clientes.FirstOrDefault(c => Normalizador.Texto(c.Nome) == Normalizador.Texto(dono));
-            if (cliente is null && dono.Length > 0)
-            {
-                cliente = new Cliente { Id = NovoId("CLI"), Nome = dono, Telefone = telefone, Endereco = endereco, Origem = "importacao_painel", Status = "ativo" };
-                db.Clientes.Add(cliente);
-                clientes.Add(cliente);
-            }
-
-            db.Pets.Add(new Pet
-            {
-                Id = NovoId("PET"),
-                ClienteId = cliente?.Id ?? "",
-                Dono = dono,
-                PetNome = pet,
-                Tipo = Texto(linha, "tipo"),
-                Raca = Texto(linha, "raca"),
-                Telefone = telefone,
-                Endereco = endereco,
-                PacoteJson = Bruto(linha, "pacote") ?? "",
-                Unidade = Texto(linha, "unidade")
-            });
-        }
-        return new ResultadoImportacao(novos, repetidos, ignorados);
-    }
-
-    private async Task<ResultadoImportacao> ImportarAgendamentos(List<JsonElement> linhas, bool simular)
-    {
-        var existentes = (await db.Agendamentos.AsNoTracking().ToListAsync())
-            .Select(x => Chave(x.Dono, x.Pet, Normalizador.Data(x.DataHora), (x.DataHora ?? "").Length >= 16 ? x.DataHora[11..16] : "")).ToHashSet();
-        int novos = 0, repetidos = 0, ignorados = 0;
-        foreach (var linha in linhas)
-        {
-            var dataHora = Texto(linha, "dataHora");
-            var pet = Texto(linha, "pet");
-            if (dataHora.Length == 0 || pet.Length == 0) { ignorados++; continue; }
-            var dono = Texto(linha, "dono");
-            if (!existentes.Add(Chave(dono, pet, Normalizador.Data(dataHora), dataHora.Length >= 16 ? dataHora[11..16] : ""))) { repetidos++; continue; }
-            novos++;
-            if (simular) continue;
-            db.Agendamentos.Add(new Agendamento
-            {
-                Id = NovoId("AGD"),
-                Pet = pet,
-                Dono = dono,
-                Telefone = Texto(linha, "telefone"),
-                DataHora = dataHora,
-                ServicosJson = Bruto(linha, "servicos") ?? "[]",
-                Total = Numero(linha, "total"),
-                Transporte = Texto(linha, "transporte"),
-                ValorTransporte = Numero(linha, "valorTransporte"),
-                Status = Texto(linha, "status") is { Length: > 0 } st ? st : "Pendente",
-                PagamentoStatus = Texto(linha, "pagamentoStatus"),
-                FormaPagamento = Texto(linha, "formaPagamento"),
-                Obs = Texto(linha, "obs"),
-                Unidade = Texto(linha, "unidade")
-            });
-        }
-        return new ResultadoImportacao(novos, repetidos, ignorados);
-    }
-
-    private async Task<ResultadoImportacao> ImportarLancamentos(List<JsonElement> linhas, bool simular)
-    {
-        var existentes = (await db.EntradasESaidas.AsNoTracking().ToListAsync())
-            .Select(x => Chave(Normalizador.Data(x.Data), x.Descricao, x.Tipo, x.Valor.ToString("0.00"))).ToHashSet();
-        int novos = 0, repetidos = 0, ignorados = 0;
-        foreach (var linha in linhas)
-        {
-            var data = Texto(linha, "data");
-            var valor = Numero(linha, "valor");
-            if (data.Length == 0) { ignorados++; continue; }
-            var descricao = Texto(linha, "descricao");
-            var tipo = Texto(linha, "tipo");
-            if (!existentes.Add(Chave(Normalizador.Data(data), descricao, tipo, valor.ToString("0.00")))) { repetidos++; continue; }
-            novos++;
-            if (simular) continue;
-            db.EntradasESaidas.Add(new EntradaSaida
-            {
-                Id = NovoId("FIN"),
-                Data = data,
-                Descricao = descricao,
-                Tipo = tipo,
-                Valor = valor,
-                Unidade = Texto(linha, "unidade"),
-                Origem = "importacao_painel"
-            });
-        }
-        return new ResultadoImportacao(novos, repetidos, ignorados);
-    }
-
-    // -----------------------------------------------------------------------
-    // AUXILIARES DE LEITURA DO JSON (o localStorage guarda numeros como texto
-    // em alguns registros antigos, entao cada campo e lido com tolerancia)
-    // -----------------------------------------------------------------------
-
-    private static string NovoId(string prefixo) => prefixo + "-" + Guid.NewGuid().ToString("N")[..12].ToUpperInvariant();
-    private static string Chave(params string?[] partes) => string.Join("|", partes.Select(Normalizador.Texto));
-
-    private static List<JsonElement> Lista(JsonElement corpo, string nome)
-        => corpo.TryGetProperty(nome, out var valor) && valor.ValueKind == JsonValueKind.Array
-            ? valor.EnumerateArray().Where(x => x.ValueKind == JsonValueKind.Object).ToList()
-            : new List<JsonElement>();
-
-    private static string Texto(JsonElement objeto, string nome)
-    {
-        if (!objeto.TryGetProperty(nome, out var valor)) return "";
-        return valor.ValueKind switch
-        {
-            JsonValueKind.String => valor.GetString()?.Trim() ?? "",
-            JsonValueKind.Number => valor.ToString(),
-            JsonValueKind.True => "true",
-            JsonValueKind.False => "false",
-            _ => ""
-        };
-    }
-
-    private static decimal Numero(JsonElement objeto, string nome)
-    {
-        if (!objeto.TryGetProperty(nome, out var valor)) return 0m;
-        if (valor.ValueKind == JsonValueKind.Number && valor.TryGetDecimal(out var d)) return d;
-        var texto = (valor.ValueKind == JsonValueKind.String ? valor.GetString() : null) ?? "";
-        texto = texto.Replace("R$", "").Trim();
-        if (texto.Contains(',')) texto = texto.Replace(".", "").Replace(',', '.');
-        return decimal.TryParse(texto, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var parsed) ? parsed : 0m;
-    }
-
-    private static bool Booleano(JsonElement objeto, string nome)
-        => objeto.TryGetProperty(nome, out var valor) && (valor.ValueKind == JsonValueKind.True || (valor.ValueKind == JsonValueKind.String && Normalizador.Texto(valor.GetString()) is "sim" or "true"));
-
-    private static string? Bruto(JsonElement objeto, string nome)
-        => objeto.TryGetProperty(nome, out var valor) && valor.ValueKind is JsonValueKind.Array or JsonValueKind.Object
-            ? valor.GetRawText()
-            : null;
 }

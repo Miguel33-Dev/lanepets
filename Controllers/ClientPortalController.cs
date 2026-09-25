@@ -7,20 +7,26 @@ using Microsoft.EntityFrameworkCore;
 namespace LanePets.Controllers;
 
 [Route("api/cliente")]
-public class ClientPortalController(LanePetsDbContext db, SessionService sessions, RealtimeNotifier realtime) : ApiControllerBase
+public class ClientPortalController(LanePetsDbContext db, SessionService sessions, RealtimeNotifier realtime, EventosService eventos) : ApiControllerBase
 {
+    /// <summary>Item 15: evento de log com o IP desta requisicao. Nunca lanca.</summary>
+    private Task Evento(string categoria, string acao, Cliente? cliente, string alvoId = "", string detalhes = "", string nivel = "info", string autor = "")
+        => eventos.RegistrarAsync(new(categoria, acao, nivel, "cliente", cliente?.Id ?? "", autor.Length > 0 ? autor : cliente?.Nome ?? "", alvoId, detalhes), HttpContext);
+
+    /// <summary>Item 11.4b: recusa da conta (senha errada etc.) vira evento "aviso" antes da excecao subir.</summary>
+    private Task Recusar(ContaClienteService.Recusa r)
+        => eventos.RegistrarAsync(new(r.Categoria, r.Acao, "aviso", "cliente", r.ClienteId, r.Autor, r.AlvoId, r.Detalhes), HttpContext);
+
     [HttpPost("cadastro")]
     public async Task<IActionResult> Cadastro([FromBody] CadastroRequest request)
     {
         try
         {
-            var email = (request.Email ?? "").Trim().ToLowerInvariant();
-            if (request.Nome?.Trim().Length < 3 || !email.Contains('@') || request.Senha?.Length < 8 || request.Pet?.Trim().Length < 2) throw new Exception("Informe nome, e-mail válido, senha com ao menos 8 caracteres e nome do pet.");
-            if (await db.UsuariosClientes.AnyAsync(u => u.Email == email)) throw new Exception("Já existe uma conta com este e-mail.");
-            var cliente = new Cliente { Id = "CLI-" + Guid.NewGuid().ToString("N")[..12].ToUpperInvariant(), Nome = request.Nome.Trim(), Telefone = (request.Telefone ?? "").Trim(), Endereco = (request.Endereco ?? "").Trim(), Origem = "portal_cliente", Status = "ativo" };
-            var pet = new Pet { Id = "PET-" + Guid.NewGuid().ToString("N")[..12].ToUpperInvariant(), ClienteId = cliente.Id, Dono = cliente.Nome, PetNome = request.Pet.Trim(), Tipo = (request.Tipo ?? "Não informado").Trim(), Raca = (request.Raca ?? "Não informada").Trim(), Telefone = cliente.Telefone, Endereco = cliente.Endereco };
-            var (hash, salt) = SessionService.HashPassword(request.Senha); db.Clientes.Add(cliente); db.Pets.Add(pet); db.UsuariosClientes.Add(new UsuarioCliente { Id="USR-" + Guid.NewGuid().ToString("N")[..12].ToUpperInvariant(), ClienteId=cliente.Id, Email=email, SenhaHash=hash, SenhaSalt=salt }); await db.SaveChangesAsync();
+            // Item 11.4b: validacao e gravacao em ContaClienteService.
+            var (cliente, pet, email) = await ContaClienteService.CadastrarAsync(db, new(
+                request.Nome, request.Email, request.Senha, request.Telefone, request.Endereco, request.Pet, request.Tipo, request.Raca));
             await realtime.NotificarAsync("clientes", "criado", new { cliente.Id, cliente.Nome });
+            await Evento("cliente", "Conta de cliente criada", cliente, cliente.Id, $"Pet inicial: {pet.PetNome}.", autor: email);
             return OkApi(new { token = sessions.CreateClient(cliente.Id), cliente = new { cliente.Nome, Email = email } });
         }
         catch (Exception ex) { return ErrorApi(ex); }
@@ -28,7 +34,17 @@ public class ClientPortalController(LanePetsDbContext db, SessionService session
 
     [HttpPost("login")]
     public async Task<IActionResult> Login([FromBody] LoginRequest request)
-    { try { var user = await db.UsuariosClientes.FirstOrDefaultAsync(u => u.Email == (request.Email ?? "").Trim().ToLowerInvariant()) ?? throw new Exception("E-mail ou senha inválidos."); if (!SessionService.VerifyPassword(request.Senha ?? "", user.SenhaHash, user.SenhaSalt)) throw new Exception("E-mail ou senha inválidos."); var cliente = await db.Clientes.FindAsync(user.ClienteId) ?? throw new Exception("Cadastro de cliente não localizado."); return OkApi(new { token=sessions.CreateClient(cliente.Id), cliente = new { cliente.Nome, user.Email } }); } catch (Exception ex) { return ErrorApi(ex); } }
+    {
+        try
+        {
+            // Item 15: recusa vira evento com o motivo real; a tela continua com
+            // a mensagem generica (nao revela se o e-mail existe). Item 11.4b: regra em ContaClienteService.
+            var (cliente, user) = await ContaClienteService.AutenticarAsync(db, request.Email, request.Senha, Recusar);
+            await Evento("autenticacao", "Login de cliente", cliente, autor: user.Email);
+            return OkApi(new { token=sessions.CreateClient(cliente.Id), cliente = new { cliente.Nome, user.Email } });
+        }
+        catch (Exception ex) { return ErrorApi(ex); }
+    }
     [HttpPost("logout")]
     public IActionResult Logout() { sessions.LogoutClient(Token()); return OkApi(new { encerrado = true }); }
     [HttpGet("conta")]
@@ -54,8 +70,13 @@ public class ClientPortalController(LanePetsDbContext db, SessionService session
                 // carga inicial da conta ou de um cadastro recem-confirmado.
                 pets = (await db.Pets.AsNoTracking().Where(p => p.ClienteId == cliente.Id).ToListAsync())
                        .Select(Ficha).ToList(),
-                agendamentos = await db.Agendamentos.AsNoTracking().Where(a => a.ClienteId == cliente.Id).OrderByDescending(a => a.DataHora).ToListAsync(),
-                pedidos = await db.Pedidos.AsNoTracking().Where(p => p.ClienteId == cliente.Id).OrderByDescending(p => p.CriadoEm).ToListAsync()
+                agendamentos = await AgendamentosClienteService.ListarAsync(db, cliente.Id),   // item 11.4
+                pedidos = await db.Pedidos.AsNoTracking().Where(p => p.ClienteId == cliente.Id).OrderByDescending(p => p.CriadoEm).ToListAsync(),
+                // Item 8: pagamentos da conta (somente leitura para o cliente).
+                pagamentos = (await db.Pagamentos.AsNoTracking().Where(p => p.ClienteId == cliente.Id).ToListAsync())
+                    .OrderByDescending(p => p.DataReferencia)
+                    .Select(p => new { p.Id, p.Origem, p.OrigemId, p.Descricao, p.Valor, p.Forma, p.Status, p.ReembolsoPendente, p.DataReferencia, atualizadoEm = DateTime.SpecifyKind(p.AtualizadoEm, DateTimeKind.Utc).ToString("O") })
+                    .ToList()
             });
         }
         catch (Exception ex) { return ErrorApi(ex); }
@@ -72,27 +93,52 @@ public class ClientPortalController(LanePetsDbContext db, SessionService session
     {
         try
         {
-            var cliente = await db.Clientes.FindAsync((await Cliente()).Id) ?? throw new Exception("Cadastro nao localizado.");
-            var nome = (request.Nome ?? "").Trim();
-            if (nome.Length < 3) throw new Exception("Informe seu nome completo (minimo 3 letras).");
-            var telefone = (request.Telefone ?? "").Trim();
-            if (telefone.Where(char.IsDigit).Count() < 10) throw new Exception("Informe um telefone com DDD.");
-
-            cliente.Nome = nome;
-            cliente.Telefone = telefone;
-            cliente.Endereco = (request.Endereco ?? "").Trim();
-
-            // O nome do dono tambem aparece nos pets e nos agendamentos ja criados.
-            foreach (var pet in await db.Pets.Where(p => p.ClienteId == cliente.Id).ToListAsync())
-            {
-                pet.Dono = cliente.Nome;
-                pet.Telefone = cliente.Telefone;
-            }
-            await db.SaveChangesAsync();
-
-            var usuario = await db.UsuariosClientes.AsNoTracking().FirstOrDefaultAsync(u => u.ClienteId == cliente.Id);
+            // Item 11.4b: validacao e gravacao (inclusive nome/telefone nos pets) em ContaClienteService.
+            var (cliente, email) = await ContaClienteService.AtualizarPerfilAsync(db, (await Cliente()).Id, request.Nome, request.Telefone, request.Endereco);
             await realtime.NotificarAsync("clientes", "atualizado", new { cliente.Id, cliente.Nome });
-            return OkApi(new { cliente.Nome, cliente.Telefone, cliente.Endereco, Email = usuario?.Email ?? "", message = "Perfil atualizado." });
+            await Evento("cliente", "Perfil atualizado", cliente, cliente.Id);
+            return OkApi(new { cliente.Nome, cliente.Telefone, cliente.Endereco, Email = email, message = "Perfil atualizado." });
+        }
+        catch (Exception ex) { return ErrorApi(ex); }
+    }
+
+    // -----------------------------------------------------------------------
+    // ACESSO DA CONTA — e-mail e senha (item 2 do roadmap, 24/09)
+    //
+    // As duas trocas exigem a SENHA ATUAL, mesmo com a sessao valida: quem
+    // pegar um navegador esquecido logado nao consegue tomar a conta trocando
+    // o e-mail ou a senha. O e-mail continua sendo a chave do login em
+    // UsuarioCliente e segue unico.
+    // -----------------------------------------------------------------------
+
+    [HttpPut("conta/email")]
+    public async Task<IActionResult> AlterarEmail([FromBody] AlterarEmailRequest request)
+    {
+        try
+        {
+            var cliente = await Cliente();
+            // Item 11.4b: senha atual, unicidade e gravacao em ContaClienteService.
+            var (emailAntigo, novo) = await ContaClienteService.AlterarEmailAsync(db, cliente, request.NovoEmail, request.SenhaAtual, Recusar);
+            await realtime.NotificarAsync("clientes", "atualizado", new { cliente.Id });
+            await Evento("seguranca", "E-mail de acesso alterado", cliente, cliente.Id, $"De {emailAntigo} para {novo}.", autor: novo);
+            return OkApi(new { email = novo, message = "E-mail de acesso atualizado. Use o novo e-mail no próximo login." });
+        }
+        catch (Exception ex) { return ErrorApi(ex); }
+    }
+
+    [HttpPut("conta/senha")]
+    public async Task<IActionResult> AlterarSenha([FromBody] AlterarSenhaRequest request)
+    {
+        try
+        {
+            var cliente = await Cliente();
+            // Item 11.4b: senha atual, regra de senha nova e gravacao em ContaClienteService.
+            var email = await ContaClienteService.AlterarSenhaAsync(db, cliente, request.SenhaAtual, request.NovaSenha, request.ConfirmarSenha, Recusar);
+
+            // Os outros aparelhos logados saem; este continua.
+            sessions.EncerrarSessoesDoCliente(cliente.Id, Token());
+            await Evento("seguranca", "Senha alterada", cliente, cliente.Id, "Outras sessões encerradas.", autor: email);
+            return OkApi(new { message = "Senha alterada. Outros aparelhos conectados à sua conta foram desconectados." });
         }
         catch (Exception ex) { return ErrorApi(ex); }
     }
@@ -165,6 +211,7 @@ public class ClientPortalController(LanePetsDbContext db, SessionService session
             db.Pets.Add(pet);
             await db.SaveChangesAsync();
             await realtime.NotificarAsync("pets", "criado", new { pet.Id, pet.PetNome, pet.Dono });
+            await Evento("pet", "Pet cadastrado", cliente, pet.Id, pet.PetNome);
             return OkApi(Ficha(pet));
         }
         catch (Exception ex) { return ErrorApi(ex); }
@@ -197,6 +244,7 @@ public class ClientPortalController(LanePetsDbContext db, SessionService session
             await db.SaveChangesAsync();
 
             await realtime.NotificarAsync("pets", "atualizado", new { pet.Id, pet.PetNome });
+            await Evento("pet", "Pet atualizado", cliente, pet.Id, pet.PetNome);
             return OkApi(Ficha(pet));
         }
         catch (Exception ex) { return ErrorApi(ex); }
@@ -236,16 +284,10 @@ public class ClientPortalController(LanePetsDbContext db, SessionService session
         try
         {
             var cliente = await Cliente();
-            var agendamento = await db.Agendamentos.FirstOrDefaultAsync(a => a.Id == id && a.ClienteId == cliente.Id)
-                              ?? throw new Exception("Agendamento nao localizado na sua conta.");
-            if (string.Equals(agendamento.Status, "Cancelado", StringComparison.OrdinalIgnoreCase))
-                throw new Exception("Este agendamento ja esta cancelado.");
-            if (string.Equals(agendamento.Status, "Entregue", StringComparison.OrdinalIgnoreCase))
-                throw new Exception("Atendimentos ja entregues nao podem ser cancelados. Fale com a equipe LanePets.");
-
-            agendamento.Status = "Cancelado";
-            await db.SaveChangesAsync();
+            // Item 11.4: regra (quem pode cancelar, pagamento) em AgendamentosClienteService.
+            var agendamento = await AgendamentosClienteService.CancelarAsync(db, cliente.Id, id);
             await realtime.NotificarAsync("agendamentos", "cancelado", new { agendamento.Id, agendamento.Dono });
+            await Evento("agendamento", "Agendamento cancelado pelo cliente", cliente, agendamento.Id, $"{agendamento.Pet} · {agendamento.DataHora}", "aviso");
             return OkApi(new { agendamento.Id, agendamento.Status, message = "Agendamento cancelado." });
         }
         catch (Exception ex) { return ErrorApi(ex); }
@@ -268,55 +310,36 @@ public class ClientPortalController(LanePetsDbContext db, SessionService session
         try
         {
             var cliente = await Cliente();
-            var telefone = Digitos(cliente.Telefone);
-
-            var orfaos = await db.SolicitacoesSeguro
-                .Where(s => s.ClienteId == "" && s.NomeCliente == cliente.Nome)
-                .ToListAsync();
-            var adotados = orfaos.Where(s => telefone.Length >= 8 && Digitos(s.Telefone) == telefone).ToList();
-            if (adotados.Count > 0)
+            // Item 11.4c: filtro pela conta e adocao dos contratos antigos em SegurosClienteService.
+            var meus = await SegurosClienteService.MeusAsync(db, cliente);
+            return OkApi(meus.Select(x => new
             {
-                foreach (var s in adotados) s.ClienteId = cliente.Id;
-                await db.SaveChangesAsync();
-            }
-
-            var planos = await db.PlanosSeguro.AsNoTracking().ToDictionaryAsync(p => p.Id, p => p);
-            var meus = await db.SolicitacoesSeguro.AsNoTracking()
-                .Where(s => s.ClienteId == cliente.Id)
-                .OrderByDescending(s => s.CriadoEm)
-                .ToListAsync();
-
-            return OkApi(meus.Select(s => new
-            {
-                s.Id,
-                s.PlanoSeguroId,
-                s.NomePlano,
-                s.NomePet,
-                s.PetId,
-                s.Observacao,
-                s.Status,
-                CriadoEm = s.CriadoEm.ToString("O"),
-                s.Valor,
-                s.MetodoPagamento,
-                s.PagamentoStatus,
-                s.CartaoFinal,
-                DataCancelamento = s.DataCancelamento.HasValue ? s.DataCancelamento.Value.ToString("O") : null,
-                // O botao "Cancelar seguro" so existe para contrato que ainda
-                // esta valendo. Contrato cancelado nao pode ser cancelado de novo.
-                podeCancelar = !string.Equals(s.Status, "Cancelada", StringComparison.OrdinalIgnoreCase),
+                x.Seguro.Id,
+                x.Seguro.PlanoSeguroId,
+                x.Seguro.NomePlano,
+                x.Seguro.NomePet,
+                x.Seguro.PetId,
+                x.Seguro.Observacao,
+                x.Seguro.Status,
+                CriadoEm = x.Seguro.CriadoEm.ToString("O"),
+                x.Seguro.Valor,
+                x.Seguro.MetodoPagamento,
+                x.Seguro.PagamentoStatus,
+                x.Seguro.CartaoFinal,
+                DataCancelamento = x.Seguro.DataCancelamento.HasValue ? x.Seguro.DataCancelamento.Value.ToString("O") : null,
+                // O botao "Cancelar seguro" so existe para contrato que ainda esta valendo.
+                podeCancelar = SegurosClienteService.PodeCancelar(x.Seguro),
                 // Detalhes do plano vem do catalogo: se o admin corrigir a
                 // cobertura, o cliente ve a versao corrigida.
-                valorMensal = planos.TryGetValue(s.PlanoSeguroId, out var p) ? p.ValorMensal : 0m,
-                coberturas = planos.TryGetValue(s.PlanoSeguroId, out var p2) ? p2.Coberturas : "",
-                beneficios = planos.TryGetValue(s.PlanoSeguroId, out var p3) ? p3.Beneficios : "",
-                condicoes = planos.TryGetValue(s.PlanoSeguroId, out var p4) ? p4.Condicoes : "",
-                planoAtivo = planos.TryGetValue(s.PlanoSeguroId, out var p5) && p5.Ativo
+                valorMensal = x.Plano?.ValorMensal ?? 0m,
+                coberturas = x.Plano?.Coberturas ?? "",
+                beneficios = x.Plano?.Beneficios ?? "",
+                condicoes = x.Plano?.Condicoes ?? "",
+                planoAtivo = x.Plano?.Ativo ?? false
             }));
         }
         catch (Exception ex) { return ErrorApi(ex); }
     }
-
-    private static string Digitos(string? valor) => new((valor ?? "").Where(char.IsDigit).ToArray());
 
     /// <summary>
     /// Fecha a contratacao de um plano para um pet da propria conta.
@@ -339,52 +362,11 @@ public class ClientPortalController(LanePetsDbContext db, SessionService session
         try
         {
             var cliente = await Cliente();
-            var plano = await db.PlanosSeguro.FirstOrDefaultAsync(p => p.Id == request.PlanoId && p.Ativo)
-                        ?? throw new Exception("Plano indisponivel.");
-
-            if (string.IsNullOrWhiteSpace(request.PetId)) throw new Exception("Selecione um pet para continuar.");
-            // O pet tem de ser comprovadamente desta conta. Nao existe atalho
-            // "pega o primeiro pet": seguro no pet errado e um erro silencioso
-            // que o cliente so descobre quando precisa usar.
-            var pet = await db.Pets.AsNoTracking().FirstOrDefaultAsync(p => p.Id == request.PetId && p.ClienteId == cliente.Id)
-                      ?? throw new Exception("Pet nao localizado na sua conta.");
-
-            var metodo = MetodoDePagamento(request.MetodoPagamento);
-            var cartaoFinal = "";
-            if (metodo.StartsWith("Cartao", StringComparison.OrdinalIgnoreCase) || metodo.StartsWith("Cart\u00e3o", StringComparison.OrdinalIgnoreCase))
-            {
-                cartaoFinal = new string(Digitos(request.CartaoFinal).TakeLast(4).ToArray());
-                if (cartaoFinal.Length != 4) throw new Exception("Confira os dados do cartao para concluir a contratacao.");
-            }
-
-            var jaTem = await db.SolicitacoesSeguro.AnyAsync(s =>
-                s.ClienteId == cliente.Id && s.PetId == pet.Id && s.PlanoSeguroId == plano.Id
-                && (s.Status == "Pendente" || s.Status == "Em contato"));
-            if (jaTem) throw new Exception($"Ja existe um pedido em andamento do plano {plano.Nome} para {pet.PetNome}.");
-
-            var solicitacao = new SolicitacaoSeguro
-            {
-                Id = "SOL-" + Guid.NewGuid().ToString("N")[..12].ToUpperInvariant(),
-                PlanoSeguroId = plano.Id,
-                NomePlano = plano.Nome,
-                ClienteId = cliente.Id,
-                PetId = pet.Id,
-                NomeCliente = cliente.Nome,
-                Telefone = cliente.Telefone,
-                NomePet = pet.PetNome,
-                Observacao = (request.Observacao ?? "").Trim(),
-                Status = "Pendente",
-                // Valor congelado no momento da contratacao: se o admin mudar o
-                // preco do plano amanha, este contrato continua valendo o que
-                // foi combinado hoje.
-                Valor = plano.ValorMensal,
-                MetodoPagamento = metodo,
-                PagamentoStatus = "Pendente",
-                CartaoFinal = cartaoFinal
-            };
-            db.SolicitacoesSeguro.Add(solicitacao);
-            await db.SaveChangesAsync();
+            // Item 11.4c: plano do catalogo, pet da conta, forma de pagamento e cartao em SegurosClienteService.
+            var solicitacao = await SegurosClienteService.ContratarAsync(db, cliente,
+                request.PlanoId, request.PetId, request.MetodoPagamento, request.CartaoFinal, request.Observacao);
             await realtime.NotificarAsync("seguros", "solicitado", new { solicitacao.Id, solicitacao.NomePlano });
+            await Evento("seguro", "Seguro contratado", cliente, solicitacao.Id, $"{solicitacao.NomePlano} · {solicitacao.NomePet} · {solicitacao.MetodoPagamento}");
             return OkApi(new
             {
                 solicitacao.Id,
@@ -419,20 +401,10 @@ public class ClientPortalController(LanePetsDbContext db, SessionService session
         try
         {
             var cliente = await Cliente();
-            var seguro = await db.SolicitacoesSeguro.FirstOrDefaultAsync(s => s.Id == id && s.ClienteId == cliente.Id)
-                         ?? throw new Exception("Seguro nao localizado na sua conta.");
-            if (string.Equals(seguro.Status, "Cancelada", StringComparison.OrdinalIgnoreCase))
-                throw new Exception("Este seguro ja esta cancelado.");
-
-            seguro.Status = "Cancelada";
-            seguro.DataCancelamento = DateTime.UtcNow;
-            // Pagamento que nunca foi confirmado nao pode ficar "aguardando"
-            // para sempre depois do cancelamento. Pagamento ja confirmado nao e
-            // tocado: o estorno e assunto do atendimento.
-            if (!string.Equals(seguro.PagamentoStatus, "Pago", StringComparison.OrdinalIgnoreCase))
-                seguro.PagamentoStatus = "Cancelado";
-            await db.SaveChangesAsync();
+            // Item 11.4c: regra do cancelamento (e do pagamento) em SegurosClienteService.
+            var seguro = await SegurosClienteService.CancelarAsync(db, cliente.Id, id);
             await realtime.NotificarAsync("seguros", "cancelado", new { seguro.Id, seguro.NomePlano, seguro.NomeCliente });
+            await Evento("seguro", "Seguro cancelado pelo cliente", cliente, seguro.Id, seguro.NomePlano, "aviso");
             return OkApi(new
             {
                 seguro.Id,
@@ -444,15 +416,6 @@ public class ClientPortalController(LanePetsDbContext db, SessionService session
         catch (Exception ex) { return ErrorApi(ex); }
     }
 
-    /// <summary>Aceita apenas as formas de pagamento que o sistema conhece.</summary>
-    private static string MetodoDePagamento(string? valor)
-    {
-        var escolhido = (valor ?? "").Trim();
-        var aceitos = new[] { "PIX", "Cart\u00e3o de cr\u00e9dito", "Cart\u00e3o de d\u00e9bito" };
-        var achado = aceitos.FirstOrDefault(a => string.Equals(a, escolhido, StringComparison.OrdinalIgnoreCase));
-        return achado ?? throw new Exception("Escolha uma forma de pagamento para continuar.");
-    }
-
     /// <summary>Avaliacoes enviadas pelo proprio cliente, com o status da moderacao.</summary>
     [HttpGet("avaliacoes")]
     public async Task<IActionResult> MinhasAvaliacoes()
@@ -460,11 +423,7 @@ public class ClientPortalController(LanePetsDbContext db, SessionService session
         try
         {
             var cliente = await Cliente();
-            var lista = await db.Depoimentos.AsNoTracking()
-                .Where(d => d.ClienteId == cliente.Id)
-                .OrderByDescending(d => d.CriadoEm)
-                .ToListAsync();
-            return OkApi(lista);
+            return OkApi(await AvaliacoesService.DoClienteAsync(db, cliente.Id));   // item 11.4c
         }
         catch (Exception ex) { return ErrorApi(ex); }
     }
@@ -476,27 +435,10 @@ public class ClientPortalController(LanePetsDbContext db, SessionService session
         try
         {
             var cliente = await Cliente();
-            var comentario = (request.Comentario ?? "").Trim();
-            if (comentario.Length < 10) throw new Exception("Escreva um comentario com pelo menos 10 caracteres.");
-            if (request.Avaliacao is < 1 or > 5) throw new Exception("Escolha uma nota de 1 a 5 estrelas.");
-
-            var pet = await db.Pets.AsNoTracking().FirstOrDefaultAsync(p => p.Id == request.PetId && p.ClienteId == cliente.Id)
-                      ?? await db.Pets.AsNoTracking().FirstOrDefaultAsync(p => p.ClienteId == cliente.Id);
-
-            var depoimento = new Depoimento
-            {
-                Id = "DEP-" + Guid.NewGuid().ToString("N")[..12].ToUpperInvariant(),
-                ClienteId = cliente.Id,
-                NomeCliente = cliente.Nome,
-                NomePet = pet?.PetNome ?? "",
-                Telefone = cliente.Telefone,
-                Avaliacao = request.Avaliacao,
-                Comentario = comentario.Length > 500 ? comentario[..500] : comentario,
-                Status = "Pendente"
-            };
-            db.Depoimentos.Add(depoimento);
-            await db.SaveChangesAsync();
+            // Item 11.4c: validacao e gravacao em AvaliacoesService.
+            var depoimento = await AvaliacoesService.CriarDoClienteAsync(db, cliente, request.PetId, request.Avaliacao, request.Comentario);
             await realtime.NotificarAsync("avaliacoes", "criada", new { depoimento.Id, depoimento.NomeCliente });
+            await Evento("cliente", "Avaliação enviada", cliente, depoimento.Id, $"{depoimento.Avaliacao} estrela(s)");
             return OkApi(new { depoimento.Id, depoimento.Status, message = "Avaliacao enviada! Ela aparece no site assim que a equipe aprovar." });
         }
         catch (Exception ex) { return ErrorApi(ex); }
@@ -510,22 +452,37 @@ public class ClientPortalController(LanePetsDbContext db, SessionService session
         // o ponto de reposicao do petshop, que sao numeros internos e nao tem
         // por que trafegar para a area do cliente.
         produtos = (await db.Produtos.AsNoTracking().OrderBy(p => p.Nome).ToListAsync())
-            .Select(p => new { p.Id, p.Nome, p.Categoria, p.ValorVenda, p.Estoque, p.ControlaEstoque }),
-        unidades = await db.Unidades.AsNoTracking().Where(u => u.Ativa).ToListAsync()
+            // Item 6: so produto visivel na loja, com descricao e foto.
+            .Where(p => p.VisivelLoja)
+            .Select(p => new { p.Id, p.Nome, p.Categoria, p.ValorVenda, p.Estoque, p.ControlaEstoque, p.Descricao, p.FotoUrl }),
+        // Item 5: cada unidade leva capacidade e servicos oferecidos ([] = todos),
+        // para o wizard filtrar servicos pela unidade escolhida.
+        unidades = (await db.Unidades.AsNoTracking().Where(u => u.Ativa).OrderBy(u => u.Nome).ToListAsync())
+            .Select(u => new { u.Id, u.Nome, u.Endereco, u.Telefone, u.HorarioFuncionamento, u.Ativa, capacidade = UnidadesRegras.CapacidadeDe(u), servicos = UnidadesRegras.Servicos(u) })
     });
     [HttpGet("horarios")]
     public async Task<IActionResult> Horarios([FromQuery] string unidade, [FromQuery] string data)
-    { try { if (!DateOnly.TryParse(data, out var day) || string.IsNullOrWhiteSpace(unidade)) throw new Exception("Informe unidade e data."); var occupied = await db.Agendamentos.AsNoTracking().Where(a => a.Unidade.ToLower() == unidade.ToLower() && a.DataHora.StartsWith(data) && a.Status != "Cancelado").Select(a => a.DataHora).ToListAsync(); var times = new[] { "09:00", "10:00", "11:00", "13:00", "14:00", "15:00", "16:00", "17:00" }.Where(time => !occupied.Any(value => value.Contains(time))).ToArray(); return OkApi(times); } catch (Exception ex) { return ErrorApi(ex); } }
+    {
+        try
+        {
+            // Item 11.4: grade e capacidade da unidade em AgendamentosClienteService.
+            return OkApi(await AgendamentosClienteService.HorariosLivresAsync(db, unidade, data));
+        }
+        catch (Exception ex) { return ErrorApi(ex); }
+    }
     [HttpPost("agendamentos")]
     public async Task<IActionResult> Agendar([FromBody] AgendamentoRequest request)
     {
         try
         {
-            var cliente = await Cliente(); var pet = await db.Pets.FirstOrDefaultAsync(p => p.Id == request.PetId && p.ClienteId == cliente.Id) ?? throw new Exception("Pet não localizado."); var service = await db.Servicos.FindAsync(request.ServicoId) ?? throw new Exception("Serviço não localizado.");
-            if (!DateOnly.TryParse(request.Data, out _) || !TimeOnly.TryParse(request.Horario, out _) || string.IsNullOrWhiteSpace(request.Unidade)) throw new Exception("Escolha unidade, data e horário válidos.");
-            var dataHora = request.Data + "T" + request.Horario + ":00"; var conflict = await db.Agendamentos.AnyAsync(a => a.Unidade.ToLower() == request.Unidade.ToLower() && a.DataHora == dataHora && a.Status != "Cancelado"); if (conflict) throw new Exception("Este horário acabou de ser ocupado. Escolha outro horário.");
-            var total = service.Preco + (request.Transporte?.Contains("Busca", StringComparison.OrdinalIgnoreCase) == true ? 15m : 0m) + (request.Transporte?.Contains("Entrega", StringComparison.OrdinalIgnoreCase) == true ? 15m : 0m);
-            var appointment = new Agendamento { Id="AGD-"+Guid.NewGuid().ToString("N")[..12].ToUpperInvariant(), ClienteId=cliente.Id, PetId=pet.Id, Pet=pet.PetNome, Dono=cliente.Nome, Telefone=cliente.Telefone, DataHora=dataHora, ServicosJson=$"[{{\"id\":\"{service.Id}\",\"nome\":\"{service.Nome.Replace("\"", "") }\"}}]", Total=total, Transporte=request.Transporte ?? "Cliente leva", ValorTransporte=total-service.Preco, Status="Pendente", PagamentoStatus="Pendente", FormaPagamento=request.FormaPagamento ?? "A combinar", Unidade=request.Unidade, Obs=(request.Observacao ?? "").Trim() }; db.Agendamentos.Add(appointment); await db.SaveChangesAsync(); await realtime.NotificarAsync("agendamentos", "criado", new { appointment.Id, appointment.Dono, appointment.DataHora }); return OkApi(appointment);
+            var cliente = await Cliente();
+            // Item 11.4: validacao (pet da conta, unidade, servico, capacidade) e gravacao em AgendamentosClienteService.
+            var (appointment, service) = await AgendamentosClienteService.CriarAsync(db, cliente, new(
+                request.PetId, request.ServicoId, request.Unidade, request.Data, request.Horario,
+                request.Transporte, request.FormaPagamento, request.Observacao));
+            await realtime.NotificarAsync("agendamentos", "criado", new { appointment.Id, appointment.Dono, appointment.DataHora });
+            await Evento("agendamento", "Agendamento criado pelo cliente", cliente, appointment.Id, $"{appointment.Pet} · {service.Nome} · {appointment.DataHora} · {appointment.Unidade}");
+            return OkApi(appointment);
         }
         catch (Exception ex) { return ErrorApi(ex); }
     }
@@ -540,32 +497,13 @@ public class ClientPortalController(LanePetsDbContext db, SessionService session
         try
         {
             var cliente = await Cliente();
-            var produto = await db.Produtos.FindAsync(request.ProdutoId) ?? throw new Exception("Produto não localizado.");
-            if (request.Quantidade is < 1 or > 99) throw new Exception("Informe uma quantidade entre 1 e 99.");
-            // O controle de estoque e opcional por produto: so vale para os que a
-            // equipe marcou como controlados no painel. Produto sem controle
-            // continua vendendo normalmente, sem baixa.
-            if (produto.ControlaEstoque && produto.Estoque < request.Quantidade)
-                throw new Exception(produto.Estoque <= 0
-                    ? $"{produto.Nome} está sem estoque no momento."
-                    : $"Temos apenas {produto.Estoque} unidade(s) de {produto.Nome} em estoque.");
-
-            var pedido = new Pedido
-            {
-                Id = "PED-" + Guid.NewGuid().ToString("N")[..12].ToUpperInvariant(),
-                ClienteId = cliente.Id,
-                ProdutoId = produto.Id,
-                ProdutoNome = produto.Nome,
-                Quantidade = request.Quantidade,
-                Total = produto.ValorVenda * request.Quantidade,
-                FormaPagamento = string.IsNullOrWhiteSpace(request.FormaPagamento) ? "A combinar" : request.FormaPagamento,
-                Status = "Pendente"
-            };
-            if (produto.ControlaEstoque) produto.Estoque -= request.Quantidade;
-            db.Pedidos.Add(pedido);
-            await db.SaveChangesAsync();
+            // Item 11.4: validacao, baixa no livro de estoque e pagamento em PedidosService.
+            var (pedido, produto, retirada, alerta) = await PedidosService.CriarDoClienteAsync(db, cliente,
+                request.ProdutoId, request.Quantidade, request.FormaPagamento, request.Unidade);
+            if (alerta is not null) await AlertarEstoqueAsync(alerta);
             await realtime.NotificarAsync("pedidos", "criado", new { pedido.Id, pedido.ProdutoNome, pedido.Quantidade, estoqueRestante = produto.ControlaEstoque ? produto.Estoque : (int?)null });
-            return OkApi(new { pedido.Id, pedido.ProdutoId, pedido.ProdutoNome, pedido.Quantidade, pedido.Total, pedido.FormaPagamento, pedido.Status, pedido.CriadoEm, estoqueRestante = produto.ControlaEstoque ? produto.Estoque : (int?)null });
+            await Evento("pedido", "Pedido criado", cliente, pedido.Id, $"{pedido.Quantidade}× {pedido.ProdutoNome} · {pedido.Total:C} · {pedido.FormaPagamento} · retirada em {retirada.Nome}");
+            return OkApi(new { pedido.Id, pedido.ProdutoId, pedido.ProdutoNome, pedido.Quantidade, pedido.Total, pedido.FormaPagamento, pedido.Status, pedido.CriadoEm, pedido.Unidade, unidadeNome = retirada.Nome, estoqueRestante = produto.ControlaEstoque ? produto.Estoque : (int?)null });
         }
         catch (Exception ex) { return ErrorApi(ex); }
     }
@@ -574,20 +512,52 @@ public class ClientPortalController(LanePetsDbContext db, SessionService session
     public record CadastroRequest(string? Nome, string? Email, string? Senha, string? Telefone, string? Endereco, string? Pet, string? Tipo, string? Raca);
     public record LoginRequest(string? Email, string? Senha);
     public record AgendamentoRequest(string PetId, string ServicoId, string Unidade, string Data, string Horario, string? Transporte, string? FormaPagamento, string? Observacao);
-    public record PedidoRequest(string ProdutoId, int Quantidade, string? FormaPagamento);
+    /// <summary>
+    /// Itens 6/7: o cliente cancela o proprio pedido enquanto ele esta
+    /// Pendente. O estoque baixado volta pelo livro de estoque.
+    /// </summary>
+    [HttpPost("pedidos/{id}/cancelar")]
+    public async Task<IActionResult> CancelarPedido(string id)
+    {
+        try
+        {
+            var cliente = await Cliente();
+            // Item 11.4: regra (so Pendente, devolucao ao estoque, pagamento) em PedidosService.
+            var (pedido, devolvido) = await PedidosService.CancelarDoClienteAsync(db, cliente, id);
+            await realtime.NotificarAsync("pedidos", "cancelado", new { pedido.Id });
+            await Evento("pedido", "Pedido cancelado pelo cliente", cliente, pedido.Id,
+                $"{pedido.Quantidade}× {pedido.ProdutoNome}" + (devolvido > 0 ? $" · {devolvido} unidade(s) devolvida(s) ao estoque" : ""), "aviso");
+            return OkApi(new { pedido.Id, pedido.Status, devolvido, message = "Pedido cancelado." });
+        }
+        catch (Exception ex) { return ErrorApi(ex); }
+    }
+
+    private Task AlertarEstoqueAsync(EstoqueService.Alerta a) =>
+        eventos.RegistrarAsync(new("estoque", a.Zerado ? "Produto sem estoque" : "Estoque baixo", "aviso", "sistema", "", "",
+            a.ProdutoId, $"{a.ProdutoNome}: saldo {a.Saldo} (mínimo {a.Minimo})."), HttpContext);
+
+    public record PedidoRequest(string ProdutoId, int Quantidade, string? FormaPagamento, string? Unidade = null);
     public record PerfilRequest(string? Nome, string? Telefone, string? Endereco);
+    public record AlterarEmailRequest(string? NovoEmail, string? SenhaAtual);
+    public record AlterarSenhaRequest(string? SenhaAtual, string? NovaSenha, string? ConfirmarSenha);
     /// <summary>
     /// A ficha que a tela envia. Note o que NAO esta aqui: id do cliente. O
     /// vinculo do pet com a conta nunca chega pelo corpo da requisicao.
     /// </summary>
+    /// <summary>
+    /// RemoverFoto e um pedido explicito de remocao da foto atual. FotoUrl
+    /// vazio/ausente sozinho NUNCA remove uma foto ja salva -- ver
+    /// PetFicha.ResolverFoto.
+    /// </summary>
     public record PetRequest(
         string? Nome, string? Tipo, string? Raca, string? Sexo, string? DataNascimento,
         string? Peso, string? Cor, string? Porte, string? FotoUrl,
-        string? Observacoes, string? NecessidadesEspeciais, string? InfoAtendimento)
+        string? Observacoes, string? NecessidadesEspeciais, string? InfoAtendimento,
+        bool RemoverFoto = false)
     {
         public PetFicha.FichaEntrada ParaFicha() => new(
             Nome, Tipo, Raca, Sexo, DataNascimento, Peso, Cor, Porte, FotoUrl,
-            Observacoes, NecessidadesEspeciais, InfoAtendimento);
+            Observacoes, NecessidadesEspeciais, InfoAtendimento, RemoverFoto);
     }
     public record AvaliacaoRequest(string? PetId, int Avaliacao, string? Comentario);
     public record SeguroContratacaoRequest(string PlanoId, string? PetId, string? MetodoPagamento, string? CartaoFinal, string? Observacao);

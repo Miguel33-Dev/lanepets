@@ -4,9 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>LanePets | Minha conta</title>
-  <link rel="stylesheet" href="publico.css?v=6">
+  <link rel="stylesheet" href="publico.css?v=9">
   <link rel="stylesheet" href="auth.css?v=5">
-  <link rel="stylesheet" href="conta.css?v=10">
+  <link rel="stylesheet" href="conta.css?v=14">
   <style>
     /* A área do cliente vive em conta.css e as telas de acesso em auth.css.
        Aqui fica apenas o que depende da alternância entre as duas. */
@@ -149,7 +149,7 @@
               </div>
               <div class="lp-forca" id="forca-senha" data-nivel="0">
                 <span class="lp-forca__barras" aria-hidden="true"><i></i><i></i><i></i></span>
-                <span class="lp-forca__texto" id="forca-texto">Mínimo 8</span>
+                <span class="lp-forca__texto" id="forca-texto">Mín. 8, com letra e número</span>
               </div>
               <span class="lp-field__msg"></span>
             </div>
@@ -233,12 +233,13 @@
       </a>
 
       <nav class="cc-nav" id="cc-nav" aria-label="Menu da conta">
-        <p class="cc-nav__grupo">Minha conta</p>
-        <a href="#minha-conta" data-rota="minha-conta"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M19 20.5v-1.8a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v1.8"/><circle cx="12" cy="7.5" r="4"/></svg><span>Minha conta</span></a>
+        <p class="cc-nav__grupo">Visão geral</p>
+        <a href="#minha-conta" data-rota="minha-conta"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M19 20.5v-1.8a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v1.8"/><circle cx="12" cy="7.5" r="4"/></svg><span>Início</span></a>
         <a href="#meus-pets" data-rota="meus-pets"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="6.2" cy="9" r="1.9"/><circle cx="11" cy="6.4" r="1.9"/><circle cx="15.8" cy="9" r="1.9"/><path d="M11 13.4c-3.1 0-5.6 2-5.6 4.4 0 1.5 1.4 2.2 2.8 1.7.85-.3 1.8-.45 2.8-.45s1.95.15 2.8.45c1.4.5 2.8-.2 2.8-1.7 0-2.4-2.5-4.4-5.6-4.4Z"/></svg><span>Meus pets</span></a>
 
         <p class="cc-nav__grupo">Serviços</p>
         <a href="#agendar" data-rota="agendar"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4.5" width="18" height="16.5" rx="2.5"/><path d="M16 2.5v4M8 2.5v4M3 10h18"/></svg><span>Agendamentos</span></a>
+        <a href="#historico" data-rota="historico"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v4.5h4.5"/><path d="M12 7.5v4.8l3 1.8"/></svg><span>Histórico de serviços</span></a>
         <a href="#produtos" data-rota="produtos"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 8h14l-1.1 11.3a1.8 1.8 0 0 1-1.8 1.7H7.9a1.8 1.8 0 0 1-1.8-1.7Z"/><path d="M9 8V6.2a3 3 0 0 1 6 0V8"/></svg><span>Produtos</span></a>
         <a href="#meus-pedidos" data-rota="meus-pedidos"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h2l2.2 10.4a1.6 1.6 0 0 0 1.6 1.3h7.7a1.6 1.6 0 0 0 1.6-1.3L21 8H6.4"/><circle cx="10" cy="20" r="1.3"/><circle cx="18" cy="20" r="1.3"/></svg><span>Meus pedidos</span></a>
         <a href="#pagamentos" data-rota="pagamentos"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="5.5" width="19" height="13" rx="2.5"/><path d="M2.5 10h19"/><path d="M6.5 14.5h4"/></svg><span>Pagamentos</span></a>
@@ -246,7 +247,7 @@
         <a href="#avaliacoes" data-rota="avaliacoes"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.5a7.5 7.5 0 0 1-7.5 7.5c-1.2 0-2.4-.3-3.4-.8L4 21l1.8-5.6A7.5 7.5 0 1 1 21 12.5Z"/></svg><span>Avaliações</span></a>
 
         <p class="cc-nav__grupo">Conta</p>
-        <a href="#configuracoes" data-rota="configuracoes"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 14.5a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-1.8-.3 1.6 1.6 0 0 0-1 1.5v.2a2 2 0 0 1-4 0v-.1a1.6 1.6 0 0 0-1-1.5 1.6 1.6 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.6 1.6 0 0 0 .3-1.8 1.6 1.6 0 0 0-1.5-1H3a2 2 0 0 1 0-4h.1a1.6 1.6 0 0 0 1.5-1 1.6 1.6 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.6 1.6 0 0 0 1.8.3H9a1.6 1.6 0 0 0 1-1.5V3a2 2 0 0 1 4 0v.1a1.6 1.6 0 0 0 1 1.5 1.6 1.6 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0-.3 1.8V9a1.6 1.6 0 0 0 1.5 1h.2a2 2 0 0 1 0 4h-.1a1.6 1.6 0 0 0-1.5 1Z"/></svg><span>Configurações</span></a>
+        <a href="#configuracoes" data-rota="configuracoes"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 14.5a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-1.8-.3 1.6 1.6 0 0 0-1 1.5v.2a2 2 0 0 1-4 0v-.1a1.6 1.6 0 0 0-1-1.5 1.6 1.6 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.6 1.6 0 0 0 .3-1.8 1.6 1.6 0 0 0-1.5-1H3a2 2 0 0 1 0-4h.1a1.6 1.6 0 0 0 1.5-1 1.6 1.6 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.6 1.6 0 0 0 1.8.3H9a1.6 1.6 0 0 0 1-1.5V3a2 2 0 0 1 4 0v.1a1.6 1.6 0 0 0 1 1.5 1.6 1.6 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0-.3 1.8V9a1.6 1.6 0 0 0 1.5 1h.2a2 2 0 0 1 0 4h-.1a1.6 1.6 0 0 0-1.5 1Z"/></svg><span>Minha Conta</span></a>
         <a class="cc-nav__sair" href="#sair" id="sair"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5.5A1.5 1.5 0 0 1 4 19.5v-15A1.5 1.5 0 0 1 5.5 3H9"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/></svg><span>Sair</span></a>
       </nav>
 
@@ -280,9 +281,9 @@
               <svg class="cc-conta__seta" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
             </button>
             <div class="cc-conta__menu" id="cc-conta-menu" role="menu">
-              <a href="#minha-conta" data-rota="minha-conta" role="menuitem"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M19 20.5v-1.8a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v1.8"/><circle cx="12" cy="7.5" r="4"/></svg>Minha conta</a>
+              <a href="#minha-conta" data-rota="minha-conta" role="menuitem"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M19 20.5v-1.8a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v1.8"/><circle cx="12" cy="7.5" r="4"/></svg>Início</a>
               <a href="#meus-pets" data-rota="meus-pets" role="menuitem"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="6.2" cy="9" r="1.9"/><circle cx="11" cy="6.4" r="1.9"/><circle cx="15.8" cy="9" r="1.9"/><path d="M11 13.4c-3.1 0-5.6 2-5.6 4.4 0 1.5 1.4 2.2 2.8 1.7.85-.3 1.8-.45 2.8-.45s1.95.15 2.8.45c1.4.5 2.8-.2 2.8-1.7 0-2.4-2.5-4.4-5.6-4.4Z"/></svg>Meus pets</a>
-              <a href="#configuracoes" data-rota="configuracoes" role="menuitem"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 14.5a1.6 1.6 0 0 0 .3 1.8 2 2 0 1 1-2.8 2.8 1.6 1.6 0 0 0-1.8-.3 1.6 1.6 0 0 0-1 1.5 2 2 0 0 1-4 0 1.6 1.6 0 0 0-1-1.5 1.6 1.6 0 0 0-1.8.3 2 2 0 1 1-2.8-2.8 1.6 1.6 0 0 0 .3-1.8 1.6 1.6 0 0 0-1.5-1 2 2 0 0 1 0-4 1.6 1.6 0 0 0 1.5-1 1.6 1.6 0 0 0-.3-1.8 2 2 0 1 1 2.8-2.8 1.6 1.6 0 0 0 1.8.3 1.6 1.6 0 0 0 1-1.5 2 2 0 0 1 4 0 1.6 1.6 0 0 0 1 1.5 1.6 1.6 0 0 0 1.8-.3 2 2 0 1 1 2.8 2.8 1.6 1.6 0 0 0-.3 1.8 1.6 1.6 0 0 0 1.5 1 2 2 0 0 1 0 4 1.6 1.6 0 0 0-1.5 1Z"/></svg>Configurações</a>
+              <a href="#configuracoes" data-rota="configuracoes" role="menuitem"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 14.5a1.6 1.6 0 0 0 .3 1.8 2 2 0 1 1-2.8 2.8 1.6 1.6 0 0 0-1.8-.3 1.6 1.6 0 0 0-1 1.5 2 2 0 0 1-4 0 1.6 1.6 0 0 0-1-1.5 1.6 1.6 0 0 0-1.8.3 2 2 0 1 1-2.8-2.8 1.6 1.6 0 0 0 .3-1.8 1.6 1.6 0 0 0-1.5-1 2 2 0 0 1 0-4 1.6 1.6 0 0 0 1.5-1 1.6 1.6 0 0 0-.3-1.8 2 2 0 1 1 2.8-2.8 1.6 1.6 0 0 0 1.8.3 1.6 1.6 0 0 0 1-1.5 2 2 0 0 1 4 0 1.6 1.6 0 0 0 1 1.5 1.6 1.6 0 0 0 1.8-.3 2 2 0 1 1 2.8 2.8 1.6 1.6 0 0 0-.3 1.8 1.6 1.6 0 0 0 1.5 1 2 2 0 0 1 0 4 1.6 1.6 0 0 0-1.5 1Z"/></svg>Minha Conta</a>
               <hr>
               <button type="button" class="cc-sair-item" id="cc-sair-3" role="menuitem"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5.5A1.5 1.5 0 0 1 4 19.5v-15A1.5 1.5 0 0 1 5.5 3H9"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/></svg>Sair</button>
             </div>
@@ -292,10 +293,10 @@
 
       <main class="cc-conteudo">
 
-        <!-- ---------- VISÃO GERAL ---------- -->
+        <!-- ---------- INÍCIO (dashboard) ---------- -->
         <section class="cc-secao is-ativa" id="sec-minha-conta">
           <div class="cc-cabecalho">
-            <h1 id="boas-vindas">Minha conta</h1>
+            <h1 id="boas-vindas">Início</h1>
             <p>Bem-vindo à sua área do LanePets. Acompanhe seus pets, serviços e pedidos em um só lugar.</p>
           </div>
 
@@ -327,20 +328,6 @@
             </div>
           </section>
 
-          <section class="cc-painel" style="margin-top:20px">
-            <div class="cc-painel__topo">
-              <div><h2>Perfil</h2><p>Seus dados de contato usados nos agendamentos e pedidos.</p></div>
-              <button class="botao claro" type="button" id="cc-editar-perfil">Editar perfil</button>
-            </div>
-            <div class="cc-perfil">
-              <div class="cc-avatar cc-avatar--g" id="cc-iniciais-grande" aria-hidden="true">··</div>
-              <div>
-                <div class="cc-perfil__nome" id="cc-perfil-nome">—</div>
-                <div class="cc-perfil__meta" id="cc-perfil-meta">Cliente LanePets</div>
-              </div>
-            </div>
-            <dl class="cc-dados" id="cc-dados"></dl>
-          </section>
         </section>
 
         <!-- ---------- MEUS PETS ---------- -->
@@ -417,6 +404,26 @@
              rota #produtos. O formulario de pedido veio junto: escolher o
              produto e pedi-lo sao o mesmo gesto. Pedidos ficou so com o
              historico. Nenhuma API nova: continua tudo em /api/cliente. -->
+        <!-- ---------- HISTORICO DE SERVICOS (item 2 do roadmap, 24/09) ----------
+             Visao propria dos atendimentos ja realizados (status Pronto ou
+             Entregue), montada sobre os MESMOS agendamentos que
+             GET /api/cliente/conta ja devolve. Nenhuma chamada nova, nenhum
+             numero inventado. -->
+        <section class="cc-secao" id="sec-historico">
+          <div class="cc-cabecalho">
+            <h1>Histórico de serviços</h1>
+            <p>Tudo o que a LanePets já fez pelos seus pets, do mais recente para o mais antigo.</p>
+          </div>
+          <div class="cc-resumo" id="hist-resumo"></div>
+          <section class="cc-painel">
+            <div class="cc-painel__topo">
+              <div><h2>Atendimentos realizados</h2><p>Atendimentos concluídos. Agendamentos futuros e cancelados ficam em Agendamentos.</p></div>
+              <div class="cc-campo" style="min-width:200px"><label for="hist-pet">Pet</label><select id="hist-pet"><option value="">Todos os pets</option></select></div>
+            </div>
+            <div id="hist-lista"></div>
+          </section>
+        </section>
+
         <section class="cc-secao" id="sec-produtos">
           <div class="cc-cabecalho">
             <a class="cc-voltar" href="#minha-conta" data-rota="minha-conta">
@@ -428,7 +435,7 @@
           </div>
 
           <section class="cc-painel">
-            <div class="cc-painel__topo"><div><h2>Novo pedido</h2><p>Retirada combinada com a equipe na unidade.</p></div></div>
+            <div class="cc-painel__topo"><div><h2>Novo pedido</h2><p>Escolha a unidade onde você vai retirar o pedido.</p></div></div>
             <!-- ESCOLHA DO PRODUTO
                  O <select id="produto"> continua existindo e continua sendo a
                  fonte da verdade do envio: "Confirmar pedido" le o value dele,
@@ -469,6 +476,7 @@
 
             <div class="cc-form">
               <div class="cc-campo"><label for="quantidade">Quantidade</label><input id="quantidade" type="number" min="1" max="99" value="1"><span class="cc-ajuda" id="pedidoEstoqueAjuda"></span></div>
+              <div class="cc-campo"><label for="pedido-unidade">Unidade de retirada</label><select id="pedido-unidade"></select></div>
               <div class="cc-campo"><label for="pedido-pagamento">Pagamento</label><select id="pedido-pagamento"><option>Pix</option><option>Cartão</option><option>Dinheiro</option><option>A combinar</option></select></div>
               <p class="cc-msg" id="pedido-msg"></p>
               <div class="cc-form__acoes"><button class="botao primario" type="button" id="criar-pedido">Confirmar pedido</button></div>
@@ -498,6 +506,30 @@
           <div class="cc-resumo" id="cc-resumo-pagamentos"></div>
           <section class="cc-painel">
             <div class="cc-painel__topo"><div><h2>Lançamentos</h2><p>Os pagamentos são confirmados pela equipe no atendimento.</p></div></div>
+
+            <!-- Item 16: busca + filtros, mesmo padrao de Agendamentos. -->
+            <div class="ag-filtros__extra" style="margin-bottom:16px">
+              <div class="cc-campo" style="min-width:220px;flex:1 1 220px">
+                <label for="pg-busca">Buscar</label>
+                <input type="search" id="pg-busca" placeholder="Buscar por pet, produto, serviço ou plano...">
+              </div>
+              <label class="ag-select">
+                <span>Tipo</span>
+                <select id="pg-filtro-tipo"><option value="">Todos os tipos</option></select>
+              </label>
+              <label class="ag-select">
+                <span>Situação</span>
+                <select id="pg-filtro-situacao">
+                  <option value="">Todas</option>
+                  <option value="Aprovado">Aprovado</option>
+                  <option value="Pendente">Pendente</option>
+                  <option value="Recusado">Recusado</option>
+                  <option value="Cancelado">Cancelado</option>
+                  <option value="Reembolsado">Reembolsado</option>
+                </select>
+              </label>
+            </div>
+
             <div id="cc-pagamentos"></div>
           </section>
         </section>
@@ -545,11 +577,11 @@
           </section>
         </section>
 
-        <!-- ---------- CONFIGURAÇÕES ---------- -->
+        <!-- ---------- MINHA CONTA (perfil, acesso, resumo, sair) ---------- -->
         <section class="cc-secao" id="sec-configuracoes">
           <div class="cc-cabecalho">
-            <h1>Configurações</h1>
-            <p>Dados da conta e encerramento de sessão.</p>
+            <h1>Minha Conta</h1>
+            <p>Seus dados, segurança e o resumo da sua conta LanePets.</p>
           </div>
 
           <section class="cc-painel">
@@ -561,7 +593,15 @@
           <section class="cc-painel">
             <div class="cc-painel__topo"><div><h2>Acesso</h2><p>Seu e-mail de login e a senha da conta.</p></div></div>
             <dl class="cc-dados" id="cc-acesso"></dl>
-            <p class="cc-ajuda" style="margin-top:16px">Para trocar o e-mail ou a senha, fale com a equipe LanePets em uma das unidades — Franco da Rocha ou Caieiras.</p>
+            <div class="cc-form__acoes" style="margin-top:16px;justify-content:flex-start">
+              <button class="botao claro" type="button" id="cc-alterar-email">Alterar e-mail</button>
+              <button class="botao claro" type="button" id="cc-alterar-senha">Alterar senha</button>
+            </div>
+          </section>
+
+          <section class="cc-painel">
+            <div class="cc-painel__topo"><div><h2>Resumo</h2><p>Seus números na LanePets, de relance.</p></div></div>
+            <dl class="cc-dados" id="cc-resumo-conta"></dl>
           </section>
 
           <section class="cc-painel">
@@ -573,6 +613,45 @@
       </main>
     </div>
   </div>
+
+  <!-- ---------- Modal: alterar e-mail (item 2 do roadmap) ---------- -->
+  <dialog class="cc-modal" id="modal-email">
+    <div class="cc-modal__corpo">
+      <button class="fechar" type="button" data-fechar aria-label="Fechar">×</button>
+      <p class="eyebrow">Acesso</p>
+      <h2>Alterar e-mail</h2>
+      <p>O novo e-mail passa a ser o seu login. Para confirmar que é você, informe a senha atual.</p>
+      <div class="cc-form">
+        <div class="cc-campo cc-campo--largo"><label for="em-novo">Novo e-mail</label><input id="em-novo" type="email" autocomplete="email" maxlength="160" placeholder="nome@exemplo.com"></div>
+        <div class="cc-campo cc-campo--largo"><label for="em-senha">Senha atual</label><input id="em-senha" type="password" autocomplete="current-password"></div>
+        <p class="cc-msg" id="em-msg"></p>
+        <div class="cc-form__acoes">
+          <button class="botao claro" type="button" data-fechar>Cancelar</button>
+          <button class="botao primario" type="button" id="em-salvar">Salvar novo e-mail</button>
+        </div>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- ---------- Modal: alterar senha (item 2 do roadmap) ---------- -->
+  <dialog class="cc-modal" id="modal-senha">
+    <div class="cc-modal__corpo">
+      <button class="fechar" type="button" data-fechar aria-label="Fechar">×</button>
+      <p class="eyebrow">Acesso</p>
+      <h2>Alterar senha</h2>
+      <p>Outros aparelhos conectados à sua conta serão desconectados; este continua.</p>
+      <div class="cc-form">
+        <div class="cc-campo cc-campo--largo"><label for="sn-atual">Senha atual</label><input id="sn-atual" type="password" autocomplete="current-password"></div>
+        <div class="cc-campo cc-campo--largo"><label for="sn-nova">Nova senha</label><input id="sn-nova" type="password" autocomplete="new-password" minlength="8"><span class="cc-ajuda">Mínimo de 8 caracteres, com pelo menos uma letra e um número, diferente da atual.</span></div>
+        <div class="cc-campo cc-campo--largo"><label for="sn-confirma">Confirmar nova senha</label><input id="sn-confirma" type="password" autocomplete="new-password" minlength="8"></div>
+        <p class="cc-msg" id="sn-msg"></p>
+        <div class="cc-form__acoes">
+          <button class="botao claro" type="button" data-fechar>Cancelar</button>
+          <button class="botao primario" type="button" id="sn-salvar">Alterar senha</button>
+        </div>
+      </div>
+    </div>
+  </dialog>
 
   <!-- ---------- Modal: editar perfil ---------- -->
   <dialog class="cc-modal" id="modal-perfil">
@@ -758,7 +837,7 @@
   <script src="js/config.js"></script>
   <script src="js/http.js?v=5"></script>
   <script src="js/auth-ui.js?v=5"></script>
-  <script src="js/minha-conta.js?v=9"></script>
+  <script src="js/minha-conta.js?v=20"></script>
 <!-- ---------- Modal: detalhes do pedido ----------
        Somente leitura, montado com o pedido que a tela ja recebeu em
        GET /api/cliente/conta. Nenhuma chamada nova. -->

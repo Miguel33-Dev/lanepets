@@ -121,6 +121,8 @@
         if (o !== estado.origem) return false;
       }
       if (!termo) return true;
+      /* Item 16: padrao LaneBusca (varias palavras, digitos do telefone). */
+      if (window.LaneBusca) return window.LaneBusca.combina(estado.busca, [c.nome, c.email, c.telefone, c.endereco]);
       return [c.nome, c.email, c.telefone, c.endereco].some(function (v) {
         return normal(v).indexOf(termo) !== -1;
       });
@@ -248,6 +250,7 @@
 
     var visiveis = filtrados();
     var totalGeral = todos().length;
+    sincronizarUrl();
 
     if (!visiveis.length) {
       alvo.innerHTML = vazio(totalGeral > 0);
@@ -384,7 +387,7 @@
       '<section class="cli-det-sec" id="secAgendamentos">' +
         '<h3>Agendamentos</h3>' +
         miniLista(ags.slice(0, 8).map(function (a) {
-          return '<div class="cli-mini-item"><span><strong>' + esc(a.pet || '—') + '</strong> · ' + esc(a.status || 'Pendente') + '</span>' +
+          return '<div class="cli-mini-item"><span><strong>' + esc(a.pet || '—') + '</strong> · ' + esc(a.status || 'Solicitado') + '</span>' +
             '<span class="quando">' + esc(dataHoraBr(a.dataHora)) + '</span></div>';
         }), 'Nenhum agendamento registrado.') +
         (ags.length > 8 ? '<p class="cli-mini-vazio">Mostrando os 8 mais recentes de ' + ags.length + '.</p>' : '') +
@@ -461,6 +464,31 @@
       if (linha) linha.classList.remove('menu-aberto');
       var botao = m.parentElement && m.parentElement.querySelector('[data-acao="mais"]');
       if (botao) botao.setAttribute('aria-expanded', 'false');
+    });
+  }
+
+  /* Item 16: busca, status e origem ficam na URL (voltar/recarregar mantem o filtro). */
+  function sincronizarUrl() {
+    try {
+      var q = new URLSearchParams(location.search);
+      [['busca', (estado.busca || '').trim()], ['status', estado.status], ['origem', estado.origem]].forEach(function (par) {
+        if (par[1]) q.set(par[0], par[1]); else q.delete(par[0]);
+      });
+      var s = q.toString();
+      history.replaceState(null, '', location.pathname + (s ? '?' + s : '') + location.hash);
+    } catch (_) {}
+  }
+
+  function lerUrl() {
+    var q = new URLSearchParams(location.search);
+    estado.busca = q.get('busca') || '';
+    estado.status = /^(ativo|inativo)$/.test(q.get('status') || '') ? q.get('status') : '';
+    estado.origem = /^(portal_cliente|cadastro_painel)$/.test(q.get('origem') || '') ? q.get('origem') : '';
+    el('filtro').value = estado.busca;
+    el('caixaBusca').classList.toggle('tem-texto', !!estado.busca.trim());
+    el('filtroOrigem').value = estado.origem;
+    Array.prototype.forEach.call(el('segStatus').querySelectorAll('button'), function (b) {
+      b.setAttribute('aria-pressed', String(b.dataset.status === estado.status));
     });
   }
 
@@ -587,7 +615,9 @@
   window.desenharClientes = desenhar;
 
   document.addEventListener('DOMContentLoaded', function () {
+    lerUrl();
     ligarEventos();
+    if (window.LaneBusca) window.LaneBusca.atalhos('filtro', function () { el('btnLimparBusca').click(); });
     pintarLista();   /* esqueleto enquanto a ponte confirma os dados */
     setTimeout(desenhar, 80);
     window.addEventListener('lanepets:dados', desenhar);

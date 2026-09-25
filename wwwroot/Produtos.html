@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Produtos &middot; LanePets</title>
-  <link rel="stylesheet" href="design-system.css?v=4">
+  <link rel="stylesheet" href="design-system.css?v=6">
   <link rel="stylesheet" href="css/admin-acoes.css?v=1">
   <style>
     .produto-form-actions,
@@ -24,10 +24,11 @@
   <script src="js/config.js"></script>
   <script src="js/api.js"></script>
   <script src="lib/signalr/signalr.min.js"></script>
-  <script src="js/admin-dados.js"></script>
+  <script src="js/admin-dados.js?v=2"></script>
   <script src="js/admin-store.js?v=1"></script>
-<script src="js/admin-permissoes.js"></script>
+<script src="js/admin-permissoes.js?v=5"></script>
 <script src="js/admin-acoes.js?v=1"></script>
+<script src="js/busca.js?v=1"></script>
 
   <style>
   /* =================================================================
@@ -72,6 +73,25 @@
     border: 1px solid var(--border);
   }
   .prod-thumb svg { width: 20px; height: 20px; }
+  /* Itens 6/7: foto do produto, selo de loja e livro de estoque */
+  .prod-thumb img { width: 100%; height: 100%; object-fit: cover; border-radius: inherit; display: block; }
+  .prod-thumb:has(img) { padding: 0; overflow: hidden; }
+  .prod-oculto { display: inline-block; margin-left: 6px; padding: 1px 7px; border-radius: 999px; font-size: 11px; font-weight: 700;
+    background: var(--ink-100, #eef2ee); color: var(--ink-500); vertical-align: middle; }
+  .prod-foto-campo { display: flex; align-items: center; gap: var(--sp-3); }
+  .prod-foto-campo .prod-thumb { width: 56px; height: 56px; flex: 0 0 auto; }
+  .prod-foto-campo .prod-foto-acoes { display: flex; flex-wrap: wrap; gap: 6px; }
+  .prod-check { display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: var(--fs-sm); margin: 4px 0 var(--sp-3); }
+  .est-resumo { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--sp-3); margin-bottom: var(--sp-4); }
+  .est-resumo > div { border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px; }
+  .est-resumo span { display: block; font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--ink-500); font-weight: 700; }
+  .est-resumo strong { font-size: 1.25rem; color: var(--ink-900); }
+  .est-hist { max-height: 260px; overflow: auto; border: 1px solid var(--border); border-radius: 12px; }
+  .est-hist table { width: 100%; border-collapse: collapse; font-size: var(--fs-xs); }
+  .est-hist th, .est-hist td { padding: 7px 10px; border-bottom: 1px solid var(--border); text-align: left; vertical-align: top; }
+  .est-hist th { position: sticky; top: 0; background: var(--bg, #f7faf6); font-weight: 700; }
+  .est-mais { color: var(--success-500); font-weight: 700; } .est-menos { color: var(--danger-500); font-weight: 700; }
+  @media (max-width: 560px) { .est-resumo { grid-template-columns: 1fr 1fr; } }
   .prod-nome { min-width: 0; }
   .prod-nome strong { display: block; color: var(--ink-900); font-size: var(--fs-sm); }
   .prod-nome span {
@@ -199,9 +219,25 @@
               </div>
               <div class="field">
                 <label for="valorVendaProduto">Valor de venda</label>
-                <input type="number" id="valorVendaProduto" placeholder="0,00" min="0" step="0.01" required>
+                <input type="number" id="valorVendaProduto" placeholder="0,00" min="0.01" step="0.01" required>
               </div>
             </div>
+          <div class="field" style="grid-column:1/-1">
+            <label for="descricaoProduto">Descrição <span class="text-muted" style="font-weight:500">(opcional, aparece na loja)</span></label>
+            <textarea id="descricaoProduto" rows="2" maxlength="1000" placeholder="Ex.: ração premium para cães adultos de porte médio, 15 kg."></textarea>
+          </div>
+          <div class="field">
+            <label>Foto <span class="text-muted" style="font-weight:500">(JPG, PNG ou WebP)</span></label>
+            <div class="prod-foto-campo">
+              <span class="prod-thumb" id="fotoPreview"></span>
+              <div class="prod-foto-acoes">
+                <label class="btn btn-outline btn-sm" for="fotoArquivo" style="cursor:pointer">Escolher foto</label>
+                <input type="file" id="fotoArquivo" accept="image/jpeg,image/png,image/webp" hidden>
+                <button type="button" class="btn btn-outline btn-sm" id="fotoRemover" hidden>Remover</button>
+              </div>
+            </div>
+          </div>
+          <label class="prod-check"><input type="checkbox" id="visivelLoja" checked> Visível na loja do cliente</label>
           </div>
           <div class="produto-form-actions">
             <button type="submit" class="btn btn-primary" id="btnCadastrarProduto">
@@ -225,7 +261,7 @@
           <div class="field prod-busca">
             <label for="filtro">Pesquisar</label>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
-            <input type="text" id="filtro" placeholder="Código ou nome do produto" autocomplete="off">
+            <input type="search" id="filtro" placeholder="Código, nome, categoria ou descrição" autocomplete="off">
           </div>
           <div class="field">
             <label for="filtroCategoria">Categoria</label>
@@ -243,9 +279,11 @@
             <select id="filtroEstoque">
               <option value="">Todos</option>
               <option value="ok">Em estoque</option>
+              <option value="alerta">No mínimo ou zerado</option>
               <option value="baixo">Estoque baixo</option>
               <option value="zero">Sem estoque</option>
               <option value="livre">Sem controle</option>
+              <option value="oculto">Oculto na loja</option>
             </select>
           </div>
           <div class="field">
@@ -259,7 +297,7 @@
           <button type="button" class="btn btn-outline" id="btnLimparFiltro">Limpar filtros</button>
         </div>
 
-        <div class="table-wrap" style="margin-top:var(--sp-5);">
+        <div class="table-wrap tabela-cards" style="margin-top:var(--sp-5);">
           <table class="data-table" id="tabelaProdutos">
             <thead>
               <tr>
@@ -321,6 +359,43 @@
   </div>
 </div>
 
+<!-- Itens 6/7: estoque e movimentacoes do produto (livro de estoque). -->
+<div id="modalEstoque" class="modal-overlay" aria-hidden="true">
+  <div class="modal-box" style="max-width:640px">
+    <div class="modal-head">
+      <div><h2 id="estTitulo">Estoque</h2><p id="estSub">Movimentações e saldo do produto.</p></div>
+      <button type="button" class="modal-close" id="btnFecharEstoque" aria-label="Fechar">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div class="est-resumo">
+      <div><span>Saldo</span><strong id="estSaldo">—</strong></div>
+      <div><span>Mínimo</span><strong id="estMinimo">—</strong></div>
+      <div><span>Situação</span><strong id="estSituacao" style="font-size:.95rem">—</strong></div>
+    </div>
+    <form id="formConfigEstoque" data-permissao="produtos:editar" style="margin-bottom:var(--sp-4)">
+      <div class="field-row" style="align-items:end">
+        <label class="prod-check" style="margin:0 0 10px"><input type="checkbox" id="estControla"> Controlar estoque</label>
+        <div class="field" style="margin-bottom:0"><label for="estMinimoCampo">Estoque mínimo</label><input type="number" id="estMinimoCampo" min="0" step="1"></div>
+        <button type="submit" class="btn btn-outline" id="btnSalvarConfigEstoque">Salvar</button>
+      </div>
+    </form>
+    <form id="formMovimento" data-permissao="produtos:editar" style="margin-bottom:var(--sp-4)">
+      <h3 style="font-size:var(--fs-sm);margin:0 0 var(--sp-2)">Nova movimentação</h3>
+      <div class="field-row">
+        <div class="field"><label for="movTipo">Tipo</label>
+          <select id="movTipo"><option value="entrada">Entrada (compra, devolução)</option><option value="saida">Saída (avaria, uso interno)</option><option value="ajuste">Ajuste de inventário (saldo correto)</option></select></div>
+        <div class="field"><label for="movQuantidade" id="movQuantidadeRotulo">Quantidade</label><input type="number" id="movQuantidade" min="0" step="1" required></div>
+      </div>
+      <div class="field"><label for="movMotivo">Motivo</label><input type="text" id="movMotivo" maxlength="200" placeholder="Ex.: compra do fornecedor, NF 1234" required></div>
+      <p class="text-muted" id="movAviso" style="font-size:var(--fs-xs);margin:0 0 var(--sp-2)"></p>
+      <button type="submit" class="btn btn-primary" id="btnRegistrarMovimento">Registrar movimentação</button>
+    </form>
+    <h3 style="font-size:var(--fs-sm);margin:0 0 var(--sp-2)">Histórico</h3>
+    <div class="est-hist"><table><thead><tr><th>Quando</th><th>Tipo</th><th>Qtd.</th><th>Saldo</th><th>Motivo / quem</th></tr></thead><tbody id="estHistorico"><tr><td colspan="5">Carregando…</td></tr></tbody></table></div>
+  </div>
+</div>
+
 <div id="modalEditar" class="modal-overlay" aria-hidden="true">
   <form id="formEditar" class="modal-box" autocomplete="off">
     <div class="modal-head">
@@ -357,9 +432,26 @@
       </div>
       <div class="field">
         <label for="editValorVendaProduto">Valor de venda</label>
-        <input type="number" id="editValorVendaProduto" min="0" step="0.01" required>
+        <input type="number" id="editValorVendaProduto" min="0.01" step="0.01" required>
       </div>
     </div>
+
+          <div class="field" style="grid-column:1/-1">
+            <label for="editdescricaoProduto">Descrição <span class="text-muted" style="font-weight:500">(opcional, aparece na loja)</span></label>
+            <textarea id="editdescricaoProduto" rows="2" maxlength="1000" placeholder="Ex.: ração premium para cães adultos de porte médio, 15 kg."></textarea>
+          </div>
+          <div class="field">
+            <label>Foto <span class="text-muted" style="font-weight:500">(JPG, PNG ou WebP)</span></label>
+            <div class="prod-foto-campo">
+              <span class="prod-thumb" id="editfotoPreview"></span>
+              <div class="prod-foto-acoes">
+                <label class="btn btn-outline btn-sm" for="editfotoArquivo" style="cursor:pointer">Escolher foto</label>
+                <input type="file" id="editfotoArquivo" accept="image/jpeg,image/png,image/webp" hidden>
+                <button type="button" class="btn btn-outline btn-sm" id="editfotoRemover" hidden>Remover</button>
+              </div>
+            </div>
+          </div>
+          <label class="prod-check"><input type="checkbox" id="editvisivelLoja" checked> Visível na loja do cliente</label>
 
     <div class="modal-actions">
       <button type="button" class="btn btn-outline" id="btnCancelarModal">Cancelar</button>
@@ -368,7 +460,7 @@
   </form>
 </div>
 
-<script src="ui-kit.js?v=4"></script>
+<script src="ui-kit.js?v=5"></script>
 <script>
   let produtos = JSON.parse(localStorage.getItem('produtos') || '[]');
 
@@ -383,7 +475,7 @@
   function obterValoresProduto(prefixo = '') {
     const codigo = document.getElementById(prefixo + 'codigoProduto').value.trim();
     const nome = document.getElementById(prefixo + 'nomeProduto').value.trim();
-    const categoria = document.getElementById(prefixo + 'categoriaProduto').value;
+    const categoria = campoCategoria(prefixo).value;
     const compraTexto = document.getElementById(prefixo + 'valorCompraProduto').value;
     const vendaTexto = document.getElementById(prefixo + 'valorVendaProduto').value;
     const valorCompra = Number(compraTexto);
@@ -394,7 +486,12 @@
       return null;
     }
 
-    if (!Number.isFinite(valorCompra) || valorCompra < 0 || !Number.isFinite(valorVenda) || valorVenda < 0) {
+    /* Mesma regra do servidor (Validacao.Produto, item 13): venda > 0, compra >= 0. */
+    if (Number.isFinite(valorVenda) && valorVenda <= 0) {
+      toast('O preço de venda precisa ser maior que zero.', 'error');
+      return null;
+    }
+    if (!Number.isFinite(valorCompra) || valorCompra < 0 || !Number.isFinite(valorVenda)) {
       toast('Informe valores de compra e venda válidos.', 'error');
       return null;
     }
@@ -413,8 +510,15 @@
       return false;
     }
 
+    dados.descricao = document.getElementById('descricaoProduto').value.trim();
+    dados.visivelLoja = document.getElementById('visivelLoja').checked;
+    if (fotoPendente['']) dados.fotoUrl = fotoPendente[''];
     produtos.push(dados);
     salvarProdutos();
+    fotoPendente[''] = null; fotoRemover[''] = false;
+    document.getElementById('descricaoProduto').value = '';
+    document.getElementById('visivelLoja').checked = true;
+    pintarFoto('', '', '');
     carregarTabela();
 
     document.getElementById('codigoProduto').value = '';
@@ -450,8 +554,8 @@
   };
   const ICONE_PADRAO = '<path d="m3 8 9-5 9 5-9 5-9-5Z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v8"/>';
 
-  const miniatura = categoria =>
-    `<span class="prod-thumb">${svgProd(ICONE_CATEGORIA[categoria] || ICONE_PADRAO)}</span>`;
+  const miniatura = (categoria, foto) =>
+    `<span class="prod-thumb">${foto ? `<img src="${String(foto).replace(/"/g, '&quot;')}" alt="" loading="lazy">` : svgProd(ICONE_CATEGORIA[categoria] || ICONE_PADRAO)}</span>`;
 
   /**
    * Estado do estoque a partir dos campos que existem. O produto nao tem
@@ -463,12 +567,13 @@
     const quantidade = Number(produto.estoque) || 0;
     const minimo = Number(produto.estoqueMinimo) || 0;
     if (quantidade <= 0) return { chave: 'zero', texto: 'Sem estoque' };
-    if (quantidade <= minimo) return { chave: 'baixo', texto: `${quantidade} em estoque` };
+    if (quantidade <= minimo) return { chave: 'baixo', texto: `Estoque baixo · ${quantidade}` };
     return { chave: 'ok', texto: `${quantidade} em estoque` };
   }
 
   const ACOES_PRODUTO = [
     { acao: 'ver',     rotulo: 'Ver detalhes',   curto: 'Ver detalhes',   icone: '<path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z"/><circle cx="12" cy="12" r="2.8"/>' },
+    { acao: 'estoque', rotulo: 'Estoque e movimentações', curto: 'Estoque', icone: '<path d="M3 7.5 12 3l9 4.5v9L12 21l-9-4.5Z"/><path d="M3 7.5 12 12l9-4.5M12 12v9"/>' },
     { acao: 'editar',  rotulo: 'Editar produto', curto: 'Editar produto', icone: '<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/>' },
     { acao: 'excluir', rotulo: 'Excluir produto', curto: 'Excluir produto', perigo: true, icone: '<path d="M3.5 6h17"/><path d="M8.5 6V4.5A1.5 1.5 0 0 1 10 3h4a1.5 1.5 0 0 1 1.5 1.5V6"/><path d="M6.5 6.5 7.4 19a2 2 0 0 0 2 1.9h5.2a2 2 0 0 0 2-1.9l.9-12.5"/><path d="M10.5 10.5v6M13.5 10.5v6"/>' }
   ];
@@ -497,6 +602,65 @@
     return d.innerHTML;
   };
 
+  /* ------------------------------------------------------------------
+     Itens 6/7 (24/09): foto, descricao, "visivel na loja" e estoque.
+     A foto e reduzida no navegador (max. 800 px, JPEG) para caber no limite
+     de 200 KB do servidor (ImagemDataUri) — o servidor confere de novo.
+     ------------------------------------------------------------------ */
+  const fotoPendente = { '': null, 'edit': null };   /* data URI escolhida e ainda nao salva */
+  const fotoRemover = { '': false, 'edit': false };
+
+  function reduzirImagem(arquivo) {
+    return new Promise((resolve, reject) => {
+      if (!/^image\/(jpeg|png|webp)$/.test(arquivo.type)) { reject(new Error('Envie uma imagem JPG, PNG ou WebP.')); return; }
+      const leitor = new FileReader();
+      leitor.onerror = () => reject(new Error('Não foi possível ler a imagem.'));
+      leitor.onload = () => {
+        const img = new Image();
+        img.onerror = () => reject(new Error('Não foi possível ler a imagem.'));
+        img.onload = () => {
+          const escala = Math.min(1, 800 / Math.max(img.width, img.height));
+          const c = document.createElement('canvas');
+          c.width = Math.round(img.width * escala); c.height = Math.round(img.height * escala);
+          const ctx = c.getContext('2d'); ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, c.width, c.height);
+          ctx.drawImage(img, 0, 0, c.width, c.height);
+          let q = 0.85, uri = c.toDataURL('image/jpeg', q);
+          while (uri.length * 0.75 > 190 * 1024 && q > 0.4) { q -= 0.1; uri = c.toDataURL('image/jpeg', q); }
+          if (uri.length * 0.75 > 200 * 1024) { reject(new Error('A foto ficou grande demais. Tente outra imagem.')); return; }
+          resolve(uri);
+        };
+        img.src = leitor.result;
+      };
+      leitor.readAsDataURL(arquivo);
+    });
+  }
+
+  function pintarFoto(prefixo, uri, categoria) {
+    const alvo = document.getElementById(prefixo + 'fotoPreview');
+    alvo.innerHTML = uri ? `<img src="${escaparHtml(uri)}" alt="">` : svgProd(ICONE_CATEGORIA[categoria] || ICONE_PADRAO);
+    document.getElementById(prefixo + 'fotoRemover').hidden = !uri;
+  }
+
+  const campoCategoria = prefixo => document.getElementById(prefixo ? 'editCategoriaProduto' : 'categoriaProduto');
+
+  function prepararCampoFoto(prefixo) {
+    document.getElementById(prefixo + 'fotoArquivo').addEventListener('change', async function () {
+      const arquivo = this.files && this.files[0];
+      this.value = '';
+      if (!arquivo) return;
+      try {
+        fotoPendente[prefixo] = await reduzirImagem(arquivo);
+        fotoRemover[prefixo] = false;
+        pintarFoto(prefixo, fotoPendente[prefixo], campoCategoria(prefixo).value);
+      } catch (erro) { toast(erro.message, 'error'); }
+    });
+    document.getElementById(prefixo + 'fotoRemover').addEventListener('click', function () {
+      fotoPendente[prefixo] = null;
+      fotoRemover[prefixo] = true;
+      pintarFoto(prefixo, '', campoCategoria(prefixo).value);
+    });
+  }
+
   /** Cards do topo — contados sobre o catalogo inteiro, nao sobre o filtro. */
   function atualizarResumo() {
     let ok = 0, baixo = 0, zero = 0;
@@ -512,8 +676,11 @@
     document.getElementById('kpiZero').textContent = zero;
   }
 
+  /* Item 16: filtros no padrao LaneBusca e na URL (o Dashboard abre ?estoque=baixo). */
+  const FILTROS_PROD = { busca: 'filtro', categoria: 'filtroCategoria', estoque: 'filtroEstoque', min: 'precoMin', max: 'precoMax' };
+
   function carregarTabela() {
-    const filtro = document.getElementById('filtro').value.trim().toLowerCase();
+    const filtro = document.getElementById('filtro').value;
     const filtroCategoria = document.getElementById('filtroCategoria').value;
     const filtroEstoque = document.getElementById('filtroEstoque').value;
     const precoMinTexto = document.getElementById('precoMin').value;
@@ -529,23 +696,22 @@
       .map((produto, index) => ({ produto, index }))
       .filter(item => {
         const produto = item.produto;
-        const codigo = String(produto.codigo || '').toLowerCase();
-        const nome = String(produto.nome || '').toLowerCase();
-        if (filtro && !codigo.includes(filtro) && !nome.includes(filtro)) return false;
+        if (!LaneBusca.combina(filtro, [produto.codigo, produto.nome, produto.categoria, produto.descricao])) return false;
         if (filtroCategoria && produto.categoria !== filtroCategoria) return false;
-        if (filtroEstoque && estadoEstoque(produto).chave !== filtroEstoque) return false;
+        if (filtroEstoque === 'oculto') { if (produto.visivelLoja !== false) return false; }
+        else if (filtroEstoque === 'alerta') { if (!['baixo', 'zero'].includes(estadoEstoque(produto).chave)) return false; }
+        else if (filtroEstoque && estadoEstoque(produto).chave !== filtroEstoque) return false;
         const venda = Number(produto.valorVenda) || 0;
         if (precoMin !== null && Number.isFinite(precoMin) && venda < precoMin) return false;
         if (precoMax !== null && Number.isFinite(precoMax) && venda > precoMax) return false;
         return true;
       });
 
-    contador.textContent = `${produtosFiltrados.length} ${produtosFiltrados.length === 1 ? 'produto' : 'produtos'}`;
+    LaneBusca.gravarUrl(FILTROS_PROD);
+    LaneBusca.contador(contador, produtosFiltrados.length, produtos.length, 'produto', 'produtos');
 
     if (produtosFiltrados.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="6" class="empty-cell" style="text-align:center">${
-        produtos.length ? 'Nenhum produto corresponde aos filtros informados.' : 'Nenhum produto cadastrado ainda.'
-      }</td></tr>`;
+      tbody.innerHTML = LaneBusca.linhaVazia(6, produtos.length, { nenhum: 'Nenhum produto cadastrado ainda.', filtro: 'Nenhum produto corresponde aos filtros informados.' });
       return;
     }
 
@@ -559,9 +725,9 @@
         <tr>
           <td>
             <div class="prod-item">
-              ${miniatura(produto.categoria)}
+              ${miniatura(produto.categoria, produto.fotoUrl)}
               <div class="prod-nome">
-                <strong>${escaparHtml(produto.nome || '-')}</strong>
+                <strong>${escaparHtml(produto.nome || '-')}${produto.visivelLoja === false ? '<span class="prod-oculto">Oculto na loja</span>' : ''}</strong>
                 <span>${escaparHtml(produto.codigo || 'sem código')}</span>
               </div>
             </div>
@@ -595,7 +761,7 @@
     const margem = compra > 0 ? ((venda - compra) / compra) * 100 : 0;
     const estoque = estadoEstoque(produto);
 
-    document.getElementById('detalheThumb').innerHTML = svgProd(ICONE_CATEGORIA[produto.categoria] || ICONE_PADRAO);
+    document.getElementById('detalheThumb').innerHTML = produto.fotoUrl ? `<img src="${escaparHtml(produto.fotoUrl)}" alt="">` : svgProd(ICONE_CATEGORIA[produto.categoria] || ICONE_PADRAO);
     document.getElementById('detalheNome').textContent = produto.nome || '-';
     document.getElementById('detalheCodigo').textContent = produto.codigo || 'sem código';
 
@@ -608,7 +774,9 @@
       ['Controle de estoque', produto.controlaEstoque ? 'Ligado' : 'Desligado'],
       ['Estoque atual', produto.controlaEstoque ? String(Number(produto.estoque) || 0) : '—'],
       ['Estoque mínimo', produto.controlaEstoque ? String(Number(produto.estoqueMinimo) || 0) : '—'],
-      ['Situação', estoque.texto]
+      ['Situação', estoque.texto],
+      ['Loja do cliente', produto.visivelLoja === false ? 'Oculto' : 'Visível'],
+      ['Descrição', produto.descricao || '—']
     ];
     document.getElementById('detalheLinhas').innerHTML = linhas
       .map(([rotulo, valor]) => `<div><dt>${rotulo}</dt><dd>${escaparHtml(valor)}</dd></div>`).join('');
@@ -652,6 +820,10 @@
     document.getElementById('editCategoriaProduto').value = produto.categoria || '';
     document.getElementById('editValorCompraProduto').value = produto.valorCompra ?? '';
     document.getElementById('editValorVendaProduto').value = produto.valorVenda ?? '';
+    document.getElementById('editdescricaoProduto').value = produto.descricao || '';
+    document.getElementById('editvisivelLoja').checked = produto.visivelLoja !== false;
+    fotoPendente.edit = null; fotoRemover.edit = false;
+    pintarFoto('edit', produto.fotoUrl || '', produto.categoria);
 
     const modal = document.getElementById('modalEditar');
     modal.classList.add('ativo');
@@ -682,7 +854,12 @@
       return;
     }
 
-    if (!Number.isFinite(valorCompra) || valorCompra < 0 || !Number.isFinite(valorVenda) || valorVenda < 0) {
+    /* Mesma regra do servidor (Validacao.Produto, item 13): venda > 0, compra >= 0. */
+    if (Number.isFinite(valorVenda) && valorVenda <= 0) {
+      toast('O preço de venda precisa ser maior que zero.', 'error');
+      return;
+    }
+    if (!Number.isFinite(valorCompra) || valorCompra < 0 || !Number.isFinite(valorVenda)) {
       toast('Informe valores de compra e venda válidos.', 'error');
       return;
     }
@@ -703,7 +880,13 @@
 
     /* Mantem id, estoque e controle de estoque: sem o spread a edicao viraria
        um produto novo no banco e o estoque seria perdido. */
-    produtos[index] = { ...produtos[index], codigo, nome, categoria, valorCompra, valorVenda };
+    const extras = {
+      descricao: document.getElementById('editdescricaoProduto').value.trim(),
+      visivelLoja: document.getElementById('editvisivelLoja').checked
+    };
+    if (fotoPendente.edit) { extras.fotoUrl = fotoPendente.edit; extras.removerFoto = false; }
+    else if (fotoRemover.edit) { extras.fotoUrl = ''; extras.removerFoto = true; }
+    produtos[index] = { ...produtos[index], codigo, nome, categoria, valorCompra, valorVenda, ...extras };
     salvarProdutos();
     carregarTabela();
     fecharModalEditar();
@@ -732,6 +915,7 @@
     const index = Number(botao.dataset.index);
     if (botao.dataset.prod === 'ver') return abrirDetalhe(index);
     if (botao.dataset.prod === 'editar') return abrirModalEditar(index);
+    if (botao.dataset.prod === 'estoque') return abrirEstoque(index);
     if (botao.dataset.prod === 'excluir') return excluirProduto(index);
   });
 
@@ -752,6 +936,10 @@
     carregarTabela();
     document.getElementById('filtro').focus();
   });
+  document.addEventListener('click', function(e) {
+    if (e.target.closest('#tabelaProdutos [data-limpar-filtros]')) document.getElementById('btnLimparFiltro').click();
+  });
+  LaneBusca.atalhos('filtro', carregarTabela);
 
   /* ---- modal de detalhe ---- */
   document.getElementById('btnFecharDetalhe').addEventListener('click', fecharDetalhe);
@@ -775,6 +963,134 @@
     if (e.key !== 'Escape') return;
     if (document.getElementById('modalEditar').classList.contains('ativo')) fecharModalEditar();
     if (document.getElementById('modalDetalhe').classList.contains('ativo')) fecharDetalhe();
+    if (document.getElementById('modalEstoque').classList.contains('ativo')) fecharEstoque();
+  });
+
+  prepararCampoFoto('');
+  prepararCampoFoto('edit');
+  pintarFoto('', '', '');
+
+  /* ------------------------------------------------------------------
+     Estoque e movimentacoes (item 7). O saldo so muda pelo livro de
+     estoque no servidor; a tela recarrega os dados depois de cada lancamento.
+     ------------------------------------------------------------------ */
+  let produtoEstoque = null;
+  const SITUACAO = { ok: 'Em estoque', baixo: 'Estoque baixo', zero: 'Sem estoque', livre: 'Sem controle' };
+
+  function pintarResumoEstoque(p) {
+    document.getElementById('estTitulo').textContent = 'Estoque — ' + (p.nome || '');
+    document.getElementById('estSub').textContent = (p.codigo || 'sem código') + ' · ' + (p.categoria || '');
+    document.getElementById('estSaldo').textContent = p.controlaEstoque ? String(Number(p.estoque) || 0) : '—';
+    document.getElementById('estMinimo').textContent = p.controlaEstoque ? String(Number(p.estoqueMinimo) || 0) : '—';
+    const est = estadoEstoque(p);
+    document.getElementById('estSituacao').innerHTML = `<span class="prod-estoque prod-estoque--${est.chave}"><span class="prod-bolinha"></span>${SITUACAO[est.chave]}</span>`;
+    const controla = document.getElementById('estControla'); if (controla) controla.checked = !!p.controlaEstoque;
+    const minimo = document.getElementById('estMinimoCampo'); if (minimo) minimo.value = Number(p.estoqueMinimo) || 0;
+    const mov = document.getElementById('formMovimento');
+    if (mov) {
+      mov.querySelectorAll('input,select,button').forEach(el => { el.disabled = !p.controlaEstoque; });
+      document.getElementById('movAviso').textContent = p.controlaEstoque ? '' : 'Ligue "Controlar estoque" e salve para lançar movimentações.';
+    }
+  }
+
+  async function carregarHistorico() {
+    const corpo = document.getElementById('estHistorico');
+    if (!produtoEstoque || !produtoEstoque.id) { corpo.innerHTML = '<tr><td colspan="5">Salve o produto antes de lançar movimentações.</td></tr>'; return; }
+    corpo.innerHTML = '<tr><td colspan="5">Carregando…</td></tr>';
+    try {
+      const lista = await LaneAdmin.get('admin/estoque/movimentacoes', { produtoId: produtoEstoque.id, limite: 100 });
+      corpo.innerHTML = (lista || []).length ? lista.map(m => `<tr>
+          <td>${new Date(m.dataHora).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}</td>
+          <td>${escaparHtml(m.tipoRotulo)}</td>
+          <td class="${m.quantidade > 0 ? 'est-mais' : 'est-menos'}">${m.quantidade > 0 ? '+' : ''}${m.quantidade}</td>
+          <td>${m.saldoAnterior} → <strong>${m.saldoNovo}</strong></td>
+          <td>${escaparHtml(m.motivo || '')}<br><span class="text-muted">${escaparHtml(m.autor || m.origem || '')}</span></td>
+        </tr>`).join('') : '<tr><td colspan="5">Nenhuma movimentação registrada ainda.</td></tr>';
+    } catch (erro) {
+      console.error('[LanePets] movimentações:', erro);
+      /* 404 aqui quase sempre e servidor com build antiga (rota nova do item 7). */
+      const msg = /404/.test(String(erro.message))
+        ? 'O servidor ainda não conhece o histórico de estoque. Pare o LanePets (Ctrl+C) e rode dotnet run de novo.'
+        : erro.message;
+      corpo.innerHTML = `<tr><td colspan="5">${escaparHtml(msg)}</td></tr>`;
+    }
+  }
+
+  function abrirEstoque(index) {
+    produtoEstoque = produtos[index];
+    if (!produtoEstoque) return;
+    pintarResumoEstoque(produtoEstoque);
+    if (document.getElementById('movQuantidade')) {
+      document.getElementById('movQuantidade').value = '';
+      document.getElementById('movMotivo').value = '';
+    }
+    atualizarRotuloMovimento();
+    const modal = document.getElementById('modalEstoque');
+    modal.classList.add('ativo'); modal.setAttribute('aria-hidden', 'false');
+    carregarHistorico();
+  }
+  function fecharEstoque() {
+    const modal = document.getElementById('modalEstoque');
+    modal.classList.remove('ativo'); modal.setAttribute('aria-hidden', 'true');
+  }
+  function atualizarRotuloMovimento() {
+    const tipo = document.getElementById('movTipo');
+    if (!tipo) return;
+    document.getElementById('movQuantidadeRotulo').textContent = tipo.value === 'ajuste' ? 'Saldo correto' : 'Quantidade';
+  }
+
+  /* Depois de gravar: recarrega do banco e reabre o resumo com o saldo novo. */
+  async function aposMovimento(dados) {
+    if (window.LaneStore && window.LaneStore.recarregar) await window.LaneStore.recarregar();
+    produtos = JSON.parse(localStorage.getItem('produtos') || '[]');
+    carregarTabela();
+    const atual = produtos.find(p => p.id === produtoEstoque.id) || { ...produtoEstoque, ...dados };
+    produtoEstoque = atual;
+    pintarResumoEstoque(atual);
+    carregarHistorico();
+  }
+
+  document.getElementById('btnFecharEstoque').addEventListener('click', fecharEstoque);
+  document.getElementById('modalEstoque').addEventListener('mousedown', function (e) { if (e.target === this) fecharEstoque(); });
+  const tipoMov = document.getElementById('movTipo');
+  if (tipoMov) tipoMov.addEventListener('change', atualizarRotuloMovimento);
+
+  const formMov = document.getElementById('formMovimento');
+  if (formMov) formMov.addEventListener('submit', async function (e) {
+    e.preventDefault();
+    const botao = document.getElementById('btnRegistrarMovimento');
+    const quantidade = Number(document.getElementById('movQuantidade').value);
+    const motivo = document.getElementById('movMotivo').value.trim();
+    if (!Number.isInteger(quantidade) || quantidade < 0) { toast('Informe uma quantidade válida.', 'error'); return; }
+    if (motivo.length < 3) { toast('Informe o motivo da movimentação.', 'error'); return; }
+    botao.disabled = true;
+    try {
+      const dados = await LaneAdmin.post(`admin/produtos/${produtoEstoque.id}/movimentacao`,
+        { tipo: document.getElementById('movTipo').value, quantidade, motivo });
+      toast(`${dados.nome}: saldo ${dados.estoque}.`, 'success');
+      document.getElementById('movQuantidade').value = '';
+      document.getElementById('movMotivo').value = '';
+      await aposMovimento(dados);
+    } catch (erro) { toast(erro.message, 'error'); }
+    finally { botao.disabled = !produtoEstoque.controlaEstoque; }
+  });
+
+  const formCfg = document.getElementById('formConfigEstoque');
+  if (formCfg) formCfg.addEventListener('submit', async function (e) {
+    e.preventDefault();
+    const minimo = Number(document.getElementById('estMinimoCampo').value);
+    if (!Number.isInteger(minimo) || minimo < 0) { toast('O estoque mínimo precisa ser 0 ou mais.', 'error'); return; }
+    const botao = document.getElementById('btnSalvarConfigEstoque');
+    botao.disabled = true;
+    try {
+      const dados = await LaneAdmin.post(`admin/produtos/${produtoEstoque.id}/estoque`, {
+        estoque: Number(produtoEstoque.estoque) || 0, estoqueMinimo: minimo,
+        controlaEstoque: document.getElementById('estControla').checked, motivo: 'Configuração do estoque'
+      });
+      toast('Configuração do estoque salva.', 'success');
+      await aposMovimento(dados);
+    } catch (erro) { toast(erro.message, 'error'); }
+    finally { botao.disabled = false; }
   });
 
   function exportarBackupCompleto(filename = 'backup-petshop.json') {
@@ -823,7 +1139,7 @@
     reader.readAsText(file, 'UTF-8');
   }
 
-  window.addEventListener('load', carregarTabela);
+  window.addEventListener('load', function() { LaneBusca.lerUrl(FILTROS_PROD); carregarTabela(); });
 
 /* ---------------------------------------------------------------------------
    Atualizacao automatica: a ponte js/admin-store.js recarrega o banco (aviso
