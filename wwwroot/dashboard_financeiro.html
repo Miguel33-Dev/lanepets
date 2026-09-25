@@ -1,29 +1,165 @@
-<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>Dashboard Financeiro - Lane Pets</title><link rel="stylesheet" href="design-system.css?v=3"><style>
-.dashboard-filters{display:grid;grid-template-columns:1.2fr 1fr 1fr;gap:var(--sp-4);align-items:end}.quick-periods{display:flex;gap:8px;flex-wrap:wrap}.quick-periods .btn.active{background:var(--brand-500);color:#fff;border-color:var(--brand-500)}
-.kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:var(--sp-4);margin:var(--sp-5) 0}.kpi{position:relative;overflow:hidden}.kpi .eyebrow{font-size:.73rem;font-weight:800;text-transform:uppercase;color:var(--ink-500);letter-spacing:.05em}.kpi .value{font:800 1.65rem var(--font-display);margin-top:7px;color:var(--ink-900)}.kpi .meta{font-size:.78rem;color:var(--ink-500);margin-top:5px}.kpi .accent{position:absolute;right:-24px;top:-24px;width:86px;height:86px;border-radius:50%;background:var(--brand-100)}
-.chart-grid{display:grid;grid-template-columns:1.4fr 1fr;gap:var(--sp-5)}.chart{min-height:310px}.bars{height:220px;display:flex;align-items:end;gap:12px;padding:22px 4px 4px;border-bottom:1px solid var(--border)}.bar-col{height:100%;flex:1;display:flex;flex-direction:column;justify-content:end;align-items:center;gap:6px;min-width:28px}.bar-stack{height:185px;width:100%;display:flex;align-items:end;justify-content:center;gap:4px}.bar{width:38%;max-width:28px;border-radius:7px 7px 2px 2px;min-height:2px}.bar.revenue{background:var(--brand-500)}.bar.expense{background:var(--danger-500)}.bar-label{font-size:.68rem;color:var(--ink-500)}.legend{display:flex;gap:14px;font-size:.75rem;color:var(--ink-600);margin-top:12px}.legend span:before{content:"";display:inline-block;width:9px;height:9px;border-radius:3px;margin-right:5px}.legend .rev:before{background:var(--brand-500)}.legend .exp:before{background:var(--danger-500)}
-.category-list{display:grid;gap:12px;margin-top:12px}.cat-row{display:grid;grid-template-columns:110px 1fr 90px;gap:10px;align-items:center;font-size:.8rem}.cat-track{height:9px;background:var(--surface-muted);border-radius:99px;overflow:hidden}.cat-fill{height:100%;background:var(--brand-500);border-radius:99px}.unit-table{width:100%;border-collapse:collapse}.unit-table th,.unit-table td{padding:11px 10px;border-bottom:1px solid var(--border);text-align:left;font-size:.8rem}.unit-table th{font-size:.7rem;text-transform:uppercase;color:var(--ink-500)}.unit-table tr:last-child td{border-bottom:0}.positive{color:var(--success-500);font-weight:800}.negative{color:var(--danger-500);font-weight:800}.alert-list{display:grid;gap:10px}.alert-item{padding:12px 14px;border:1px solid var(--border);border-left:4px solid var(--warning-500);border-radius:var(--r-md);background:var(--surface-muted);font-size:.8rem}.empty{color:var(--ink-500);font-size:.82rem;padding:20px 0}.small-note{font-size:.74rem;color:var(--ink-500)}
-@media(max-width:1000px){.kpi-grid{grid-template-columns:repeat(2,1fr)}.chart-grid{grid-template-columns:1fr}.dashboard-filters{grid-template-columns:1fr}}@media(max-width:600px){.kpi-grid{grid-template-columns:1fr}.bars{gap:5px}.cat-row{grid-template-columns:90px 1fr 75px}}
+<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>Dashboard &middot; LanePets</title><link rel="stylesheet" href="design-system.css?v=4"><style>
+/* Específico do dashboard. KPIs, gráficos, listas de categoria e alertas
+   agora vêm de design-system.css (camada compartilhada). */
+.dashboard-filters{display:grid;grid-template-columns:1.2fr 1fr 1fr;gap:var(--sp-4);align-items:end}
+.dashboard-filters .field{margin-bottom:0}
+@media(max-width:1000px){.dashboard-filters{grid-template-columns:1fr}}
 </style>  <script src="js/config.js"></script>
   <script src="js/api.js"></script>
-</head><body><div class="app-shell"><aside class="sidebar"><div class="sidebar-brand"><a class="brand-home" href="cliente.html" title="Ir para a página inicial do LanePets"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#F2994A" stroke-width="1.8"><circle cx="7" cy="8" r="2"/><circle cx="12" cy="5.5" r="2"/><circle cx="17" cy="8" r="2"/><path d="M12 13c-3.3 0-6 2.1-6 4.7 0 1.6 1.5 2.3 3 1.8.9-.3 1.9-.5 3-.5s2.1.2 3 .5c1.5.5 3-.2 3-1.8 0-2.6-2.7-4.7-6-4.7Z"/></svg><div><div class="brand-name">Lane Pets</div><span class="brand-sub">Franco + Caieiras</span></div><svg class="brand-home-ico" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg></a><button class="sidebar-close hide-desktop" aria-label="Fechar menu">×</button></div><nav class="sidebar-nav"><a class="nav-item" href="index.html">⌂ <span>Cadastro</span></a><a class="nav-item" href="clientes.html">♙ <span>Clientes</span></a><a class="nav-item" href="clientes_pacote.html">▣ <span>Pacotes</span></a><a class="nav-item" href="agendamentos.html">▦ <span>Agendamentos</span></a><a class="nav-item active" href="dashboard_financeiro.html">◫ <span>Dashboard</span></a><a class="nav-item" href="Produtos.html">◇ <span>Produtos</span></a><a class="nav-item" href="entradas_e_saidas.html">$ <span>Entradas e Saídas</span></a><a class="nav-item" href="relatorio.html">▥ <span>Relatório</span></a></nav><div class="sidebar-foot">Lane Pets © 2026</div></aside><div class="main-area"><header class="topbar"><div class="topbar-left"><button class="menu-toggle hide-desktop" aria-label="Abrir menu">☰</button><div><div class="topbar-title">Dashboard Financeiro</div><div class="topbar-breadcrumb hide-mobile">Gestão / Visão geral</div></div></div><div class="topbar-right"><div class="topbar-user"><div class="avatar">LP</div><span>Lane Pets</span></div></div></header><main class="page-content"><div class="page-header"><div><h1>Dashboard Financeiro</h1><p>Uma visão rápida do faturamento, despesas e desempenho das duas unidades.</p></div><div><a class="btn btn-outline" href="entradas_e_saidas.html">Abrir movimentações</a></div></div>
+  <script src="lib/signalr/signalr.min.js"></script>
+  <script src="js/admin-dados.js"></script>
+<script src="js/admin-permissoes.js"></script>
+</head><body><div class="app-shell"><aside class="sidebar" id="menu-lateral"><div class="sidebar-brand"><a class="brand-home" href="cliente.html" title="Abrir o site LanePets"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="var(--accent-500)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="7" cy="8" r="2"/><circle cx="12" cy="5.5" r="2"/><circle cx="17" cy="8" r="2"/><path d="M12 13c-3.3 0-6 2.1-6 4.7 0 1.6 1.5 2.3 3 1.8.9-.3 1.9-.5 3-.5s2.1.2 3 .5c1.5.5 3-.2 3-1.8 0-2.6-2.7-4.7-6-4.7Z"/></svg><span class="brand-text"><span class="brand-name">LanePets</span><span class="brand-sub">Franco + Caieiras</span></span><svg class="brand-home-ico" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg></a><button class="sidebar-close hide-desktop" type="button" aria-label="Fechar menu"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div><nav class="sidebar-nav" aria-label="Menu do painel"><p class="nav-group">Operação</p><a class="nav-item active" href="dashboard_financeiro.html" aria-current="page"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 13h8V3H3v10Zm0 8h8v-6H3v6Zm10 0h8V11h-8v10Zm0-18v6h8V3h-8Z"/></svg><span>Dashboard</span></a><a class="nav-item" href="agendamentos.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4.5" width="18" height="16.5" rx="2.5"/><path d="M16 2.5v4M8 2.5v4M3 10h18"/></svg><span>Agendamentos</span></a><a class="nav-item" href="pedidos.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="20" r="1.4"/><circle cx="18" cy="20" r="1.4"/><path d="M2.5 3h2.2l2.3 11.2a1.6 1.6 0 0 0 1.6 1.3h8.7a1.6 1.6 0 0 0 1.6-1.25L21 7H6"/></svg><span>Pedidos</span></a><a class="nav-item" href="clientes.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 20v-1.8a3.6 3.6 0 0 0-3.6-3.6H6.6A3.6 3.6 0 0 0 3 18.2V20"/><circle cx="9.5" cy="7.5" r="3.4"/><path d="M21 20v-1.8a3.6 3.6 0 0 0-2.7-3.48"/><path d="M15.5 4.2a3.4 3.4 0 0 1 0 6.6"/></svg><span>Clientes</span></a><a class="nav-item" href="clientes_pacote.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.3 7.5 12 12l8.7-4.5"/><path d="M12 12v9.2"/><path d="M20.4 7.2v9.6a1.4 1.4 0 0 1-.76 1.24l-7 3.6a1.4 1.4 0 0 1-1.28 0l-7-3.6A1.4 1.4 0 0 1 3.6 16.8V7.2a1.4 1.4 0 0 1 .76-1.24l7-3.6a1.4 1.4 0 0 1 1.28 0l7 3.6A1.4 1.4 0 0 1 20.4 7.2Z"/></svg><span>Pacotes</span></a><a class="nav-item" href="index.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6.2" cy="9" r="1.9"/><circle cx="11" cy="6.4" r="1.9"/><circle cx="15.8" cy="9" r="1.9"/><path d="M11 13.4c-3.1 0-5.6 2-5.6 4.4 0 1.5 1.4 2.2 2.8 1.7.85-.3 1.8-.45 2.8-.45s1.95.15 2.8.45c1.4.5 2.8-.2 2.8-1.7 0-2.4-2.5-4.4-5.6-4.4Z"/><path d="M19 4.5v5M21.5 7h-5"/></svg><span>Cadastro</span></a><p class="nav-group">Catálogo</p><a class="nav-item" href="Produtos.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 8 9-5 9 5-9 5-9-5Z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v8"/></svg><span>Produtos</span></a><p class="nav-group">Financeiro</p><a class="nav-item" href="entradas_e_saidas.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.5v19"/><path d="M16.8 6H9.6a3.4 3.4 0 0 0 0 6.8h4.8a3.4 3.4 0 0 1 0 6.8H6.8"/></svg><span>Entradas e Saídas</span></a><a class="nav-item" href="relatorio.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 3.5v17h17"/><path d="M18 16.5V9M13 16.5V5.5M8 16.5v-4"/></svg><span>Relatório</span></a><p class="nav-group">Site público</p><a class="nav-item" href="gestao-publica.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3.3 9.5h17.4M3.3 14.5h17.4"/><path d="M12 3a15 15 0 0 1 0 18a15 15 0 0 1 0-18Z"/></svg><span>Área pública</span></a></nav><div class="sidebar-foot">LanePets &copy; 2026 &middot; Painel de gestão</div></aside><div class="main-area"><header class="topbar"><div class="topbar-left"><button class="menu-toggle hide-desktop" aria-label="Abrir menu">☰</button><div><div class="topbar-title">Dashboard Financeiro</div><div class="topbar-breadcrumb hide-mobile">Gestão / Visão geral</div></div></div><div class="topbar-right"><a class="topbar-ghost hide-mobile" href="cliente.html" title="Ver o site público"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3.3 9.5h17.4M3.3 14.5h17.4"/><path d="M12 3a15 15 0 0 1 0 18a15 15 0 0 1 0-18Z"/></svg><span>Ver site</span></a><div class="topbar-user"><div class="avatar" aria-hidden="true">LP</div><div class="topbar-user-info hide-mobile"><strong>Administrador</strong><span>LanePets</span></div></div><button class="btn btn-outline btn-sm" type="button" id="btnSair" title="Encerrar sessão"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5.5A1.5 1.5 0 0 1 4 19.5v-15A1.5 1.5 0 0 1 5.5 3H9"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/></svg><span class="hide-mobile">Sair</span></button></div></header><main class="page-content"><div class="page-header"><div><h1>Dashboard Financeiro</h1><p>Uma visão rápida do faturamento, despesas e desempenho das duas unidades.</p></div><div><a class="btn btn-outline" href="entradas_e_saidas.html">Abrir movimentações</a></div></div>
 <section class="card"><h2 class="section-title">Período e unidade</h2><div class="dashboard-filters"><div class="field"><label>Período rápido</label><div class="quick-periods"><button class="btn btn-outline btn-sm" data-period="today">Hoje</button><button class="btn btn-outline btn-sm" data-period="7">7 dias</button><button class="btn btn-outline btn-sm active" data-period="month">Este mês</button><button class="btn btn-outline btn-sm" data-period="previous">Mês anterior</button></div></div><div class="field"><label for="dataInicio">Data inicial</label><input class="input" type="date" id="dataInicio"></div><div class="field"><label for="dataFim">Data final</label><input class="input" type="date" id="dataFim"></div></div><div class="filter-actions" style="margin-top:var(--sp-4)"><div class="field" style="max-width:300px;margin:0"><label for="unidadeFiltro">Unidade</label><select class="input" id="unidadeFiltro"><option value="todas">Todas as unidades</option><option value="franco">Franco da Rocha</option><option value="caieiras">Caieiras</option><option value="sem-unidade">Sem unidade / antigos</option></select></div><button class="btn btn-primary" id="aplicarDashboard">Atualizar dashboard</button></div></section>
-<div class="kpi-grid"><section class="card kpi"><div class="accent"></div><div class="eyebrow">Receita</div><div class="value" id="kpiReceita">R$ 0,00</div><div class="meta" id="kpiReceitaMeta">Agendamentos + entradas manuais</div></section><section class="card kpi"><div class="accent"></div><div class="eyebrow">Despesas</div><div class="value" id="kpiDespesas">R$ 0,00</div><div class="meta">Saídas registradas</div></section><section class="card kpi"><div class="accent"></div><div class="eyebrow">Resultado</div><div class="value" id="kpiResultado">R$ 0,00</div><div class="meta" id="kpiMargem">Margem: 0%</div></section><section class="card kpi"><div class="accent"></div><div class="eyebrow">Atendimentos</div><div class="value" id="kpiAtendimentos">0</div><div class="meta" id="kpiTicket">Ticket médio: R$ 0,00</div></section></div>
+<section class="card" style="margin-top:var(--sp-5)"><div class="page-header" style="margin-bottom:var(--sp-3)"><div><h2 class="section-title">Nu&#769;meros do sistema</h2><p class="small-note">Contagem direta do banco de dados. Inclui tudo o que os clientes fazem na A&#769;rea do Cliente.</p></div></div><div class="category-list" id="totaisSistema"></div></section>
+<div class="kpi-grid"><section class="card kpi"><div class="accent"></div><div class="eyebrow">Receita</div><div class="value" id="kpiReceita">R$ 0,00</div><div class="kpi-trend" id="trendReceita"></div><div class="meta" id="kpiReceitaMeta">Agendamentos + entradas manuais</div></section><section class="card kpi"><div class="accent"></div><div class="eyebrow">Despesas</div><div class="value" id="kpiDespesas">R$ 0,00</div><div class="kpi-trend" id="trendDespesas"></div><div class="meta">Saídas registradas</div></section><section class="card kpi kpi-accent"><div class="accent"></div><div class="eyebrow">Resultado</div><div class="value" id="kpiResultado">R$ 0,00</div><div class="kpi-trend" id="trendResultado"></div><div class="meta" id="kpiMargem">Margem: 0%</div></section><section class="card kpi"><div class="accent"></div><div class="eyebrow">Atendimentos</div><div class="value" id="kpiAtendimentos">0</div><div class="kpi-trend" id="trendAtendimentos"></div><div class="meta" id="kpiTicket">Ticket médio: R$ 0,00</div></section></div>
 <div class="chart-grid"><section class="card chart"><div class="page-header" style="margin-bottom:var(--sp-3)"><div><h2 class="section-title">Receita × despesas</h2><p class="small-note">Evolução por mês dos últimos 6 meses.</p></div></div><div class="bars" id="graficoMensal"></div><div class="legend"><span class="rev">Receita</span><span class="exp">Despesas</span></div></section><section class="card chart"><h2 class="section-title">Receita por categoria</h2><p class="small-note">Estimativa baseada nos serviços, produtos, pacotes e descrições dos lançamentos.</p><div class="category-list" id="categoriasReceita"></div></section></div>
-<section class="card" style="margin-top:var(--sp-5)"><div class="page-header"><div><h2 class="section-title">Desempenho por unidade</h2><p class="small-note">Inclui receita de agendamentos e lançamentos financeiros associados à unidade.</p></div></div><div style="overflow:auto"><table class="unit-table"><thead><tr><th>Unidade</th><th>Receita</th><th>Despesas</th><th>Resultado</th><th>Margem</th><th>Atend.</th><th>Ticket</th></tr></thead><tbody id="tabelaUnidades"></tbody></table></div></section>
+<section class="card" style="margin-top:var(--sp-5)"><div class="page-header"><div><h2 class="section-title">Desempenho por unidade</h2><p class="small-note">Inclui receita de agendamentos e lançamentos financeiros associados à unidade.</p></div></div><div class="table-wrap"><table><thead><tr><th>Unidade</th><th>Receita</th><th>Despesas</th><th>Resultado</th><th>Margem</th><th>Atend.</th><th>Ticket</th></tr></thead><tbody id="tabelaUnidades"></tbody></table></div></section>
 <div class="chart-grid" style="margin-top:var(--sp-5)"><section class="card"><h2 class="section-title">Indicadores operacionais</h2><div class="category-list" id="indicadoresOperacionais"></div></section><section class="card"><h2 class="section-title">Atenção necessária</h2><div class="alert-list" id="alertasDashboard"></div></section></div>
 <section class="card" style="margin-top:var(--sp-5)"><h2 class="section-title">Nota sobre dados antigos</h2><p class="small-note">Lançamentos financeiros antigos sem unidade continuam preservados e aparecem como “Sem unidade / antigos”. O dashboard não atribui uma unidade automaticamente e não altera o histórico.</p></section>
-</main></div></div><script src="ui-kit.js"></script><script>
-const brl=v=>Number(v||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});const hojeStr=()=>new Date().toISOString().slice(0,10);const safe=(k,d=[])=>{try{return JSON.parse(localStorage.getItem(k)||JSON.stringify(d))}catch{return d}};const unidade=a=>(a&&(['franco','caieiras'].includes(a.unidade)))?a.unidade:'sem-unidade';const nomeUn=u=>u==='franco'?'Franco da Rocha':u==='caieiras'?'Caieiras':'Sem unidade / antigos';
-function range(){return [document.getElementById('dataInicio').value,document.getElementById('dataFim').value]}
-function dentro(data,ini,fim){return data&&(!ini||data>=ini)&&(!fim||data<=fim)}
-function dadosFinanceiros(ini,fim,uf){const ag=safe('agendamentos',[]), es=safe('entradasESaidas',[]);let atend=ag.filter(a=>dentro((a.dataHora||'').slice(0,10),ini,fim)&& (uf==='todas'||unidade(a)===uf));let man=es.filter(e=>dentro(e.data,ini,fim)&&(uf==='todas'||unidade(e)===uf));let receita=atend.reduce((s,a)=>s+Number(a.total||0),0)+man.filter(e=>e.tipo==='Entrada').reduce((s,e)=>s+Number(e.valor||0),0);let despesas=man.filter(e=>e.tipo==='Saída').reduce((s,e)=>s+Number(e.valor||0),0);return{ag,es,atend,man,receita,despesas}}
-function render(){let [ini,fim]=range();const uf=document.getElementById('unidadeFiltro').value;if(!ini||!fim||ini>fim){toast('Informe um período válido.','error');return}const d=dadosFinanceiros(ini,fim,uf),resultado=d.receita-d.despesas,margem=d.receita?resultado/d.receita*100:0,ticket=d.atend.length?d.receita/d.atend.length:0;document.getElementById('kpiReceita').textContent=brl(d.receita);document.getElementById('kpiDespesas').textContent=brl(d.despesas);document.getElementById('kpiResultado').textContent=brl(resultado);document.getElementById('kpiResultado').className='value '+(resultado>=0?'positive':'negative');document.getElementById('kpiMargem').textContent='Margem: '+margem.toFixed(1)+'%';document.getElementById('kpiAtendimentos').textContent=d.atend.length;document.getElementById('kpiTicket').textContent='Ticket médio: '+brl(ticket);renderUnits(ini,fim);renderCats(d);renderOps(d);renderAlerts(d,resultado);renderMonths(uf)}
-function renderUnits(ini,fim){const tbody=document.getElementById('tabelaUnidades');const rows=['franco','caieiras','sem-unidade'].map(u=>{const d=dadosFinanceiros(ini,fim,u),r=d.receita-d.despesas,m=d.receita?r/d.receita*100:0,t=d.atend.length?d.receita/d.atend.length:0;return`<tr><td><strong>${nomeUn(u)}</strong></td><td>${brl(d.receita)}</td><td>${brl(d.despesas)}</td><td class="${r>=0?'positive':'negative'}">${brl(r)}</td><td>${m.toFixed(1)}%</td><td>${d.atend.length}</td><td>${brl(t)}</td></tr>`});tbody.innerHTML=rows.join('')}
-function renderCats(d){const cats={Serviços:0,Produtos:0,Pacotes:0,Transporte:0,Outros:0};d.atend.forEach(a=>{const nomes=(a.servicos||[]).map(s=>String(s.nome||'').toLowerCase()).join(' ');if(a.transporte)cats.Transporte+=Number(a.valorTransporte||0);if(nomes.includes('pacote'))cats.Pacotes+=Number(a.total||0);else cats.Serviços+=Math.max(0,Number(a.total||0)-Number(a.valorTransporte||0))});d.man.filter(e=>e.tipo==='Entrada').forEach(e=>{const x=String(e.descricao||'').toLowerCase();const key=x.includes('produto')||x.includes('ração')||x.includes('racão')? 'Produtos':x.includes('pacote')?'Pacotes':'Outros';cats[key]+=Number(e.valor||0)});const max=Math.max(...Object.values(cats),1);document.getElementById('categoriasReceita').innerHTML=Object.entries(cats).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`<div class="cat-row"><span>${k}</span><div class="cat-track"><div class="cat-fill" style="width:${v/max*100}%"></div></div><strong>${brl(v)}</strong></div>`).join('')||'<div class="empty">Sem receitas no período.</div>'}
-function renderOps(d){const cancel=d.atend.filter(a=>String(a.status||'').toLowerCase()==='cancelado').length;const pagos=d.atend.filter(a=>String(a.pagamentoStatus||'').toLowerCase()==='pago').length;const pend=d.atend.filter(a=>String(a.pagamentoStatus||'').toLowerCase()!=='pago').length;const transp=d.atend.filter(a=>a.transporte).reduce((s,a)=>s+Number(a.valorTransporte||0),0);const items=[['Atendimentos',d.atend.length],['Pagamentos marcados como pagos',pagos],['Pagamentos pendentes',pend],['Transporte faturado',brl(transp)],['Cancelamentos registrados',cancel]];document.getElementById('indicadoresOperacionais').innerHTML=items.map(([a,b])=>`<div class="cat-row"><span>${a}</span><div class="cat-track"><div class="cat-fill" style="width:${d.atend.length?Math.min(100,(Number(b)/d.atend.length)*100):0}%"></div></div><strong>${b}</strong></div>`).join('')}
-function renderAlerts(d,r){const arr=[];const pend=d.atend.filter(a=>String(a.pagamentoStatus||'').toLowerCase()!=='pago').length;if(pend)arr.push(`Existem <strong>${pend}</strong> atendimentos com pagamento não marcado como pago.`);if(r<0)arr.push('O resultado do período está negativo. Revise despesas e recebimentos.');if(d.atend.some(a=>unidade(a)==='sem-unidade'))arr.push('Há agendamentos antigos sem unidade; eles não foram redistribuídos automaticamente.');if(!arr.length)arr.push('Nenhum alerta financeiro importante para o período selecionado.');document.getElementById('alertasDashboard').innerHTML=arr.map(x=>`<div class="alert-item">${x}</div>`).join('')}
-function renderMonths(uf){const now=new Date();const meses=[];for(let i=5;i>=0;i--){const d=new Date(now.getFullYear(),now.getMonth()-i,1);meses.push(d.toISOString().slice(0,7))}const vals=meses.map(m=>{const ini=m+'-01',fim=new Date(Number(m.slice(0,4)),Number(m.slice(5,7)),0).toISOString().slice(0,10);const d=dadosFinanceiros(ini,fim,uf);return{m,rev:d.receita,exp:d.despesas}});const max=Math.max(...vals.flatMap(x=>[x.rev,x.exp]),1);document.getElementById('graficoMensal').innerHTML=vals.map(x=>`<div class="bar-col"><div class="bar-stack" title="${x.m}"><div class="bar revenue" style="height:${x.rev/max*100}%"></div><div class="bar expense" style="height:${x.exp/max*100}%"></div></div><div class="bar-label">${x.m.slice(5)}</div></div>`).join('')}
-function setPeriod(p){const hoje=new Date();let ini,fim=hojeStr();if(p==='today')ini=fim;else if(p==='7'){const d=new Date();d.setDate(d.getDate()-6);ini=d.toISOString().slice(0,10)}else if(p==='previous'){const d=new Date(hoje.getFullYear(),hoje.getMonth()-1,1);ini=d.toISOString().slice(0,10);fim=new Date(hoje.getFullYear(),hoje.getMonth(),0).toISOString().slice(0,10)}else{ini=new Date(hoje.getFullYear(),hoje.getMonth(),1).toISOString().slice(0,10)}document.getElementById('dataInicio').value=ini;document.getElementById('dataFim').value=fim;document.querySelectorAll('[data-period]').forEach(b=>b.classList.toggle('active',b.dataset.period===p));render()}
-document.querySelectorAll('[data-period]').forEach(b=>b.onclick=()=>setPeriod(b.dataset.period));document.getElementById('aplicarDashboard').onclick=()=>render();document.getElementById('unidadeFiltro').onchange=()=>{localStorage.setItem('unidadeFinanceiraSelecionada',document.getElementById('unidadeFiltro').value);render()};window.onload=()=>{setPeriod('month');document.getElementById('unidadeFiltro').value=localStorage.getItem('unidadeFinanceiraSelecionada')||'todas';render()};
+</main></div></div><script src="ui-kit.js?v=4"></script><script>
+/* =============================================================================
+   Dashboard — 100% alimentado pelo banco (lanepets.db) via /api/admin/resumo.
+
+   Antes esta tela lia localStorage: por isso o dashboard nunca via nada que o
+   cliente fazia. Agora todo calculo (receita, despesas, ticket, categorias,
+   series mensais) e feito no servidor, sobre os dados reais, e a tela apenas
+   desenha o que recebe. Agendamentos cancelados nao entram na receita nem na
+   contagem de atendimentos.
+   ============================================================================= */
+const brl = v => Number(v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+const hojeStr = () => new Date().toISOString().slice(0, 10);
+const el = id => document.getElementById(id);
+let carregando = false;
+
+function periodo() { return [el('dataInicio').value, el('dataFim').value]; }
+
+async function render() {
+  const [de, ate] = periodo();
+  const unidade = el('unidadeFiltro').value;
+  if (!de || !ate || de > ate) { toast('Informe um período válido.', 'error'); return; }
+  if (carregando) return;
+  carregando = true;
+  try {
+    const d = await LaneAdmin.resumo({ de, ate, unidade });
+    pintarTotais(d.totais);
+    pintarKpis(d.financeiro, d.anterior);
+    pintarCategorias(d.categorias);
+    pintarUnidades(d.porUnidade);
+    pintarOperacional(d.operacional, d.financeiro);
+    pintarAlertas(d.alertas);
+    pintarMeses(d.mensal);
+  } catch (erro) {
+    console.error('[LanePets] dashboard:', erro);
+    toast(erro.message, 'error');
+  } finally { carregando = false; }
+}
+
+function pintarTotais(t) {
+  const itens = [
+    ['Clientes cadastrados', t.clientes], ['Contas na Área do Cliente', t.contasDeCliente],
+    ['Pets', t.pets], ['Agendamentos ativos', t.agendamentosAtivos],
+    ['Agendamentos cancelados', t.agendamentosCancelados], ['Pedidos da loja', t.pedidos],
+    ['Produtos no catálogo', t.produtos], ['Serviços', t.servicos],
+    ['Planos de seguro ativos', t.planosSeguro], ['Solicitações de seguro', t.solicitacoesSeguro],
+    ['Seguros ativos', t.segurosAtivos ?? 0], ['Seguros cancelados', t.segurosCancelados ?? 0],
+    ['Seguros com pagamento pendente', t.segurosPagamentosPendentes ?? 0],
+    ['Avaliações recebidas', t.avaliacoes], ['Avaliações aguardando moderação', t.avaliacoesPendentes]
+  ];
+  const maior = Math.max(...itens.map(([, v]) => Number(v) || 0), 1);
+  el('totaisSistema').innerHTML = itens.map(([nome, valor]) =>
+    `<div class="cat-row"><span>${nome}</span><div class="cat-track"><div class="cat-fill" style="width:${(Number(valor) || 0) / maior * 100}%"></div></div><strong>${valor}</strong></div>`).join('');
+}
+
+function pintarKpis(f, anterior) {
+  el('kpiReceita').textContent = brl(f.receita);
+  el('kpiDespesas').textContent = brl(f.despesas);
+  el('kpiResultado').textContent = brl(f.resultado);
+  el('kpiResultado').className = 'value ' + (f.resultado >= 0 ? 'positive' : 'negative');
+  el('kpiMargem').textContent = 'Margem: ' + Number(f.margem || 0).toFixed(1) + '%';
+  el('kpiAtendimentos').textContent = f.atendimentos;
+  el('kpiTicket').textContent = 'Ticket médio: ' + brl(f.ticketMedio);
+  tendencia('trendReceita', f.receita, anterior.receita, true);
+  tendencia('trendDespesas', f.despesas, anterior.despesas, false);
+  tendencia('trendResultado', f.resultado, anterior.resultado, true);
+  tendencia('trendAtendimentos', f.atendimentos, anterior.atendimentos, true);
+}
+
+function tendencia(id, atual, anterior, bomSeSobe) {
+  const alvo = el(id);
+  if (!alvo) return;
+  if (!anterior) { alvo.innerHTML = atual ? '<span class="kpi-trend-chip neutro">Sem base de comparação</span>' : ''; return; }
+  const variacao = (atual - anterior) / Math.abs(anterior) * 100;
+  const sobe = variacao >= 0;
+  const bom = bomSeSobe ? sobe : !sobe;
+  const seta = sobe ? 'M5 12l7-7 7 7' : 'M5 12l7 7 7-7';
+  const classe = Math.abs(variacao) < 0.05 ? 'neutro' : (bom ? 'bom' : 'ruim');
+  alvo.innerHTML = `<span class="kpi-trend-chip ${classe}"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="${seta}"/></svg>${sobe ? '+' : ''}${variacao.toFixed(1)}% vs. período anterior</span>`;
+}
+
+function pintarCategorias(categorias) {
+  const maior = Math.max(...categorias.map(c => Number(c.valor) || 0), 1);
+  el('categoriasReceita').innerHTML = categorias.length
+    ? categorias.map(c => `<div class="cat-row"><span>${c.nome}</span><div class="cat-track"><div class="cat-fill" style="width:${c.valor / maior * 100}%"></div></div><strong>${brl(c.valor)}</strong></div>`).join('')
+    : '<div class="empty">Sem receitas no período.</div>';
+}
+
+function pintarUnidades(linhas) {
+  el('tabelaUnidades').innerHTML = linhas.map(u =>
+    `<tr><td><strong>${u.nome}</strong></td><td>${brl(u.receita)}</td><td>${brl(u.despesas)}</td><td class="${u.resultado >= 0 ? 'positive' : 'negative'}">${brl(u.resultado)}</td><td>${Number(u.margem || 0).toFixed(1)}%</td><td>${u.atendimentos}</td><td>${brl(u.ticket)}</td></tr>`).join('');
+}
+
+function pintarOperacional(op, f) {
+  const itens = [
+    ['Atendimentos', op.atendimentos], ['Pagamentos marcados como pagos', op.pagos],
+    ['Pagamentos pendentes', op.pendentes], ['Transporte faturado', brl(op.transporteFaturado)],
+    ['Cancelamentos no período', op.cancelados], ['Pedidos da loja no período', op.pedidosDoPeriodo],
+    ['Receita vinda de pedidos', brl(op.receitaDePedidos)]
+  ];
+  const base = op.atendimentos || 1;
+  el('indicadoresOperacionais').innerHTML = itens.map(([nome, valor]) => {
+    const proporcao = typeof valor === 'number' ? Math.min(100, valor / base * 100) : 100;
+    return `<div class="cat-row"><span>${nome}</span><div class="cat-track"><div class="cat-fill" style="width:${proporcao}%"></div></div><strong>${valor}</strong></div>`;
+  }).join('');
+}
+
+function pintarAlertas(alertas) {
+  el('alertasDashboard').innerHTML = alertas.map(a => `<div class="alert-item">${a}</div>`).join('');
+}
+
+function pintarMeses(meses) {
+  const maior = Math.max(...meses.flatMap(m => [Number(m.receita) || 0, Number(m.despesas) || 0]), 1);
+  el('graficoMensal').innerHTML = meses.map(m =>
+    `<div class="bar-col"><div class="bar-stack" title="${m.mes} · receita ${brl(m.receita)} · despesas ${brl(m.despesas)}"><div class="bar revenue" style="height:${m.receita / maior * 100}%"></div><div class="bar expense" style="height:${m.despesas / maior * 100}%"></div></div><div class="bar-label">${m.mes.slice(5)}</div></div>`).join('');
+}
+
+function definirPeriodo(chave) {
+  const hoje = new Date();
+  let de, ate = hojeStr();
+  if (chave === 'today') de = ate;
+  else if (chave === '7') { const d = new Date(); d.setDate(d.getDate() - 6); de = d.toISOString().slice(0, 10); }
+  else if (chave === 'previous') {
+    de = new Date(hoje.getFullYear(), hoje.getMonth() - 1, 1).toISOString().slice(0, 10);
+    ate = new Date(hoje.getFullYear(), hoje.getMonth(), 0).toISOString().slice(0, 10);
+  } else de = new Date(hoje.getFullYear(), hoje.getMonth(), 1).toISOString().slice(0, 10);
+  el('dataInicio').value = de;
+  el('dataFim').value = ate;
+  document.querySelectorAll('[data-period]').forEach(b => b.classList.toggle('active', b.dataset.period === chave));
+  render();
+}
+
+document.querySelectorAll('[data-period]').forEach(b => b.onclick = () => definirPeriodo(b.dataset.period));
+el('aplicarDashboard').onclick = () => render();
+el('unidadeFiltro').onchange = () => { localStorage.setItem('unidadeFinanceiraSelecionada', el('unidadeFiltro').value); render(); };
+
+window.addEventListener('load', () => {
+  el('unidadeFiltro').value = localStorage.getItem('unidadeFinanceiraSelecionada') || 'todas';
+  definirPeriodo('month');
+  /* Tempo real: qualquer acao do cliente recalcula o dashboard sozinho. */
+  LaneAdmin.aoMudar(() => render());
+  /* Rede de seguranca: se o canal de tempo real cair, o dashboard continua
+     buscando os numeros do banco a cada 30 segundos. */
+  setInterval(() => { if (!document.hidden) render(); }, 30000);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) render(); });
+});
 </script></body></html>

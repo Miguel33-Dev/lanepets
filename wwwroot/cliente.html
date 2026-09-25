@@ -1,23 +1,293 @@
 <!doctype html>
 <html lang="pt-BR">
 <head>
-  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="LanePets — banho, tosa, produtos e seguro para o seu pet em Franco da Rocha e Caieiras. Agende online.">
   <title>LanePets | Cuidado que aproxima</title>
-  <link rel="stylesheet" href="publico.css?v=3">
+  <link rel="stylesheet" href="publico.css?v=7">
 </head>
 <body>
-  <header class="topo"><a class="marca" href="#inicio"><span class="marca-icone">♧</span><span>Lane<span>Pets</span><small>Franco + Caieiras</small></span></a><button class="menu" id="abrir-menu" aria-label="Abrir menu" aria-expanded="false" aria-controls="menu-principal">☰</button><nav id="menu-principal"><a href="#inicio">Início</a><a href="#servicos">Serviços</a><a href="#produtos">Produtos</a><a href="#seguros">Seguro pet</a><a href="#avaliacoes" id="nav-avaliacoes">Avaliações</a><a href="minha-conta.html#agendar" id="nav-agendamentos">Agendamento</a><a class="entrar" id="nav-conta" href="minha-conta.html">Entrar</a><a class="acao" id="nav-acao" href="minha-conta.html#cadastro">Criar conta</a><span class="nav-sep" aria-hidden="true"></span><a class="admin-link" href="admin-login.html"><span class="chave" aria-hidden="true">⚿</span>Login Administrador</a></nav></header>
-  <main>
-    <section id="inicio" class="hero"><div class="hero-conteudo"><p class="etiqueta">♥ Cuidado com amor e qualidade</p><h1>Seu pet em boas patas, <em>sempre.</em></h1><p class="lead">Banho, tosa, produtos e proteção para que você viva cada momento com seu melhor amigo.</p><div class="botoes"><a class="botao primario" href="#agendar">Agende um serviço <b>→</b></a><a class="botao claro" href="#servicos">Conheça os serviços</a></div></div><div class="ilustracao" aria-hidden="true"><div class="sol"></div><div class="folha f1">⌁</div><div class="folha f2">⌁</div><div class="pet dog">◕ᴥ◕</div><div class="pet cat">^•ﻌ•^</div><span class="pata p1">✦</span><span class="pata p2">✦</span></div></section>
-    <section class="numeros"><div><strong>+2.500</strong><span>pets atendidos</span></div><div><strong>4,9/5</strong><span>avaliação média</span></div><div><strong>100%</strong><span>atenção com carinho</span></div></section>
-    <section id="servicos" class="secao"><p class="eyebrow">LANEPETS PARA VOCÊ</p><h2>Todo cuidado que seu pet precisa</h2><p class="sub">Escolha o que faz sentido para a rotina do seu melhor amigo.</p><div id="lista-servicos" class="grade servicos"><article class="card carregando">Carregando os serviços…</article></div></section>
-    <section id="produtos" class="secao" style="padding-top:0"><p class="eyebrow">LOJINHA LANEPETS</p><h2>Produtos para a rotina do seu pet</h2><p class="sub">Itens cadastrados pela nossa equipe, com preços sempre atualizados.</p><div id="lista-produtos" class="grade servicos"><article class="card carregando">Carregando produtos…</article></div></section>
-    <section id="seguros" class="seguro"><div class="seguro-intro"><p class="eyebrow">PROTEÇÃO LANEPETS</p><h2>Seguro para seu Pet</h2><p>Planos de proteção pensados para deixar sua família tranquila nos momentos que importam.</p><ul><li>✓ Contratação simples e acompanhamento humano</li><li>✓ Coberturas e benefícios apresentados com clareza</li><li>✓ Atendimento da equipe LanePets para finalizar seu pedido</li></ul></div><div id="lista-seguros" class="planos"><p>Carregando planos…</p></div></section>
-    <section id="avaliacoes" class="secao avaliacoes"><p class="eyebrow">QUEM CONFIA, CONTA</p><h2>Histórias de clientes e seus pets</h2><p class="sub">Veja o que as famílias LanePets dizem. Já é cliente? Compartilhe também a sua experiência.</p><div id="lista-depoimentos" class="grade depoimentos"><article class="card carregando">Carregando avaliações…</article></div><button class="botao primario" id="abrir-depoimento">Deixar minha avaliação</button></section>
-    <section id="agendar" class="cta"><div><p class="eyebrow">PRONTO PARA COMEÇAR?</p><h2>Vamos cuidar do seu pet?</h2><p>Conheça os serviços disponíveis e fale com a equipe LanePets.</p></div><a class="botao claro" href="#servicos">Conhecer serviços</a></section>
-  </main>
-  <footer><a class="marca" href="#inicio"><span class="marca-icone">♧</span><span>Lane<span>Pets</span><small>Franco + Caieiras</small></span></a><p>© 2026 LanePets. Cuidado que aproxima. <a href="admin-login.html">Área administrativa</a></p></footer>
-  <dialog id="modal-seguro"><form method="dialog" class="modal"><button class="fechar" value="cancel" aria-label="Fechar">×</button><p class="eyebrow">CONTRATAÇÃO</p><h2 id="seguro-titulo">Plano</h2><p id="seguro-texto">Preencha os dados e nossa equipe entrará em contato.</p><input type="hidden" id="plano-id"><label>Seu nome<input id="seguro-nome" required></label><label>Telefone<input id="seguro-telefone" inputmode="tel" required placeholder="(11) 99999-9999"></label><label>Nome do pet<input id="seguro-pet" required></label><label>Alguma observação?<textarea id="seguro-observacao" rows="3"></textarea></label><button class="botao primario" id="enviar-seguro" value="default">Enviar solicitação</button><p class="feedback" id="seguro-feedback"></p></form></dialog>
-  <dialog id="modal-depoimento"><form method="dialog" class="modal"><button class="fechar" value="cancel" aria-label="Fechar">×</button><p class="eyebrow">SUA EXPERIÊNCIA</p><h2>Conte para outras famílias</h2><p>Para publicar, conferimos seu cadastro e a equipe aprova o comentário.</p><label>Seu nome<input id="dep-nome" required></label><label>Telefone cadastrado<input id="dep-telefone" inputmode="tel" required></label><label>Nome do pet<input id="dep-pet" required></label><label>Avaliação<select id="dep-avaliacao"><option value="5">5 estrelas — Excelente</option><option value="4">4 estrelas — Muito bom</option><option value="3">3 estrelas — Bom</option><option value="2">2 estrelas — Regular</option><option value="1">1 estrela — Precisa melhorar</option></select></label><label>Seu comentário<textarea id="dep-comentario" rows="4" required maxlength="500"></textarea></label><button class="botao primario" id="enviar-depoimento" value="default">Enviar para avaliação</button><p class="feedback" id="dep-feedback"></p></form></dialog>
-  <script src="js/publico.js?v=3"></script>
-</body></html>
+
+<header class="topo">
+  <a class="marca" href="#inicio">
+    <span class="marca-icone" aria-hidden="true">♧</span>
+    <span>Lane<span>Pets</span><small>Franco + Caieiras</small></span>
+  </a>
+
+  <button class="menu" id="abrir-menu" type="button" aria-label="Abrir menu" aria-expanded="false" aria-controls="menu-principal">☰</button>
+
+  <nav id="menu-principal" aria-label="Navegação principal">
+    <a href="#servicos">Serviços</a>
+    <a href="#produtos">Produtos</a>
+    <a href="#seguros">Seguro pet</a>
+    <a href="#avaliacoes" id="nav-avaliacoes">Avaliações</a>
+    <a href="minha-conta.html#agendar" id="nav-agendamentos">Agendamento</a>
+    <a class="entrar" id="nav-conta" href="minha-conta.html">Entrar</a>
+    <a class="acao" id="nav-acao" href="minha-conta.html#cadastro">Criar conta</a>
+    <span class="nav-sep" aria-hidden="true"></span>
+    <a class="admin-link" href="admin-login.html"><span class="chave" aria-hidden="true">⚿</span>Login Administrador</a>
+  </nav>
+</header>
+
+<main>
+
+  <!-- ====================== HERO ====================== -->
+  <section id="inicio" class="hero">
+    <div class="hero-conteudo">
+      <p class="etiqueta">♥ Cuidado com amor e qualidade</p>
+      <h1>Seu pet em boas patas, <em>sempre.</em></h1>
+      <p class="lead">Banho, tosa, produtos e proteção para que você viva cada momento com o seu melhor amigo — em Franco da Rocha e Caieiras.</p>
+      <div class="botoes">
+        <a class="botao primario" href="minha-conta.html#agendar">Agendar um serviço <b>→</b></a>
+        <a class="botao claro" href="#servicos">Conhecer os serviços</a>
+      </div>
+    </div>
+
+    <div class="ilustracao" aria-hidden="true">
+      <svg viewBox="10 20 440 320" role="img">
+        <defs>
+          <linearGradient id="lp-fundo" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#eef7dd"/>
+          </linearGradient>
+          <linearGradient id="lp-cao" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#f3c97f"/><stop offset="1" stop-color="#d79b46"/>
+          </linearGradient>
+          <linearGradient id="lp-gato" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#5f7e6b"/><stop offset="1" stop-color="#3c5a49"/>
+          </linearGradient>
+        </defs>
+
+        <circle cx="236" cy="184" r="164" fill="url(#lp-fundo)"/>
+        <circle cx="236" cy="184" r="164" fill="none" stroke="#cfe3ab" stroke-width="2" stroke-dasharray="5 9"/>
+        <circle cx="352" cy="74" r="34" fill="#f6dd9a" opacity=".55"/>
+
+        <!-- folhagem -->
+        <path d="M74 300c18-54 62-80 112-78-8 48-46 82-112 78Z" fill="#7fae6a" opacity=".45"/>
+        <path d="M402 304c-14-44-50-66-92-64 7 39 38 67 92 64Z" fill="#7fae6a" opacity=".3"/>
+
+        <!-- gato -->
+        <g>
+          <path d="M318 322v-74a38 38 0 0 1 76 0v74Z" fill="url(#lp-gato)"/>
+          <path d="M320 232l6-34 24 20Zm72 0l-6-34-24 20Z" fill="url(#lp-gato)"/>
+          <circle cx="342" cy="252" r="5" fill="#fbfcf4"/>
+          <circle cx="370" cy="252" r="5" fill="#fbfcf4"/>
+          <path d="M350 266h12l-6 7Z" fill="#f0b8ab"/>
+          <path d="M394 322c22-6 38-26 34-48" fill="none" stroke="#3c5a49" stroke-width="13" stroke-linecap="round"/>
+        </g>
+
+        <!-- cachorro -->
+        <g>
+          <ellipse cx="204" cy="300" rx="86" ry="26" fill="#07562e" opacity=".07"/>
+          <path d="M148 322v-84a56 56 0 0 1 112 0v84Z" fill="url(#lp-cao)"/>
+          <path d="M150 214c-16-8-24-30-20-52 20 2 34 16 40 34Z" fill="#c98a3c"/>
+          <path d="M258 214c16-8 24-30 20-52-20 2-34 16-40 34Z" fill="#c98a3c"/>
+          <circle cx="182" cy="248" r="7" fill="#3a2a12"/>
+          <circle cx="226" cy="248" r="7" fill="#3a2a12"/>
+          <ellipse cx="204" cy="270" rx="12" ry="9" fill="#3a2a12"/>
+          <path d="M204 279v5m0 0c-5 7-15 5-17-2m17 2c5 7 15 5 17-2" fill="none" stroke="#3a2a12" stroke-width="3.4" stroke-linecap="round"/>
+          <!-- coleira -->
+          <rect x="170" y="306" width="68" height="11" rx="5.5" fill="#ef8f22"/>
+        </g>
+
+        <!-- patinhas -->
+        <g fill="#07562e" opacity=".22">
+          <g transform="translate(84,96)"><circle cx="0" cy="8" r="7"/><circle cx="-9" cy="-4" r="4"/><circle cx="0" cy="-8" r="4"/><circle cx="9" cy="-4" r="4"/></g>
+          <g transform="translate(404,180)"><circle cx="0" cy="8" r="6"/><circle cx="-8" cy="-3" r="3.4"/><circle cx="0" cy="-7" r="3.4"/><circle cx="8" cy="-3" r="3.4"/></g>
+          <g transform="translate(120,38)"><circle cx="0" cy="6" r="5"/><circle cx="-6" cy="-3" r="2.8"/><circle cx="0" cy="-6" r="2.8"/><circle cx="6" cy="-3" r="2.8"/></g>
+        </g>
+
+        <line x1="72" y1="322" x2="410" y2="322" stroke="#cfe3ab" stroke-width="3" stroke-linecap="round"/>
+      </svg>
+    </div>
+  </section>
+
+  <!-- ====================== NÚMEROS ====================== -->
+  <section class="numeros" aria-label="LanePets em números">
+    <div><strong>+2.500</strong><span>pets atendidos</span></div>
+    <div><strong>4,9/5</strong><span>avaliação média das famílias</span></div>
+    <div><strong>2 unidades</strong><span>Franco da Rocha e Caieiras</span></div>
+  </section>
+
+  <!-- ====================== SERVIÇOS ====================== -->
+  <section id="servicos" class="secao">
+    <p class="eyebrow">LanePets para você</p>
+    <h2>Todo cuidado que seu pet precisa</h2>
+    <p class="sub">Escolha o que faz sentido para a rotina do seu melhor amigo. Os valores variam conforme o porte e o pelo.</p>
+    <div id="lista-servicos" class="grade servicos"></div>
+  </section>
+
+  <!-- ====================== BENEFÍCIOS ====================== -->
+  <section class="beneficios">
+    <div class="secao">
+      <p class="eyebrow">Por que a LanePets</p>
+      <h2>Um cuidado que a sua família sente</h2>
+      <p class="sub">Equipe treinada, rotina organizada e transparência do agendamento até a entrega do pet.</p>
+      <div class="grade">
+        <article class="beneficio">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.8 8.6c0 6.2-8.8 11.4-8.8 11.4S3.2 14.8 3.2 8.6a4.9 4.9 0 0 1 8.8-2.9 4.9 4.9 0 0 1 8.8 2.9Z"/></svg>
+          <strong>Atendimento sem pressa</strong>
+          <span>Cada pet tem um horário reservado só para ele — nada de espera em fila.</span>
+        </article>
+        <article class="beneficio">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4.5" width="18" height="16.5" rx="2.5"/><path d="M16 2.5v4M8 2.5v4M3 10h18"/><path d="m9 15 2 2 4-4"/></svg>
+          <strong>Agendamento online</strong>
+          <span>Escolha unidade, data e horário pela sua conta, a qualquer hora do dia.</span>
+        </article>
+        <article class="beneficio">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.8 4 6v6c0 4.6 3.4 8.2 8 9.2 4.6-1 8-4.6 8-9.2V6Z"/><path d="m9 12 2 2 4-4"/></svg>
+          <strong>Seguro pet</strong>
+          <span>Planos explicados com clareza e acompanhamento humano da nossa equipe.</span>
+        </article>
+        <article class="beneficio">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10.5V20h13v-9.5"/><path d="M10 20v-5h4v5"/></svg>
+          <strong>Leva e traz</strong>
+          <span>Transporte opcional entre a sua casa e a unidade, combinado no agendamento.</span>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- ====================== PRODUTOS ====================== -->
+  <section id="produtos" class="secao">
+    <p class="eyebrow">Lojinha LanePets</p>
+    <h2>Produtos para a rotina do seu pet</h2>
+    <p class="sub">Encontre os melhores produtos para cuidar do seu pet.</p>
+
+    <!-- Busca, categorias e ordenação. Tudo opera sobre a MESMA lista que veio
+         de /api/public/produtos — nada aqui é estático. -->
+    <div class="loja-barra">
+      <div class="loja-busca" id="lojaBuscaCampo">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
+        <input type="search" id="lojaBusca" placeholder="Buscar produtos..." aria-label="Buscar produtos" autocomplete="off">
+        <button type="button" class="loja-limpar" id="lojaLimparBusca" aria-label="Limpar busca">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <div class="loja-ordenar">
+        <label for="lojaOrdem">Ordenar por</label>
+        <select id="lojaOrdem">
+          <option value="nome">Nome A–Z</option>
+          <option value="menor">Menor preço</option>
+          <option value="maior">Maior preço</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="loja-chips" id="lojaCategorias" role="group" aria-label="Filtrar por categoria"></div>
+    <p class="loja-contagem" id="lojaContagem"></p>
+
+    <div id="lista-produtos" class="grade loja"></div>
+  </section>
+
+  <!-- ====================== SEGURO ====================== -->
+  <section id="seguros" class="seguro">
+    <div class="seguro-intro">
+      <p class="eyebrow">Proteção LanePets</p>
+      <h2>Seguro para o seu pet</h2>
+      <p>Planos de proteção pensados para deixar a sua família tranquila nos momentos que mais importam.</p>
+      <ul>
+        <li><span aria-hidden="true">✓</span> Contratação simples e acompanhamento humano</li>
+        <li><span aria-hidden="true">✓</span> Coberturas e benefícios apresentados com clareza</li>
+        <li><span aria-hidden="true">✓</span> Atendimento da equipe LanePets para finalizar o pedido</li>
+      </ul>
+    </div>
+    <div id="lista-seguros" class="planos"></div>
+  </section>
+
+  <!-- ====================== AVALIAÇÕES ====================== -->
+  <section id="avaliacoes" class="secao avaliacoes">
+    <p class="eyebrow">Quem confia, conta</p>
+    <h2>Histórias de clientes e seus pets</h2>
+    <p class="sub">Veja o que as famílias LanePets dizem. Já é cliente? Compartilhe também a sua experiência.</p>
+    <div id="lista-depoimentos" class="grade depoimentos"></div>
+    <button class="botao primario" id="abrir-depoimento" type="button">Deixar minha avaliação</button>
+  </section>
+
+  <!-- ====================== CHAMADA FINAL ====================== -->
+  <section id="agendar" class="cta">
+    <div>
+      <p class="eyebrow">Pronto para começar?</p>
+      <h2>Vamos cuidar do seu pet?</h2>
+      <p>Crie sua conta, escolha o serviço e reserve o melhor horário em poucos cliques.</p>
+    </div>
+    <a class="botao" href="minha-conta.html#agendar">Agendar agora <b>→</b></a>
+  </section>
+
+</main>
+
+<!-- ====================== RODAPÉ ====================== -->
+<footer>
+  <div class="rodape-topo">
+    <div>
+      <a class="marca" href="#inicio">
+        <span class="marca-icone" aria-hidden="true">♧</span>
+        <span>Lane<span>Pets</span><small>Franco + Caieiras</small></span>
+      </a>
+      <p>Banho, tosa, produtos e seguro pet com o cuidado que a sua família merece.</p>
+    </div>
+    <div class="rodape-col">
+      <h4>Serviços</h4>
+      <a href="#servicos">Banho e tosa</a>
+      <a href="#produtos">Produtos</a>
+      <a href="#seguros">Seguro pet</a>
+      <a href="minha-conta.html#agendar">Agendamento</a>
+    </div>
+    <div class="rodape-col">
+      <h4>LanePets</h4>
+      <a href="#avaliacoes">Avaliações</a>
+      <a href="minha-conta.html">Minha conta</a>
+      <a href="admin-login.html">Área administrativa</a>
+      <span>Franco da Rocha · Caieiras</span>
+    </div>
+  </div>
+  <div class="rodape-base">
+    <span>© 2026 LanePets. Cuidado que aproxima.</span>
+    <a href="admin-login.html">Acesso da equipe</a>
+  </div>
+</footer>
+
+<!-- ====================== MODAIS ====================== -->
+<dialog id="modal-seguro" aria-labelledby="seguro-titulo">
+  <form method="dialog" class="modal">
+    <button class="fechar" type="button" data-fechar aria-label="Fechar">×</button>
+    <p class="eyebrow">Contratação</p>
+    <h2 id="seguro-titulo">Plano</h2>
+    <p>Preencha os dados e a nossa equipe entrará em contato.</p>
+    <input type="hidden" id="plano-id">
+    <label>Seu nome<input id="seguro-nome" required></label>
+    <label>Telefone<input id="seguro-telefone" inputmode="tel" required placeholder="(11) 99999-9999"></label>
+    <label>Nome do pet<input id="seguro-pet" required></label>
+    <label>Alguma observação?<textarea id="seguro-observacao" rows="3"></textarea></label>
+    <button class="botao primario" id="enviar-seguro" value="default">Enviar solicitação</button>
+    <p class="feedback" id="seguro-feedback"></p>
+  </form>
+</dialog>
+
+<dialog id="modal-depoimento" aria-labelledby="dep-titulo">
+  <form method="dialog" class="modal">
+    <button class="fechar" type="button" data-fechar aria-label="Fechar">×</button>
+    <p class="eyebrow">Sua experiência</p>
+    <h2 id="dep-titulo">Conte para outras famílias</h2>
+    <p>Para publicar, conferimos o seu cadastro e a equipe aprova o comentário.</p>
+    <label>Seu nome<input id="dep-nome" required></label>
+    <label>Telefone cadastrado<input id="dep-telefone" inputmode="tel" required></label>
+    <label>Nome do pet<input id="dep-pet" required></label>
+    <label>Avaliação
+      <select id="dep-avaliacao">
+        <option value="5">5 estrelas — Excelente</option>
+        <option value="4">4 estrelas — Muito bom</option>
+        <option value="3">3 estrelas — Bom</option>
+        <option value="2">2 estrelas — Regular</option>
+        <option value="1">1 estrela — Precisa melhorar</option>
+      </select>
+    </label>
+    <label>Seu comentário<textarea id="dep-comentario" rows="4" required maxlength="500"></textarea></label>
+    <button class="botao primario" id="enviar-depoimento" value="default">Enviar para avaliação</button>
+    <p class="feedback" id="dep-feedback"></p>
+  </form>
+</dialog>
+
+<script src="js/publico.js?v=7"></script>
+</body>
+</html>

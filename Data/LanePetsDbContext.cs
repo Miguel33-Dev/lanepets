@@ -31,4 +31,9 @@ public class LanePetsDbContext(DbContextOptions<LanePetsDbContext> options) : Db
     public DbSet<UsuarioAdministrador> UsuariosAdministradores => Set<UsuarioAdministrador>();
     public DbSet<Unidade> Unidades => Set<Unidade>();
     public DbSet<Pedido> Pedidos => Set<Pedido>();
+
+    // Permissoes administrativas. UsuariosAdministradores continua sendo a
+    // unica tabela de usuario do painel; estas duas apenas penduram nela.
+    public DbSet<UsuarioAdminPermissao> UsuariosAdminPermissoes => Set<UsuarioAdminPermissao>();
+    public DbSet<AuditoriaAdmin> AuditoriasAdmin => Set<AuditoriaAdmin>();
 }

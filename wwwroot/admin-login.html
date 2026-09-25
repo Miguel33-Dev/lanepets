@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>LanePets | Acesso Administrativo</title>
-  <link rel="stylesheet" href="auth.css?v=3">
+  <link rel="stylesheet" href="auth.css?v=4">
 </head>
 <body class="lp-auth lp-auth--admin">
   <div class="lp-shell">
@@ -82,6 +82,41 @@
   (function () {
     const UI = window.LanePetsAuthUI;
     const $ = s => document.querySelector(s);
+    /* Ordem de preferencia das telas do painel. A primeira que o usuario
+       puder ver vira o destino do login. Se ele tiver "retorno" na URL (veio
+       de uma pagina protegida) e puder abri-la, o retorno ganha. */
+    const DESTINOS = [
+      ['dashboard', 'dashboard_financeiro.html'],
+      ['agendamentos', 'agendamentos.html'],
+      ['pedidos', 'pedidos.html'],
+      ['clientes', 'clientes.html'],
+      ['pets', 'index.html'],
+      ['produtos', 'Produtos.html'],
+      ['pagamentos', 'entradas_e_saidas.html'],
+      ['relatorios', 'relatorio.html'],
+      ['seguros', 'gestao-publica.html'],
+      ['avaliacoes', 'gestao-publica.html'],
+      ['usuarios', 'usuarios-admin.html'],
+      ['configuracoes', 'migrar-dados.html']
+    ];
+
+    function primeiraPaginaPermitida(permissoes) {
+      if (!permissoes) return 'index.html';
+      const pode = chave => permissoes.acessoIrrestrito ||
+        (permissoes.modulos && permissoes.modulos[chave] && permissoes.modulos[chave].visualizar);
+
+      const retorno = new URLSearchParams(location.search).get('retorno');
+      if (retorno) {
+        const alvo = DESTINOS.find(([, pagina]) => '/' + pagina.toLowerCase() === retorno.toLowerCase());
+        if (alvo && pode(alvo[0])) return retorno;
+      }
+
+      const encontrado = DESTINOS.find(([chave]) => pode(chave));
+      /* Sem NENHUM modulo liberado o usuario ainda entra no sistema, mas a
+         unica coisa que ele ve e o aviso explicando que falta liberacao. */
+      return encontrado ? encontrado[1] : 'acesso-negado.html';
+    }
+
     const form = $('#form-login'), botao = $('#entrar');
     const email = $('#email'), senha = $('#senha');
 
@@ -109,9 +144,12 @@
           body: JSON.stringify({ email: valEmail, senha: senha.value })
         });
         sessionStorage.setItem('lanePetsAuthToken', data.token);
-        /* O administrador vai direto para o painel — nunca para a área do cliente. */
+        /* O administrador vai direto para o painel — nunca para a área do cliente.
+           PARA QUAL pagina do painel depende do que ele pode ver: mandar todo
+           mundo para index.html jogaria um usuario que so tem Produtos direto
+           na tela de "acesso negado" no primeiro login. */
         UI.carregando(botao, true, 'Acesso liberado…');
-        location.href = 'index.html';
+        location.href = primeiraPaginaPermitida(data.permissoes);
       } catch (erro) {
         UI.carregando(botao, false);
         UI.alerta('#aviso', erro.message || 'Não foi possível entrar. Tente novamente.');

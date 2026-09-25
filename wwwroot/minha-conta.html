@@ -4,29 +4,18 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>LanePets | Minha conta</title>
-  <link rel="stylesheet" href="publico.css?v=3">
-  <link rel="stylesheet" href="auth.css?v=3">
+  <link rel="stylesheet" href="publico.css?v=6">
+  <link rel="stylesheet" href="auth.css?v=5">
+  <link rel="stylesheet" href="conta.css?v=10">
   <style>
-    main{max-width:1050px;margin:0 auto;padding:60px 26px}
-    .portal-grid{display:grid;grid-template-columns:1fr 1fr;gap:22px}
-    .box{background:#fff;border:1px solid var(--borda);border-radius:14px;padding:25px}
-    .box label{display:block;font-weight:700;font-size:12px;margin-top:11px}
-    .box input,.box select,.box textarea{width:100%;margin-top:5px;padding:10px;border:1px solid #c9d5ca;border-radius:7px;font:14px 'DM Sans'}
-    .box .botao{margin-top:18px}
-    .portal{display:none}
-    [hidden]{display:none!important}
-    .item{padding:12px 0;border-bottom:1px solid #e5ece4;font-size:13px}
-    .item strong{display:block;color:var(--verde)}
-    @media(max-width:700px){.portal-grid{grid-template-columns:1fr}main{padding:34px 18px}}
+    /* A área do cliente vive em conta.css e as telas de acesso em auth.css.
+       Aqui fica apenas o que depende da alternância entre as duas. */
+    [hidden] { display: none !important; }
+    body.lp-auth #portal { display: none !important; }
   </style>
 </head>
 <body class="lp-auth lp-auth--cliente">
 
-  <!-- Cabeçalho do site: aparece apenas quando o portal do cliente está aberto -->
-  <header class="topo" id="topo-site" hidden>
-    <a class="marca" href="cliente.html"><span class="marca-icone">♧</span><span>Lane<span>Pets</span><small>Franco + Caieiras</small></span></a>
-    <nav><a href="cliente.html">Início</a><a href="cliente.html#servicos">Serviços</a></nav>
-  </header>
 
   <!-- ===================== AUTENTICAÇÃO DO CLIENTE ===================== -->
   <section id="auth">
@@ -229,14 +218,568 @@
     </div>
   </section>
 
-  <!-- ===================== PORTAL DO CLIENTE (inalterado) ===================== -->
-  <main>
-    <section id="portal" class="portal"><div style="display:flex;justify-content:space-between;align-items:center"><div><p class="eyebrow">ÁREA DO CLIENTE</p><h2 id="boas-vindas">Minha conta</h2></div><button class="botao claro" id="sair">Sair</button></div><div class="portal-grid"><section class="box"><h3>Meus pets</h3><div id="pets"></div></section><section class="box"><h3>Meus agendamentos</h3><div id="agendamentos"></div></section></div><section id="agendar" class="box" style="margin-top:20px"><p class="eyebrow">NOVO AGENDAMENTO</p><h2>Escolha o melhor horário</h2><div class="portal-grid"><label>Pet<select id="pet"></select></label><label>Serviço<select id="servico"></select></label><label>Unidade<select id="unidade"></select></label><label>Data<input id="data" type="date"></label><label>Horário disponível<select id="horario"><option>Escolha uma data e unidade</option></select></label><label>Atendimento<select id="transporte"><option>Cliente leva o pet</option><option>Petshop busca o pet</option><option>Petshop leva o pet de volta</option><option>Busca e entrega</option></select></label><label>Pagamento<select id="pagamento"><option>Pix</option><option>Cartão</option><option>Dinheiro</option><option>A combinar</option></select></label><label>Observação<textarea id="obs" rows="2"></textarea></label></div><button class="botao primario" id="confirmar">Confirmar agendamento</button><p class="feedback" id="agenda-msg"></p></section><section id="pedidos" class="box" style="margin-top:20px"><p class="eyebrow">PRODUTOS E PEDIDOS</p><h2>Fazer um pedido</h2><div class="portal-grid"><label>Produto<select id="produto"></select></label><label>Quantidade<input id="quantidade" type="number" min="1" value="1"></label><label>Pagamento<select id="pedido-pagamento"><option>Pix</option><option>Cartão</option><option>Dinheiro</option><option>A combinar</option></select></label></div><button class="botao primario" id="criar-pedido">Confirmar pedido</button><p class="feedback" id="pedido-msg"></p><h3>Meus pedidos</h3><div id="lista-pedidos"></div></section></section>
-  </main>
+  <!-- ===================== ÁREA DO CLIENTE ===================== -->
+  <div id="portal" class="cc-app" style="display:none">
+
+    <div class="cc-fundo" id="cc-fundo" hidden></div>
+
+    <aside class="cc-lateral" id="cc-lateral">
+      <a class="cc-lateral__marca" href="cliente.html" title="Voltar para o site LanePets">
+        <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="7" cy="8" r="2"/><circle cx="12" cy="5.5" r="2"/><circle cx="17" cy="8" r="2"/>
+          <path d="M12 13c-3.3 0-6 2.1-6 4.7 0 1.6 1.5 2.3 3 1.8.9-.3 1.9-.5 3-.5s2.1.2 3 .5c1.5.5 3-.2 3-1.8 0-2.6-2.7-4.7-6-4.7Z"/>
+        </svg>
+        <span><b>LanePets</b><span>Franco + Caieiras</span></span>
+      </a>
+
+      <nav class="cc-nav" id="cc-nav" aria-label="Menu da conta">
+        <p class="cc-nav__grupo">Minha conta</p>
+        <a href="#minha-conta" data-rota="minha-conta"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M19 20.5v-1.8a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v1.8"/><circle cx="12" cy="7.5" r="4"/></svg><span>Minha conta</span></a>
+        <a href="#meus-pets" data-rota="meus-pets"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="6.2" cy="9" r="1.9"/><circle cx="11" cy="6.4" r="1.9"/><circle cx="15.8" cy="9" r="1.9"/><path d="M11 13.4c-3.1 0-5.6 2-5.6 4.4 0 1.5 1.4 2.2 2.8 1.7.85-.3 1.8-.45 2.8-.45s1.95.15 2.8.45c1.4.5 2.8-.2 2.8-1.7 0-2.4-2.5-4.4-5.6-4.4Z"/></svg><span>Meus pets</span></a>
+
+        <p class="cc-nav__grupo">Serviços</p>
+        <a href="#agendar" data-rota="agendar"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4.5" width="18" height="16.5" rx="2.5"/><path d="M16 2.5v4M8 2.5v4M3 10h18"/></svg><span>Agendamentos</span></a>
+        <a href="#produtos" data-rota="produtos"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 8h14l-1.1 11.3a1.8 1.8 0 0 1-1.8 1.7H7.9a1.8 1.8 0 0 1-1.8-1.7Z"/><path d="M9 8V6.2a3 3 0 0 1 6 0V8"/></svg><span>Produtos</span></a>
+        <a href="#meus-pedidos" data-rota="meus-pedidos"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h2l2.2 10.4a1.6 1.6 0 0 0 1.6 1.3h7.7a1.6 1.6 0 0 0 1.6-1.3L21 8H6.4"/><circle cx="10" cy="20" r="1.3"/><circle cx="18" cy="20" r="1.3"/></svg><span>Meus pedidos</span></a>
+        <a href="#pagamentos" data-rota="pagamentos"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="5.5" width="19" height="13" rx="2.5"/><path d="M2.5 10h19"/><path d="M6.5 14.5h4"/></svg><span>Pagamentos</span></a>
+        <a href="#seguro" data-rota="seguro"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.8 4 6v6c0 4.6 3.4 8.2 8 9.2 4.6-1 8-4.6 8-9.2V6Z"/><path d="m9 12 2 2 4-4"/></svg><span>Seguro Pet</span></a>
+        <a href="#avaliacoes" data-rota="avaliacoes"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.5a7.5 7.5 0 0 1-7.5 7.5c-1.2 0-2.4-.3-3.4-.8L4 21l1.8-5.6A7.5 7.5 0 1 1 21 12.5Z"/></svg><span>Avaliações</span></a>
+
+        <p class="cc-nav__grupo">Conta</p>
+        <a href="#configuracoes" data-rota="configuracoes"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 14.5a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-1.8-.3 1.6 1.6 0 0 0-1 1.5v.2a2 2 0 0 1-4 0v-.1a1.6 1.6 0 0 0-1-1.5 1.6 1.6 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.6 1.6 0 0 0 .3-1.8 1.6 1.6 0 0 0-1.5-1H3a2 2 0 0 1 0-4h.1a1.6 1.6 0 0 0 1.5-1 1.6 1.6 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.6 1.6 0 0 0 1.8.3H9a1.6 1.6 0 0 0 1-1.5V3a2 2 0 0 1 4 0v.1a1.6 1.6 0 0 0 1 1.5 1.6 1.6 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0-.3 1.8V9a1.6 1.6 0 0 0 1.5 1h.2a2 2 0 0 1 0 4h-.1a1.6 1.6 0 0 0-1.5 1Z"/></svg><span>Configurações</span></a>
+        <a class="cc-nav__sair" href="#sair" id="sair"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5.5A1.5 1.5 0 0 1 4 19.5v-15A1.5 1.5 0 0 1 5.5 3H9"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/></svg><span>Sair</span></a>
+      </nav>
+
+      <div class="cc-lateral__rodape">LanePets &copy; 2026<br>Cuidado que aproxima.</div>
+    </aside>
+
+    <div>
+      <header class="cc-topo">
+        <div style="display:flex;align-items:center;gap:12px;min-width:0">
+          <button class="cc-menu-botao" type="button" id="cc-menu" aria-label="Abrir menu da conta">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+          </button>
+          <div>
+            <div class="cc-topo__titulo" id="cc-titulo">Minha conta</div>
+            <div class="cc-topo__trilha" id="cc-trilha">Área do cliente</div>
+          </div>
+        </div>
+        <div class="cc-topo__acoes">
+          <a class="cc-fantasma" href="cliente.html">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10.5V20h13v-9.5"/></svg>
+            <span>Voltar ao site</span>
+          </a>
+          <!-- Menu da conta: apenas atalhos para as mesmas secoes do menu
+               lateral e o Sair que ja existia. Nenhuma acao nova. -->
+          <div class="cc-conta" id="cc-conta">
+            <button class="cc-conta__botao" type="button" id="cc-conta-botao" aria-haspopup="true" aria-expanded="false" aria-label="Menu da conta">
+              <span class="cc-usuario">
+                <span class="cc-avatar" id="cc-iniciais" aria-hidden="true">··</span>
+                <span class="cc-usuario__nome"><strong id="cc-nome-topo">Cliente</strong><span>Conta LanePets</span></span>
+              </span>
+              <svg class="cc-conta__seta" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+            </button>
+            <div class="cc-conta__menu" id="cc-conta-menu" role="menu">
+              <a href="#minha-conta" data-rota="minha-conta" role="menuitem"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M19 20.5v-1.8a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v1.8"/><circle cx="12" cy="7.5" r="4"/></svg>Minha conta</a>
+              <a href="#meus-pets" data-rota="meus-pets" role="menuitem"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="6.2" cy="9" r="1.9"/><circle cx="11" cy="6.4" r="1.9"/><circle cx="15.8" cy="9" r="1.9"/><path d="M11 13.4c-3.1 0-5.6 2-5.6 4.4 0 1.5 1.4 2.2 2.8 1.7.85-.3 1.8-.45 2.8-.45s1.95.15 2.8.45c1.4.5 2.8-.2 2.8-1.7 0-2.4-2.5-4.4-5.6-4.4Z"/></svg>Meus pets</a>
+              <a href="#configuracoes" data-rota="configuracoes" role="menuitem"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 14.5a1.6 1.6 0 0 0 .3 1.8 2 2 0 1 1-2.8 2.8 1.6 1.6 0 0 0-1.8-.3 1.6 1.6 0 0 0-1 1.5 2 2 0 0 1-4 0 1.6 1.6 0 0 0-1-1.5 1.6 1.6 0 0 0-1.8.3 2 2 0 1 1-2.8-2.8 1.6 1.6 0 0 0 .3-1.8 1.6 1.6 0 0 0-1.5-1 2 2 0 0 1 0-4 1.6 1.6 0 0 0 1.5-1 1.6 1.6 0 0 0-.3-1.8 2 2 0 1 1 2.8-2.8 1.6 1.6 0 0 0 1.8.3 1.6 1.6 0 0 0 1-1.5 2 2 0 0 1 4 0 1.6 1.6 0 0 0 1 1.5 1.6 1.6 0 0 0 1.8-.3 2 2 0 1 1 2.8 2.8 1.6 1.6 0 0 0-.3 1.8 1.6 1.6 0 0 0 1.5 1 2 2 0 0 1 0 4 1.6 1.6 0 0 0-1.5 1Z"/></svg>Configurações</a>
+              <hr>
+              <button type="button" class="cc-sair-item" id="cc-sair-3" role="menuitem"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5.5A1.5 1.5 0 0 1 4 19.5v-15A1.5 1.5 0 0 1 5.5 3H9"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/></svg>Sair</button>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <main class="cc-conteudo">
+
+        <!-- ---------- VISÃO GERAL ---------- -->
+        <section class="cc-secao is-ativa" id="sec-minha-conta">
+          <div class="cc-cabecalho">
+            <h1 id="boas-vindas">Minha conta</h1>
+            <p>Bem-vindo à sua área do LanePets. Acompanhe seus pets, serviços e pedidos em um só lugar.</p>
+          </div>
+
+          <div class="cc-resumo" id="cc-resumo"></div>
+
+          <div id="cc-proximo"></div>
+
+          <!-- Visao geral: pets e pedidos lado a lado, depois a vitrine curta.
+               Os tres blocos sao preenchidos por js/minha-conta.js com os
+               mesmos dados que as secoes completas ja usam. -->
+          <div class="cc-visao-grade">
+            <div id="cc-pets-resumo"></div>
+            <div id="cc-pedidos-recentes"></div>
+          </div>
+
+          <div id="cc-produtos-destaque" style="margin-top:20px"></div>
+
+          <!-- Acesso rapido: os mesmos destinos do menu lateral, ao alcance de
+               um toque no celular, onde o menu fica recolhido. -->
+          <section class="cc-painel cc-atalhos" style="margin-top:20px">
+            <div class="cc-painel__topo"><div><h2>Acesso rápido</h2><p>Vá direto para o que você precisa.</p></div></div>
+            <div class="cc-atalhos__grade">
+              <a class="cc-atalho" href="#meus-pets" data-rota="meus-pets"><span>Meus pets</span></a>
+              <a class="cc-atalho" href="#agendar" data-rota="agendar"><span>Agendamentos</span></a>
+              <a class="cc-atalho" href="#produtos" data-rota="produtos"><span>Produtos</span></a>
+              <a class="cc-atalho" href="#meus-pedidos" data-rota="meus-pedidos"><span>Meus pedidos</span></a>
+              <a class="cc-atalho" href="#seguro" data-rota="seguro"><span>Seguro Pet</span></a>
+              <a class="cc-atalho" href="#pagamentos" data-rota="pagamentos"><span>Pagamentos</span></a>
+            </div>
+          </section>
+
+          <section class="cc-painel" style="margin-top:20px">
+            <div class="cc-painel__topo">
+              <div><h2>Perfil</h2><p>Seus dados de contato usados nos agendamentos e pedidos.</p></div>
+              <button class="botao claro" type="button" id="cc-editar-perfil">Editar perfil</button>
+            </div>
+            <div class="cc-perfil">
+              <div class="cc-avatar cc-avatar--g" id="cc-iniciais-grande" aria-hidden="true">··</div>
+              <div>
+                <div class="cc-perfil__nome" id="cc-perfil-nome">—</div>
+                <div class="cc-perfil__meta" id="cc-perfil-meta">Cliente LanePets</div>
+              </div>
+            </div>
+            <dl class="cc-dados" id="cc-dados"></dl>
+          </section>
+        </section>
+
+        <!-- ---------- MEUS PETS ---------- -->
+        <section class="cc-secao" id="sec-meus-pets">
+          <div class="cc-cabecalho">
+            <h1>Meus pets</h1>
+            <p>Os pets cadastrados na sua conta. Eles aparecem na hora de agendar um serviço.</p>
+          </div>
+          <div class="cc-pets" id="pets"></div>
+        </section>
+
+        <!-- ---------- AGENDAMENTOS ----------
+             Redesenho da area do CLIENTE. A API e o banco continuam os mesmos:
+             a lista sai de GET /api/cliente/conta, o catalogo de
+             GET /api/cliente/catalogo, os horarios livres de
+             GET /api/cliente/horarios e a criacao/cancelamento dos mesmos
+             POST /api/cliente/agendamentos e POST .../{id}/cancelar.
+             Nenhum numero desta tela e inventado. -->
+        <section class="cc-secao" id="sec-agendar">
+          <div class="cc-cabecalho ag-cabecalho">
+            <div>
+              <h1>Meus Agendamentos</h1>
+              <p>Acompanhe e gerencie os atendimentos do seu pet — reserve um horário, veja os detalhes e cancele quando precisar.</p>
+            </div>
+            <button class="botao primario ag-novo" type="button" data-ag-novo>
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+              Novo Agendamento
+            </button>
+          </div>
+
+          <!-- Indicadores: contados a partir dos agendamentos reais da conta -->
+          <div class="cc-resumo ag-resumo" id="ag-resumo"></div>
+
+          <section class="cc-painel">
+            <div class="cc-painel__topo">
+              <div><h2>Seus atendimentos</h2><p>Do mais recente ao mais antigo. Use os filtros para encontrar mais rápido.</p></div>
+            </div>
+
+            <!-- Filtros: no desktop viram pílulas, no celular um seletor -->
+            <div class="ag-filtros">
+              <div class="ag-pilulas" id="ag-pilulas" role="tablist" aria-label="Filtrar agendamentos"></div>
+              <label class="ag-filtro-mobile">
+                <span class="sr-only">Filtrar agendamentos</span>
+                <select id="ag-filtro-select"></select>
+              </label>
+              <div class="ag-filtros__extra">
+                <label class="ag-select">
+                  <span>Pet</span>
+                  <select id="ag-filtro-pet"><option value="">Todos os pets</option></select>
+                </label>
+                <label class="ag-select">
+                  <span>Unidade</span>
+                  <select id="ag-filtro-unidade"><option value="">Todas as unidades</option></select>
+                </label>
+              </div>
+            </div>
+
+            <!-- Esqueleto da primeira pintura: a tela nunca aparece vazia
+                 enquanto GET /api/cliente/conta não volta. O JS substitui
+                 este bloco pelos cards reais. -->
+            <div id="agendamentos" aria-live="polite">
+              <div class="ag-skeleton" aria-hidden="true">
+                <div class="ag-skel-card"><span class="ag-skel ag-skel--retrato"></span><div><div class="ag-skel ag-skel--titulo"></div><div class="ag-skel ag-skel--linha"></div><div class="ag-skel ag-skel--linha ag-skel--curta"></div></div><div><div class="ag-skel ag-skel--linha"></div></div></div>
+                <div class="ag-skel-card"><span class="ag-skel ag-skel--retrato"></span><div><div class="ag-skel ag-skel--titulo"></div><div class="ag-skel ag-skel--linha"></div><div class="ag-skel ag-skel--linha ag-skel--curta"></div></div><div><div class="ag-skel ag-skel--linha"></div></div></div>
+                <div class="ag-skel-card"><span class="ag-skel ag-skel--retrato"></span><div><div class="ag-skel ag-skel--titulo"></div><div class="ag-skel ag-skel--linha"></div><div class="ag-skel ag-skel--linha ag-skel--curta"></div></div><div><div class="ag-skel ag-skel--linha"></div></div></div>
+              </div>
+            </div>
+          </section>
+        </section>
+
+        <!-- ---------- PEDIDOS ---------- -->
+        <!-- ---------- PRODUTOS ---------- -->
+        <!-- O catalogo saiu de dentro de Pedidos e virou area propria, com
+             rota #produtos. O formulario de pedido veio junto: escolher o
+             produto e pedi-lo sao o mesmo gesto. Pedidos ficou so com o
+             historico. Nenhuma API nova: continua tudo em /api/cliente. -->
+        <section class="cc-secao" id="sec-produtos">
+          <div class="cc-cabecalho">
+            <a class="cc-voltar" href="#minha-conta" data-rota="minha-conta">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 6l-6 6 6 6"/></svg>
+              Minha conta
+            </a>
+            <h1>Produtos</h1>
+            <p>Encontre produtos para cuidar melhor do seu pet.</p>
+          </div>
+
+          <section class="cc-painel">
+            <div class="cc-painel__topo"><div><h2>Novo pedido</h2><p>Retirada combinada com a equipe na unidade.</p></div></div>
+            <!-- ESCOLHA DO PRODUTO
+                 O <select id="produto"> continua existindo e continua sendo a
+                 fonte da verdade do envio: "Confirmar pedido" le o value dele,
+                 exatamente como antes. A vitrine abaixo apenas ESCREVE nesse
+                 select. Quem navega por teclado ou leitor de tela usa o select
+                 normalmente; quem esta no mouse/toque usa os cards. -->
+            <div class="pedido-escolha">
+              <div class="pedido-escolha__topo">
+                <label for="produto">Produto</label>
+                <div class="loja-busca" id="pedidoBuscaCampo">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
+                  <input type="search" id="pedidoBusca" placeholder="Buscar produtos..." aria-label="Buscar produtos" autocomplete="off">
+                  <button type="button" class="loja-limpar" id="pedidoLimparBusca" aria-label="Limpar busca">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
+                  </button>
+                </div>
+                <div class="loja-ordenar">
+                  <label for="pedidoOrdem">Ordenar</label>
+                  <select id="pedidoOrdem">
+                    <option value="nome">Nome A–Z</option>
+                    <option value="menor">Menor preço</option>
+                    <option value="maior">Maior preço</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="loja-chips" id="pedidoCategorias" role="group" aria-label="Filtrar por categoria"></div>
+
+              <!-- O select real: fica acessivel por teclado, mas sai do fluxo
+                   visual porque a vitrine faz o mesmo trabalho com mais clareza. -->
+              <div class="pedido-select-acessivel">
+                <label for="produto">Produto selecionado</label>
+                <select id="produto"></select>
+              </div>
+
+              <div class="grade loja loja--compacta" id="pedidoVitrine"></div>
+            </div>
+
+            <div class="cc-form">
+              <div class="cc-campo"><label for="quantidade">Quantidade</label><input id="quantidade" type="number" min="1" max="99" value="1"><span class="cc-ajuda" id="pedidoEstoqueAjuda"></span></div>
+              <div class="cc-campo"><label for="pedido-pagamento">Pagamento</label><select id="pedido-pagamento"><option>Pix</option><option>Cartão</option><option>Dinheiro</option><option>A combinar</option></select></div>
+              <p class="cc-msg" id="pedido-msg"></p>
+              <div class="cc-form__acoes"><button class="botao primario" type="button" id="criar-pedido">Confirmar pedido</button></div>
+            </div>
+          </section>
+        </section>
+
+        <!-- ---------- MEUS PEDIDOS ---------- -->
+        <section class="cc-secao" id="sec-meus-pedidos">
+          <div class="cc-cabecalho">
+            <a class="cc-voltar" href="#minha-conta" data-rota="minha-conta">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 6l-6 6 6 6"/></svg>
+              Minha conta
+            </a>
+            <h1>Meus Pedidos</h1>
+            <p>Acompanhe seus pedidos e consulte seu histórico de compras.</p>
+          </div>
+
+          <div id="lista-pedidos"></div>
+        </section>
+
+        <section class="cc-secao" id="sec-pagamentos">
+          <div class="cc-cabecalho">
+            <h1>Pagamentos</h1>
+            <p>Extrato dos valores dos seus agendamentos e pedidos, com a forma de pagamento combinada.</p>
+          </div>
+          <div class="cc-resumo" id="cc-resumo-pagamentos"></div>
+          <section class="cc-painel">
+            <div class="cc-painel__topo"><div><h2>Lançamentos</h2><p>Os pagamentos são confirmados pela equipe no atendimento.</p></div></div>
+            <div id="cc-pagamentos"></div>
+          </section>
+        </section>
+
+        <!-- ---------- SEGURO PET ---------- -->
+        <section class="cc-secao" id="sec-seguro">
+          <div class="cc-cabecalho">
+            <h1>Seguro Pet</h1>
+            <p>Planos de proteção disponíveis. A contratação é finalizada com a equipe LanePets.</p>
+          </div>
+          <div class="cc-planos" id="cc-planos"></div>
+        </section>
+
+        <!-- ---------- AVALIAÇÕES ---------- -->
+        <section class="cc-secao" id="sec-avaliacoes">
+          <div class="cc-cabecalho">
+            <h1>Avaliações</h1>
+            <p>Conte como foi a sua experiência. Após a aprovação da equipe, o comentário aparece no site.</p>
+          </div>
+
+          <section class="cc-painel">
+            <div class="cc-painel__topo"><div><h2>Nova avaliação</h2><p>Enviada com o nome e o telefone da sua conta.</p></div></div>
+            <div class="cc-form">
+              <div class="cc-campo"><label for="av-pet">Sobre qual pet?</label><select id="av-pet"></select></div>
+              <div class="cc-campo">
+                <label for="av-nota">Sua nota</label>
+                <div class="cc-estrelas" id="av-estrelas" role="group" aria-label="Escolha de 1 a 5 estrelas">
+                  <button type="button" data-nota="1" aria-label="1 estrela">★</button>
+                  <button type="button" data-nota="2" aria-label="2 estrelas">★</button>
+                  <button type="button" data-nota="3" aria-label="3 estrelas">★</button>
+                  <button type="button" data-nota="4" aria-label="4 estrelas">★</button>
+                  <button type="button" data-nota="5" aria-label="5 estrelas">★</button>
+                </div>
+                <input type="hidden" id="av-nota" value="5">
+              </div>
+              <div class="cc-campo cc-campo--largo"><label for="av-comentario">Seu comentário</label><textarea id="av-comentario" rows="4" maxlength="500" placeholder="O que a sua família achou do atendimento?"></textarea><span class="cc-ajuda">Mínimo de 10 caracteres.</span></div>
+              <p class="cc-msg" id="av-msg"></p>
+              <div class="cc-form__acoes"><button class="botao primario" type="button" id="av-enviar">Enviar avaliação</button></div>
+            </div>
+          </section>
+
+          <section class="cc-painel">
+            <div class="cc-painel__topo"><div><h2>Minhas avaliações</h2><p>Acompanhe o status da moderação.</p></div></div>
+            <div id="cc-avaliacoes"></div>
+          </section>
+        </section>
+
+        <!-- ---------- CONFIGURAÇÕES ---------- -->
+        <section class="cc-secao" id="sec-configuracoes">
+          <div class="cc-cabecalho">
+            <h1>Configurações</h1>
+            <p>Dados da conta e encerramento de sessão.</p>
+          </div>
+
+          <section class="cc-painel">
+            <div class="cc-painel__topo"><div><h2>Dados pessoais</h2><p>Nome, telefone e endereço usados nos atendimentos.</p></div>
+              <button class="botao claro" type="button" id="cc-editar-perfil-2">Editar perfil</button></div>
+            <dl class="cc-dados" id="cc-dados-2"></dl>
+          </section>
+
+          <section class="cc-painel">
+            <div class="cc-painel__topo"><div><h2>Acesso</h2><p>Seu e-mail de login e a senha da conta.</p></div></div>
+            <dl class="cc-dados" id="cc-acesso"></dl>
+            <p class="cc-ajuda" style="margin-top:16px">Para trocar o e-mail ou a senha, fale com a equipe LanePets em uma das unidades — Franco da Rocha ou Caieiras.</p>
+          </section>
+
+          <section class="cc-painel">
+            <div class="cc-painel__topo"><div><h2>Encerrar sessão</h2><p>Você sairá da conta neste navegador.</p></div>
+              <button class="botao claro" type="button" id="cc-sair-2">Sair da conta</button></div>
+          </section>
+        </section>
+
+      </main>
+    </div>
+  </div>
+
+  <!-- ---------- Modal: editar perfil ---------- -->
+  <dialog class="cc-modal" id="modal-perfil">
+    <div class="cc-modal__corpo">
+      <button class="fechar" type="button" data-fechar aria-label="Fechar">×</button>
+      <p class="eyebrow">Meus dados</p>
+      <h2>Editar perfil</h2>
+      <p>Atualize os dados que a equipe usa para falar com você.</p>
+      <div class="cc-form">
+        <div class="cc-campo cc-campo--largo"><label for="pf-nome">Nome completo</label><input id="pf-nome" type="text" autocomplete="name"></div>
+        <div class="cc-campo cc-campo--largo"><label for="pf-telefone">Telefone</label><input id="pf-telefone" type="tel" inputmode="tel" autocomplete="tel" placeholder="(11) 99999-9999"></div>
+        <div class="cc-campo cc-campo--largo"><label for="pf-endereco">Endereço</label><input id="pf-endereco" type="text" autocomplete="street-address" placeholder="Rua, número, bairro"></div>
+        <p class="cc-msg" id="pf-msg"></p>
+        <div class="cc-form__acoes">
+          <button class="botao claro" type="button" data-fechar>Cancelar</button>
+          <button class="botao primario" type="button" id="pf-salvar">Salvar alterações</button>
+        </div>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- ---------- Modal: cadastro / edicao de pet em etapas ----------
+       O MESMO modal atende cadastrar e editar. A diferenca esta nos dados com
+       que ele abre e no texto do ultimo passo ("Confirmar cadastro" x
+       "Confirmar alteracoes"). Nada e enviado para a API antes desse passo:
+       enquanto o cliente percorre as etapas, tudo vive no formulario. -->
+  <dialog class="cc-modal cc-modal--largo" id="modal-pet">
+    <div class="cc-modal__corpo">
+      <button class="fechar" type="button" data-pet-sair aria-label="Fechar">×</button>
+      <p class="eyebrow" id="pw-eyebrow">Novo pet</p>
+      <h2 id="pw-titulo">Cadastrar pet</h2>
+      <p id="pw-sub">Nada é salvo antes de você conferir e confirmar no final.</p>
+      <ol class="cc-etapas cc-etapas--pet" id="pw-etapas" aria-label="Etapas do cadastro"></ol>
+      <div class="cc-etapa__corpo" id="pw-corpo"></div>
+      <p class="cc-msg" id="pw-msg" role="alert"></p>
+      <div class="cc-form__acoes">
+        <button class="botao claro" type="button" data-pet-sair>Cancelar</button>
+        <button class="botao claro" type="button" id="pw-voltar">← Voltar</button>
+        <button class="botao primario" type="button" id="pw-avancar">Continuar</button>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- ---------- Modal: detalhes do pet ----------
+       Somente leitura. Monta a ficha com o pet que a tela ja tem em maos. -->
+  <dialog class="cc-modal" id="modal-pet-detalhes">
+    <div class="cc-modal__corpo">
+      <button class="fechar" type="button" data-fechar aria-label="Fechar">×</button>
+      <p class="eyebrow">Meus pets</p>
+      <h2 id="pd-titulo">Pet</h2>
+      <p id="pd-sub">Ficha cadastrada na sua conta.</p>
+      <div id="pd-corpo"></div>
+      <div class="cc-form__acoes">
+        <button class="botao claro" type="button" data-fechar>Fechar</button>
+        <button class="botao primario" type="button" id="pd-editar">Editar pet</button>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- ---------- Modal: descartar o preenchimento ----------
+       Existe para o cliente nao perder o que digitou com um clique errado. -->
+  <dialog class="cc-modal" id="modal-pet-descartar">
+    <div class="cc-modal__corpo">
+      <button class="fechar" type="button" data-fechar aria-label="Fechar">×</button>
+      <p class="eyebrow">Meus pets</p>
+      <h2 id="px-titulo">Cancelar cadastro?</h2>
+      <p id="px-texto">As informações preenchidas serão descartadas.</p>
+      <div class="cc-form__acoes">
+        <button class="botao claro" type="button" data-fechar>Continuar cadastro</button>
+        <button class="botao perigo" type="button" id="px-confirmar">Cancelar cadastro</button>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- ---------- Modal: contratacao do Seguro Pet (etapas) ---------- -->
+  <dialog class="cc-modal cc-modal--largo" id="modal-seguro">
+    <div class="cc-modal__corpo">
+      <button class="fechar" type="button" data-fechar aria-label="Fechar">×</button>
+      <p class="eyebrow">Seguro Pet</p>
+      <h2 id="sg-titulo">Contratação</h2>
+      <p id="sg-sub">A contratação é concluída em etapas. Nada é registrado antes da confirmação final.</p>
+      <ol class="cc-etapas" id="sg-etapas" aria-label="Etapas da contratação"></ol>
+      <div class="cc-etapa__corpo" id="sg-corpo"></div>
+      <p class="cc-msg" id="sg-msg"></p>
+      <div class="cc-form__acoes">
+        <button class="botao claro" type="button" id="sg-voltar">Voltar</button>
+        <button class="botao primario" type="button" id="sg-avancar">Continuar</button>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- ---------- Modal: confirmar cancelamento do seguro ---------- -->
+  <dialog class="cc-modal" id="modal-seguro-cancelar">
+    <div class="cc-modal__corpo">
+      <button class="fechar" type="button" data-fechar aria-label="Fechar">×</button>
+      <p class="eyebrow">Seguro Pet</p>
+      <h2>Cancelar Seguro Pet?</h2>
+      <p>Tem certeza que deseja cancelar este seguro?</p>
+      <div class="cc-resumo-bloco" id="sgc-corpo"></div>
+      <p class="cc-nota">Essa ação alterará o status do seu seguro. O histórico da contratação é preservado.</p>
+      <p class="cc-msg" id="sgc-msg"></p>
+      <div class="cc-form__acoes">
+        <button class="botao claro" type="button" data-fechar>Voltar</button>
+        <button class="botao perigo" type="button" id="sgc-confirmar">Confirmar cancelamento</button>
+      </div>
+    </div>
+  </dialog>
+
+
+  <!-- ---------- Modal: novo agendamento em etapas ----------
+       O fluxo inteiro vive em memoria. Enquanto o cliente percorre as etapas
+       NADA vai para a API: o agendamento so existe no banco depois do clique
+       em "Confirmar agendamento", na tela de revisao. O POST e o mesmo de
+       sempre (/api/cliente/agendamentos) e o servidor continua validando
+       dono do pet, servico, unidade e conflito de horario. -->
+  <dialog class="cc-modal cc-modal--largo cc-modal--wizard" id="modal-agendar">
+    <div class="cc-modal__corpo">
+      <button class="fechar" type="button" data-ag-sair aria-label="Fechar">×</button>
+      <p class="eyebrow" id="aw-eyebrow">Novo agendamento</p>
+      <h2 id="aw-titulo">Agendar um serviço</h2>
+      <p id="aw-sub">Nada é enviado antes de você conferir e confirmar no final.</p>
+      <ol class="cc-etapas cc-etapas--pet" id="aw-etapas" aria-label="Etapas do agendamento"></ol>
+      <div class="cc-etapa__corpo" id="aw-corpo"></div>
+      <p class="cc-msg" id="aw-msg" role="alert"></p>
+      <div class="cc-form__acoes">
+        <button class="botao claro" type="button" data-ag-sair>Cancelar</button>
+        <button class="botao claro" type="button" id="aw-voltar">← Voltar</button>
+        <button class="botao primario" type="button" id="aw-avancar">Continuar</button>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- ---------- Modal: descartar o agendamento em preenchimento ---------- -->
+  <dialog class="cc-modal" id="modal-agendar-descartar">
+    <div class="cc-modal__corpo">
+      <button class="fechar" type="button" data-fechar aria-label="Fechar">×</button>
+      <p class="eyebrow">Agendamentos</p>
+      <h2>Sair do agendamento?</h2>
+      <p>As escolhas feitas até aqui serão descartadas. Nenhum horário foi reservado.</p>
+      <div class="cc-form__acoes">
+        <button class="botao claro" type="button" data-fechar>Continuar agendando</button>
+        <button class="botao perigo" type="button" id="ax-confirmar">Descartar</button>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- ---------- Modal: detalhes do agendamento ----------
+       Somente leitura, montado com o agendamento que a tela ja recebeu em
+       GET /api/cliente/conta. Nenhuma chamada nova. -->
+  <dialog class="cc-modal cc-modal--largo" id="modal-agenda-detalhes">
+    <div class="cc-modal__corpo">
+      <button class="fechar" type="button" data-fechar aria-label="Fechar">×</button>
+      <p class="eyebrow">Agendamentos</p>
+      <h2 id="ad-titulo">Agendamento</h2>
+      <p id="ad-sub">—</p>
+      <div id="ad-corpo"></div>
+      <div class="cc-form__acoes" style="margin-top:18px">
+        <button class="botao claro" type="button" data-fechar>Fechar</button>
+        <button class="botao perigo" type="button" id="ad-cancelar" hidden>Cancelar agendamento</button>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- ---------- Modal: confirmar cancelamento do agendamento ----------
+       O registro NAO e apagado: o backend troca o Status para "Cancelado",
+       que e como o painel e o dashboard ja tratam. O historico permanece. -->
+  <dialog class="cc-modal" id="modal-agenda-cancelar">
+    <div class="cc-modal__corpo">
+      <button class="fechar" type="button" data-fechar aria-label="Fechar">×</button>
+      <p class="eyebrow">Agendamentos</p>
+      <h2>Cancelar agendamento?</h2>
+      <p>Tem certeza que deseja cancelar este atendimento?</p>
+      <div class="cc-resumo-bloco" id="agc-corpo"></div>
+      <p class="cc-nota">O horário volta a ficar disponível e o histórico do agendamento é preservado.</p>
+      <p class="cc-msg" id="agc-msg"></p>
+      <div class="cc-form__acoes">
+        <button class="botao claro" type="button" data-fechar>Voltar</button>
+        <button class="botao perigo" type="button" id="agc-confirmar">Confirmar cancelamento</button>
+      </div>
+    </div>
+  </dialog>
 
   <script src="js/config.js"></script>
-  <script src="js/http.js"></script>
-  <script src="js/auth-ui.js?v=3"></script>
-  <script src="js/minha-conta.js?v=3"></script>
+  <script src="js/http.js?v=5"></script>
+  <script src="js/auth-ui.js?v=5"></script>
+  <script src="js/minha-conta.js?v=9"></script>
+<!-- ---------- Modal: detalhes do pedido ----------
+       Somente leitura, montado com o pedido que a tela ja recebeu em
+       GET /api/cliente/conta. Nenhuma chamada nova. -->
+  <dialog class="cc-modal" id="modal-pedido">
+    <div class="cc-modal__corpo">
+      <button class="fechar" type="button" data-fechar aria-label="Fechar">×</button>
+      <p class="eyebrow">Meus pedidos</p>
+      <h2 id="ped-titulo">Pedido</h2>
+      <p id="ped-data">—</p>
+
+      <h3 class="ped-secao">Produto</h3>
+      <div id="ped-item"></div>
+
+      <h3 class="ped-secao">Resumo</h3>
+      <dl class="ped-resumo" id="ped-resumo"></dl>
+
+      <div class="cc-form__acoes" style="margin-top:18px">
+        <button class="botao claro" type="button" data-fechar>Fechar</button>
+      </div>
+    </div>
+  </dialog>
+
 </body>
 </html>

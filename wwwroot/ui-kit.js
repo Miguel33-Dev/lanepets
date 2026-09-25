@@ -92,3 +92,37 @@ function comLoading(botao, textoCarregando, fn) {
     });
 }
 window.comLoading = comLoading;
+
+/* ---------- Sair do painel administrativo ----------
+   Usa a rota real POST /api/logout (AuthController), que também
+   remove o cookie lanePetsAdmin protegido pelo middleware.
+   Nenhuma regra de negócio foi alterada: apenas o botão da interface. */
+async function lanePetsLogout() {
+  let token = "";
+  try { token = sessionStorage.getItem("lanePetsAuthToken") || ""; } catch (_) {}
+  try {
+    await fetch("/api/logout", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token: token })
+    });
+  } catch (_) { /* a sessão local é encerrada de qualquer forma */ }
+  try { sessionStorage.removeItem("lanePetsAuthToken"); } catch (_) {}
+  try { sessionStorage.removeItem("lanePetsFinanceiroToken"); } catch (_) {}
+  window.location.href = "admin-login.html";
+}
+window.lanePetsLogout = lanePetsLogout;
+
+document.addEventListener("DOMContentLoaded", function () {
+  const botao = document.getElementById("btnSair");
+  if (!botao) return;
+  botao.addEventListener("click", async function () {
+    const ok = await confirmarAcao({
+      titulo: "Encerrar sessão?",
+      texto: "Você voltará para a tela de acesso administrativo.",
+      corBotao: "btn-primary",
+      textoBotao: "Sair"
+    });
+    if (ok) lanePetsLogout();
+  });
+});

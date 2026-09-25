@@ -1,0 +1,107 @@
+/* ===========================================================================
+   LANEPETS — AÇÕES DE TABELA (compartilhado)
+
+   Botões de ação em ícone, dica flutuante e menu compacto para as tabelas do
+   painel administrativo. Vive aqui, e não dentro de uma página, porque mais de
+   uma tela usa: Usuários Administrativos e Produtos.
+
+   O motor da dica e do menu está em js/admin-acoes.js — o CSS sozinho não faz
+   nada, e o JS sozinho não desenha nada. Use os dois juntos.
+   =========================================================================== */
+
+/* Cinco ações por linha em botões de texto iguais viram um paredão: nada
+   indica o que é rotina, o que é delicado e o que é irreversível. Aqui cada
+   ação é um ícone de 36px com dica ao passar o mouse, e a hierarquia aparece
+   pela cor, não pelo tamanho — o destrutivo só fica vermelho no hover.
+
+   A dica e o menu "⋮" são posicionados por JS com position:fixed, porque
+   .table-wrap tem overflow:auto e recortaria qualquer balão absoluto. */
+
+.acoes { display: flex; align-items: center; justify-content: flex-end; }
+.acoes-linha { display: flex; align-items: center; gap: 6px; }
+.acoes-compacta { display: none; position: relative; }
+
+.acao {
+  width: 36px; height: 36px; flex: 0 0 auto;
+  display: inline-flex; align-items: center; justify-content: center;
+  padding: 0; cursor: pointer;
+  background: var(--surface);
+  color: var(--ink-600);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  transition: background .16s var(--ease), color .16s var(--ease),
+              border-color .16s var(--ease), box-shadow .16s var(--ease),
+              transform .1s var(--ease);
+}
+.acao svg { width: 17px; height: 17px; display: block; }
+.acao:hover { background: var(--surface-muted); color: var(--ink-900); border-color: var(--border-strong); }
+.acao:active { transform: translateY(1px); }
+.acao:focus-visible { outline: none; border-color: var(--brand-500); box-shadow: var(--ring); }
+.acao[disabled] { opacity: .45; cursor: not-allowed; transform: none; }
+
+/* Senha: campo da segurança, azul discreto. */
+.acao--senha:hover:not([disabled]) { background: var(--info-100); color: var(--info-500); border-color: #cfe0ef; }
+
+/* Permissões: a ação principal desta tela, então já nasce marcada. */
+.acao--permissoes { background: var(--brand-50); color: var(--brand-600); border-color: var(--brand-200); }
+.acao--permissoes:hover:not([disabled]) { background: var(--brand-100); color: var(--brand-700); border-color: var(--brand-500); }
+
+/* Excluir: destrutivo. Neutro em repouso para não gritar na tela,
+   inequivocamente vermelho no instante em que a mão chega nele. */
+.acao--excluir:hover:not([disabled]) { background: var(--danger-100); color: var(--danger-500); border-color: #f0c7c0; }
+.acao--excluir:focus-visible { border-color: var(--danger-500); box-shadow: 0 0 0 3px rgba(192,57,43,.18); }
+
+/* Estado de carregamento: o ícone some e entra o giro, sem a linha pular. */
+.acao.carregando { pointer-events: none; opacity: .75; }
+.acao.carregando svg { display: none; }
+.acao.carregando::after {
+  content: ''; width: 15px; height: 15px; border-radius: 50%;
+  border: 2px solid var(--border-strong); border-top-color: var(--brand-500);
+  animation: acao-girar .6s linear infinite;
+}
+@keyframes acao-girar { to { transform: rotate(360deg); } }
+
+/* ---------- Dica (tooltip) ---------- */
+#dicaFlutuante {
+  position: fixed; z-index: 90; pointer-events: none;
+  background: var(--ink-900); color: #fff;
+  font-family: var(--font-body); font-size: var(--fs-xs); font-weight: 600;
+  line-height: 1.2; padding: 6px 10px; border-radius: var(--r-sm);
+  box-shadow: var(--shadow-md); white-space: nowrap;
+  opacity: 0; transform: translateY(3px);
+  transition: opacity .14s var(--ease), transform .14s var(--ease);
+}
+#dicaFlutuante.visivel { opacity: 1; transform: translateY(0); }
+#dicaFlutuante::after {
+  content: ''; position: absolute; top: 100%; left: 50%; transform: translateX(-50%);
+  border: 5px solid transparent; border-top-color: var(--ink-900);
+}
+
+/* ---------- Menu compacto (celular) ---------- */
+.acoes-lista {
+  position: fixed; z-index: 80; min-width: 210px; padding: 6px;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--r-md); box-shadow: var(--shadow-lg);
+  opacity: 0; transform: translateY(-6px) scale(.98);
+  transition: opacity .14s var(--ease), transform .14s var(--ease);
+}
+.acoes-lista.aberto { opacity: 1; transform: translateY(0) scale(1); }
+.acao-item {
+  display: flex; align-items: center; gap: 10px; width: 100%;
+  padding: 10px 12px; border: 0; background: none; cursor: pointer;
+  font-family: var(--font-body); font-size: var(--fs-sm); font-weight: 600;
+  color: var(--ink-700); text-align: left; border-radius: var(--r-sm);
+  transition: background .14s var(--ease), color .14s var(--ease);
+}
+.acao-item svg { width: 16px; height: 16px; flex: 0 0 auto; color: var(--ink-500); }
+.acao-item:hover { background: var(--surface-muted); color: var(--ink-900); }
+.acao-item:hover svg { color: inherit; }
+.acao-item:focus-visible { outline: none; background: var(--surface-muted); box-shadow: var(--ring); }
+.acao-item--perigo { color: var(--danger-500); }
+.acao-item--perigo svg { color: var(--danger-500); }
+.acao-item--perigo:hover { background: var(--danger-100); color: var(--danger-500); }
+
+@media (max-width: 860px) {
+  .acoes-linha { display: none; }
+  .acoes-compacta { display: block; }
+}

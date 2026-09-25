@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Acesso negado &middot; LanePets</title>
+<link rel="stylesheet" href="design-system.css?v=4">
+</head>
+<body>
+<main class="page-content" style="max-width:560px;margin:0 auto;min-height:100vh;display:flex;align-items:center">
+  <section class="card" style="width:100%;text-align:center;padding:var(--sp-7) var(--sp-6)">
+    <div class="modal-confirm-icon" style="margin:0 auto var(--sp-5)">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <rect x="4" y="10.5" width="16" height="10" rx="2"/><path d="M8 10.5V7a4 4 0 0 1 8 0v3.5"/>
+      </svg>
+    </div>
+    <h1 style="font-size:1.4rem;margin-bottom:var(--sp-3)">Acesso negado</h1>
+    <p class="small-note" style="font-size:var(--fs-sm);margin-bottom:var(--sp-2)">
+      Você não possui permissão para acessar esta ferramenta<span id="nomeModulo"></span>.
+    </p>
+    <p class="small-note" style="margin-bottom:var(--sp-6)">
+      Se você precisa deste acesso, peça ao Administrador Geral para liberá-lo em
+      <strong>Administração &rsaquo; Usuários Administrativos</strong>.
+    </p>
+    <div style="display:flex;gap:var(--sp-3);justify-content:center;flex-wrap:wrap">
+      <button class="btn btn-outline" type="button" id="btnVoltar">Voltar</button>
+      <a class="btn btn-primary" href="dashboard_financeiro.html" id="linkPainel" style="display:none">Ir para o painel</a>
+    </div>
+  </section>
+</main>
+<script>
+/* O bloqueio de verdade ja aconteceu no servidor: esta pagina so explica.
+   O middleware do backend nem serve o HTML da tela restrita. */
+(function () {
+  const rotulos = {
+    dashboard: 'Dashboard', clientes: 'Clientes', pets: 'Pets e pacotes',
+    agendamentos: 'Agendamentos', produtos: 'Produtos', servicos: 'Serviços',
+    pedidos: 'Pedidos', pagamentos: 'Pagamentos e financeiro', seguros: 'Seguros Pet',
+    avaliacoes: 'Avaliações', relatorios: 'Relatórios',
+    usuarios: 'Usuários Administrativos', configuracoes: 'Configurações'
+  };
+  const chave = new URLSearchParams(location.search).get('modulo');
+  if (chave && rotulos[chave]) document.getElementById('nomeModulo').textContent = ': ' + rotulos[chave];
+  document.getElementById('btnVoltar').addEventListener('click', function () {
+    if (history.length > 1) history.back(); else location.href = 'cliente.html';
+  });
+
+  /* "Ir para o painel" so aparece apontando para uma tela que ESTE usuario
+     realmente pode abrir — senao o botao levaria a outro acesso negado. */
+  const DESTINOS = [
+    ['dashboard', 'dashboard_financeiro.html'], ['agendamentos', 'agendamentos.html'],
+    ['pedidos', 'pedidos.html'], ['clientes', 'clientes.html'], ['pets', 'index.html'],
+    ['produtos', 'Produtos.html'], ['pagamentos', 'entradas_e_saidas.html'],
+    ['relatorios', 'relatorio.html'], ['seguros', 'gestao-publica.html'],
+    ['usuarios', 'usuarios-admin.html'], ['configuracoes', 'migrar-dados.html']
+  ];
+
+  (async function () {
+    let token = '';
+    try { token = sessionStorage.getItem('lanePetsAuthToken') || ''; } catch (_) {}
+    if (!token) return;
+    try {
+      const r = await fetch('/api/admin/me?token=' + encodeURIComponent(token));
+      const corpo = await r.json();
+      if (!corpo || !corpo.ok) return;
+      const p = corpo.data;
+      const pode = c => p.acessoIrrestrito || (p.modulos && p.modulos[c] && p.modulos[c].visualizar);
+      const alvo = DESTINOS.find(([c]) => pode(c));
+      if (!alvo) return;
+      const link = document.getElementById('linkPainel');
+      link.href = alvo[1];
+      link.style.display = '';
+    } catch (_) {}
+  })();
+})();
+</script>
+</body>
+</html>

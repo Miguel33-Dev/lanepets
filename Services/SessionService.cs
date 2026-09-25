@@ -4,7 +4,12 @@ using System.Text;
 
 namespace LanePets.Services;
 
-public record Session(string Profile, DateTime CreatedAt, DateTime ExpiresAt, string? AdminToken = null);
+// UsuarioId liga a sessao administrativa ao registro em
+// UsuariosAdministradores. Sem isso o backend saberia que existe UM admin
+// logado, mas nao QUAL — e sem saber qual, nao ha como aplicar permissao.
+// AdminToken continua com o significado antigo (sessao financeira aponta para
+// a sessao admin que a autorizou; sessao de cliente guarda o ClienteId).
+public record Session(string Profile, DateTime CreatedAt, DateTime ExpiresAt, string? AdminToken = null, string UsuarioId = "");
 
 public class SessionService(IConfiguration config)
 {
@@ -18,10 +23,25 @@ public class SessionService(IConfiguration config)
     public bool ValidateAdmin(string password) => Hash(password) == Hash(config["LanePets:AdminPassword"] ?? "");
     public bool ValidateFinance(string password) => Hash(password) == Hash(config["LanePets:FinancePassword"] ?? "");
 
-    public string CreateAdmin()
+    public string CreateAdmin(string usuarioId)
     {
         var token = Guid.NewGuid().ToString(); var now = DateTime.UtcNow;
-        _sessions[token] = new Session("admin", now, now.AddMinutes(SessionMinutes)); return token;
+        _sessions[token] = new Session("admin", now, now.AddMinutes(SessionMinutes), null, usuarioId); return token;
+    }
+
+    /// <summary>
+    /// Derruba todas as sessoes de um administrador. Usado quando o
+    /// Administrador Geral desativa a conta ou redefine a senha: o usuario
+    /// perde o painel na hora, sem esperar a sessao expirar.
+    /// </summary>
+    public void EncerrarSessoesDoUsuario(string usuarioId)
+    {
+        foreach (var par in _sessions.Where(x => x.Value.UsuarioId == usuarioId).ToList())
+        {
+            _sessions.TryRemove(par.Key, out _);
+            foreach (var fin in _financial.Where(f => f.Value.AdminToken == par.Key).ToList())
+                _financial.TryRemove(fin.Key, out _);
+        }
     }
     public Session RequireAdmin(string token)
     {
@@ -45,6 +65,38 @@ public class SessionService(IConfiguration config)
     public string CreateClient(string clienteId) { var token = Guid.NewGuid().ToString(); var now = DateTime.UtcNow; _clients[token] = new Session("cliente", now, now.AddDays(7), clienteId); return token; }
     public Session RequireClient(string token) { if (!_clients.TryGetValue(token, out var s) || s.ExpiresAt <= DateTime.UtcNow) { _clients.TryRemove(token, out _); throw new UnauthorizedAccessException("Sessão de cliente inválida ou expirada."); } return s; }
     public void LogoutClient(string token) => _clients.TryRemove(token, out _);
-    public static (string Hash, string Salt) HashPassword(string password) { var salt = RandomNumberGenerator.GetBytes(16); var hash = Rfc2898DeriveBytes.Pbkdf2(password, salt, 120000, HashAlgorithmName.SHA256, 32); return (Convert.ToBase64String(hash), Convert.ToBase64String(salt)); }
-    public static bool VerifyPassword(string password, string hash, string salt) { var calculated = Rfc2898DeriveBytes.Pbkdf2(password, Convert.FromBase64String(salt), 120000, HashAlgorithmName.SHA256, 32); return CryptographicOperations.FixedTimeEquals(calculated, Convert.FromBase64String(hash)); }
+
+    // -----------------------------------------------------------------------
+    // Senhas: novos cadastros usam BCrypt. A verificacao continua aceitando os
+    // hashes PBKDF2 gravados pelas versoes anteriores, para nao invalidar as
+    // contas que ja existem no lanepets.db.
+    // -----------------------------------------------------------------------
+    private const string BCryptSalt = "bcrypt";
+
+    public static (string Hash, string Salt) HashPassword(string password)
+        => (BCrypt.Net.BCrypt.HashPassword(password), BCryptSalt);
+
+    public static bool VerifyPassword(string password, string hash, string salt)
+    {
+        if (string.IsNullOrWhiteSpace(hash))
+        {
+            return false;
+        }
+
+        if (hash.StartsWith("$2", StringComparison.Ordinal))
+        {
+            try { return BCrypt.Net.BCrypt.Verify(password, hash); }
+            catch { return false; }
+        }
+
+        try
+        {
+            var calculated = Rfc2898DeriveBytes.Pbkdf2(password, Convert.FromBase64String(salt), 120000, HashAlgorithmName.SHA256, 32);
+            return CryptographicOperations.FixedTimeEquals(calculated, Convert.FromBase64String(hash));
+        }
+        catch
+        {
+            return false;
+        }
+    }
 }

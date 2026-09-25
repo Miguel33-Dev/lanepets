@@ -4,14 +4,16 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>LanePets</RootNamespace>
+    <!-- Item 12: o projeto de testes mora em tests/ e tem o proprio .csproj; nada de la entra na aplicacao. -->
+    <DefaultItemExcludes>$(DefaultItemExcludes);tests/**;Claude outputs/**</DefaultItemExcludes>
   </PropertyGroup>
   <ItemGroup>
+    <PackageReference Include="BCrypt.Net-Next" Version="4.2.0" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.11" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.11">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
-    <PackageReference Include="Swashbuckle.AspNetCore" Version="10.0.1" />
   </ItemGroup>
   <ItemGroup>
     <Content Include="Data/seed/*.csv" CopyToOutputDirectory="PreserveNewest" />

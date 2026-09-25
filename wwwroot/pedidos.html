@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pedidos &middot; LanePets</title>
+<link rel="stylesheet" href="design-system.css?v=4">
+<script src="js/config.js"></script>
+<script src="js/api.js"></script>
+<script src="lib/signalr/signalr.min.js"></script>
+<script src="js/admin-dados.js"></script>
+<script src="js/admin-permissoes.js"></script>
+</head>
+<body><div class="app-shell"><aside class="sidebar" id="menu-lateral"><div class="sidebar-brand"><a class="brand-home" href="cliente.html" title="Abrir o site LanePets"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="var(--accent-500)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="7" cy="8" r="2"/><circle cx="12" cy="5.5" r="2"/><circle cx="17" cy="8" r="2"/><path d="M12 13c-3.3 0-6 2.1-6 4.7 0 1.6 1.5 2.3 3 1.8.9-.3 1.9-.5 3-.5s2.1.2 3 .5c1.5.5 3-.2 3-1.8 0-2.6-2.7-4.7-6-4.7Z"/></svg><span class="brand-text"><span class="brand-name">LanePets</span><span class="brand-sub">Franco + Caieiras</span></span><svg class="brand-home-ico" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg></a><button class="sidebar-close hide-desktop" type="button" aria-label="Fechar menu"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div><nav class="sidebar-nav" aria-label="Menu do painel"><p class="nav-group">Operação</p><a class="nav-item" href="dashboard_financeiro.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 13h8V3H3v10Zm0 8h8v-6H3v6Zm10 0h8V11h-8v10Zm0-18v6h8V3h-8Z"/></svg><span>Dashboard</span></a><a class="nav-item" href="agendamentos.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4.5" width="18" height="16.5" rx="2.5"/><path d="M16 2.5v4M8 2.5v4M3 10h18"/></svg><span>Agendamentos</span></a><a class="nav-item active" aria-current="page" href="pedidos.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="20" r="1.4"/><circle cx="18" cy="20" r="1.4"/><path d="M2.5 3h2.2l2.3 11.2a1.6 1.6 0 0 0 1.6 1.3h8.7a1.6 1.6 0 0 0 1.6-1.25L21 7H6"/></svg><span>Pedidos</span></a><a class="nav-item" href="clientes.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 20v-1.8a3.6 3.6 0 0 0-3.6-3.6H6.6A3.6 3.6 0 0 0 3 18.2V20"/><circle cx="9.5" cy="7.5" r="3.4"/><path d="M21 20v-1.8a3.6 3.6 0 0 0-2.7-3.48"/><path d="M15.5 4.2a3.4 3.4 0 0 1 0 6.6"/></svg><span>Clientes</span></a><a class="nav-item" href="clientes_pacote.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.3 7.5 12 12l8.7-4.5"/><path d="M12 12v9.2"/><path d="M20.4 7.2v9.6a1.4 1.4 0 0 1-.76 1.24l-7 3.6a1.4 1.4 0 0 1-1.28 0l-7-3.6A1.4 1.4 0 0 1 3.6 16.8V7.2a1.4 1.4 0 0 1 .76-1.24l7-3.6a1.4 1.4 0 0 1 1.28 0l7 3.6A1.4 1.4 0 0 1 20.4 7.2Z"/></svg><span>Pacotes</span></a><a class="nav-item" href="index.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6.2" cy="9" r="1.9"/><circle cx="11" cy="6.4" r="1.9"/><circle cx="15.8" cy="9" r="1.9"/><path d="M11 13.4c-3.1 0-5.6 2-5.6 4.4 0 1.5 1.4 2.2 2.8 1.7.85-.3 1.8-.45 2.8-.45s1.95.15 2.8.45c1.4.5 2.8-.2 2.8-1.7 0-2.4-2.5-4.4-5.6-4.4Z"/><path d="M19 4.5v5M21.5 7h-5"/></svg><span>Cadastro</span></a><p class="nav-group">Catálogo</p><a class="nav-item" href="Produtos.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 8 9-5 9 5-9 5-9-5Z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v8"/></svg><span>Produtos</span></a><p class="nav-group">Financeiro</p><a class="nav-item" href="entradas_e_saidas.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.5v19"/><path d="M16.8 6H9.6a3.4 3.4 0 0 0 0 6.8h4.8a3.4 3.4 0 0 1 0 6.8H6.8"/></svg><span>Entradas e Saídas</span></a><a class="nav-item" href="relatorio.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 3.5v17h17"/><path d="M18 16.5V9M13 16.5V5.5M8 16.5v-4"/></svg><span>Relatório</span></a><p class="nav-group">Site público</p><a class="nav-item" href="gestao-publica.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3.3 9.5h17.4M3.3 14.5h17.4"/><path d="M12 3a15 15 0 0 1 0 18a15 15 0 0 1 0-18Z"/></svg><span>Área pública</span></a></nav><div class="sidebar-foot">LanePets &copy; 2026 &middot; Painel de gestão</div></aside><div class="main-area">
+<header class="topbar">
+  <div class="topbar-left"><button class="menu-toggle hide-desktop" aria-label="Abrir menu">&#9776;</button><div><div class="topbar-title">Pedidos da loja</div><div class="topbar-breadcrumb hide-mobile">Opera&ccedil;&atilde;o / Pedidos feitos pelos clientes</div></div></div>
+  <div class="topbar-right"><a class="topbar-ghost hide-mobile" href="cliente.html">Ver site</a><div class="topbar-user"><div class="avatar" aria-hidden="true">LP</div><div class="topbar-user-info hide-mobile"><strong>Administrador</strong><span>LanePets</span></div></div><button class="btn btn-outline btn-sm" type="button" id="btnSair">Sair</button></div>
+</header>
+<main class="page-content">
+  <div class="page-header">
+    <div><h1>Pedidos da loja</h1><p>Cada linha nasceu na &Aacute;rea do Cliente e foi gravada no banco. A tela se atualiza sozinha quando chega um pedido novo.</p></div>
+    <div><button class="btn btn-outline" type="button" id="btnAtualizar">Atualizar</button></div>
+  </div>
+
+  <div class="kpi-grid">
+    <section class="card kpi"><div class="accent"></div><div class="eyebrow">Pedidos</div><div class="value" id="kpiTotal">0</div><div class="meta">Total registrado</div></section>
+    <section class="card kpi"><div class="accent"></div><div class="eyebrow">Pendentes</div><div class="value" id="kpiPendentes">0</div><div class="meta">Aguardando atendimento</div></section>
+    <section class="card kpi kpi-accent"><div class="accent"></div><div class="eyebrow">Faturamento</div><div class="value" id="kpiValor">R$ 0,00</div><div class="meta">Soma dos pedidos n&atilde;o cancelados</div></section>
+    <section class="card kpi"><div class="accent"></div><div class="eyebrow">Itens vendidos</div><div class="value" id="kpiItens">0</div><div class="meta">Unidades com baixa no estoque</div></section>
+  </div>
+
+  <section class="card" style="margin-top:var(--sp-5)">
+    <div class="filter-grid" style="grid-template-columns:repeat(2,minmax(200px,300px))">
+      <div class="field"><label for="busca">Buscar</label><input class="input" type="text" id="busca" placeholder="Cliente, produto ou n&uacute;mero do pedido"></div>
+      <div class="field"><label for="filtroStatus">Status</label><select class="input" id="filtroStatus"><option value="">Todos</option><option>Pendente</option><option>Confirmado</option><option>Entregue</option><option>Cancelado</option></select></div>
+    </div>
+    <div class="table-wrap" style="margin-top:var(--sp-4)">
+      <table><thead><tr><th>Pedido</th><th>Cliente</th><th>Produto</th><th>Qtd.</th><th>Valor</th><th>Pagamento</th><th>Status</th><th>Data</th></tr></thead><tbody id="corpoTabela"></tbody></table>
+    </div>
+  </section>
+
+  <section class="card" style="margin-top:var(--sp-5)">
+    <div class="page-header" style="margin-bottom:var(--sp-3)">
+      <div><h2 class="section-title">Estoque dos produtos</h2><p class="small-note">Ligue o controle e informe a quantidade. A partir da&iacute;, todo pedido feito pelo cliente d&aacute; baixa autom&aacute;tica. Produto sem controle continua vendendo normalmente.</p></div>
+      <div><input class="input" type="text" id="buscaProduto" placeholder="Filtrar produto" style="max-width:240px"></div>
+    </div>
+    <div class="table-wrap">
+      <table><thead><tr><th>Produto</th><th>Categoria</th><th>Pre&ccedil;o</th><th>Controla?</th><th style="width:110px">Estoque</th><th style="width:110px">M&iacute;nimo</th><th></th></tr></thead><tbody id="corpoEstoque"></tbody></table>
+    </div>
+  </section>
+</main></div></div>
+<script src="ui-kit.js?v=4"></script>
+<script>
+/* Tela somente leitura: a fonte e o lanepets.db, o mesmo banco que a Area do
+   Cliente grava. Nenhum dado e mantido no navegador. */
+const brl = v => Number(v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+const esc = v => { const d = document.createElement('div'); d.textContent = v == null ? '' : v; return d.innerHTML; };
+let pedidos = [];
+
+function selo(status) {
+  const mapa = { pendente: 'warn', confirmado: 'info', entregue: 'ok', cancelado: 'danger' };
+  const classe = mapa[String(status || '').toLowerCase()] || 'info';
+  return `<span class="badge badge-${classe}">${esc(status || 'Pendente')}</span>`;
+}
+
+function pintar() {
+  const termo = document.getElementById('busca').value.trim().toLowerCase();
+  const status = document.getElementById('filtroStatus').value;
+  const visiveis = pedidos.filter(p =>
+    (!status || String(p.status || '') === status) &&
+    (!termo || [p.id, p.cliente, p.produtoNome].some(v => String(v || '').toLowerCase().includes(termo))));
+
+  document.getElementById('corpoTabela').innerHTML = visiveis.length ? visiveis.map(p => `
+    <tr>
+      <td><code>${esc(p.id)}</code></td>
+      <td><strong>${esc(p.cliente)}</strong><br><span class="small-note">${esc(p.telefone)}</span></td>
+      <td>${esc(p.produtoNome)}</td>
+      <td>${p.quantidade}</td>
+      <td>${brl(p.total)}</td>
+      <td>${esc(p.formaPagamento)}</td>
+      <td>${selo(p.status)}</td>
+      <td>${new Date(p.criadoEm).toLocaleString('pt-BR')}</td>
+    </tr>`).join('') : "<tr><td colspan='8'>Nenhum pedido encontrado.</td></tr>";
+
+  const ativos = pedidos.filter(p => String(p.status || '').toLowerCase() !== 'cancelado');
+  document.getElementById('kpiTotal').textContent = pedidos.length;
+  document.getElementById('kpiPendentes').textContent = pedidos.filter(p => String(p.status || '').toLowerCase() === 'pendente').length;
+  document.getElementById('kpiValor').textContent = brl(ativos.reduce((s, p) => s + Number(p.total || 0), 0));
+  document.getElementById('kpiItens').textContent = ativos.reduce((s, p) => s + Number(p.quantidade || 0), 0);
+}
+
+async function carregar() {
+  try {
+    [pedidos, produtos] = await Promise.all([LaneAdmin.pedidos(), LaneAdmin.produtos()]);
+    pintar();
+    pintarEstoque();
+  }
+  catch (erro) {
+    console.error('[LanePets] pedidos:', erro);
+    document.getElementById('corpoTabela').innerHTML = `<tr><td colspan='8'>${esc(erro.message)}</td></tr>`;
+  }
+}
+
+/* ---------- Estoque ---------- */
+let produtos = [];
+
+function pintarEstoque() {
+  const termo = document.getElementById('buscaProduto').value.trim().toLowerCase();
+  const visiveis = produtos.filter(p => !termo || [p.nome, p.codigo, p.categoria].some(v => String(v || '').toLowerCase().includes(termo)));
+  document.getElementById('corpoEstoque').innerHTML = visiveis.length ? visiveis.map(p => `
+    <tr data-id="${esc(p.id)}">
+      <td><strong>${esc(p.nome)}</strong><br><span class="small-note">${esc(p.codigo)}</span></td>
+      <td>${esc(p.categoria)}</td>
+      <td>${brl(p.valorVenda)}</td>
+      <td><input type="checkbox" class="es-controla" ${p.controlaEstoque ? 'checked' : ''}></td>
+      <td><input class="input es-qtd" type="number" min="0" value="${p.estoque}"></td>
+      <td><input class="input es-min" type="number" min="0" value="${p.estoqueMinimo}"></td>
+      <td><button class="btn btn-outline btn-sm es-salvar" type="button">Salvar</button></td>
+    </tr>`).join('') : "<tr><td colspan='7'>Nenhum produto encontrado.</td></tr>";
+}
+
+document.getElementById('corpoEstoque').addEventListener('click', async evento => {
+  const botao = evento.target.closest('.es-salvar');
+  if (!botao) return;
+  const linha = botao.closest('tr');
+  const texto = botao.textContent;
+  botao.disabled = true; botao.textContent = 'Salvando…';
+  try {
+    const dados = await LaneAdmin.post(`admin/produtos/${linha.dataset.id}/estoque`, {
+      estoque: Number(linha.querySelector('.es-qtd').value) || 0,
+      estoqueMinimo: Number(linha.querySelector('.es-min').value) || 0,
+      controlaEstoque: linha.querySelector('.es-controla').checked
+    });
+    toast(`${dados.nome}: estoque ${dados.estoque}.`, 'success');
+  } catch (erro) {
+    console.error('[LanePets] estoque:', erro);
+    toast(erro.message, 'error');
+  } finally { botao.disabled = false; botao.textContent = texto; }
+});
+
+document.getElementById('buscaProduto').oninput = pintarEstoque;
+document.getElementById('busca').oninput = pintar;
+document.getElementById('filtroStatus').onchange = pintar;
+document.getElementById('btnAtualizar').onclick = carregar;
+window.addEventListener('load', () => { carregar(); LaneAdmin.aoMudar(carregar); });
+</script>
+</body></html>

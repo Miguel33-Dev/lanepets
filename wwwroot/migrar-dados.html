@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Migrar dados do navegador &middot; LanePets</title>
+<link rel="stylesheet" href="design-system.css?v=4">
+<style>
+  .mig-grid{display:grid;gap:var(--sp-4);grid-template-columns:repeat(auto-fit,minmax(230px,1fr))}
+  .mig-card{border:1px solid var(--border);border-radius:var(--r-md);padding:14px 16px;background:var(--surface)}
+  .mig-card h3{margin:0 0 4px;font-size:.82rem;text-transform:uppercase;letter-spacing:.05em;color:var(--brand-700)}
+  .mig-card .n{font-size:1.7rem;font-weight:700;line-height:1.1}
+  .mig-card .d{font-size:.82rem;color:var(--text-muted,#5b6b62);margin-top:6px}
+  .mig-novo{color:#1d7a4c}.mig-repetido{color:#8a8f8c}
+  .mig-passo{display:flex;gap:12px;align-items:flex-start;padding:12px 0;border-top:1px solid var(--border)}
+  .mig-passo b{display:inline-flex;width:24px;height:24px;border-radius:50%;background:var(--brand-700);color:#fff;align-items:center;justify-content:center;font-size:.8rem;flex:none}
+</style>
+<script src="js/config.js"></script>
+<script src="js/api.js"></script>
+<script src="lib/signalr/signalr.min.js"></script>
+<script src="js/admin-dados.js"></script>
+<script src="js/admin-permissoes.js"></script>
+</head>
+<body>
+<div class="app-shell">
+  <div class="main-area" style="margin-left:0">
+    <header class="topbar">
+      <div class="topbar-left"><div><div class="topbar-title">Migrar dados do navegador</div><div class="topbar-breadcrumb hide-mobile">Manutenção / Migração única</div></div></div>
+      <div class="topbar-right"><a class="btn btn-outline btn-sm" href="dashboard_financeiro.html">Voltar ao painel</a></div>
+    </header>
+
+    <main class="page-content">
+      <div class="page-header">
+        <div>
+          <h1>Trazer para o banco o que só existe neste navegador</h1>
+          <p>O painel antigo guardava pets, agendamentos, serviços, produtos e lançamentos no <code>localStorage</code> deste navegador. Agora tudo vive no <code>lanepets.db</code>. Esta tela envia para o banco apenas os registros que ainda não estão lá.</p>
+        </div>
+      </div>
+
+      <section class="card">
+        <h2 class="section-title">Como funciona</h2>
+        <div class="mig-passo"><b>1</b><div><strong>Conferir</strong> — nada é gravado. O servidor compara cada registro com o banco e responde quantos são novos.</div></div>
+        <div class="mig-passo"><b>2</b><div><strong>Importar</strong> — só então os novos são gravados. Registros que já existem são ignorados e <strong>nada do banco é sobrescrito ou apagado</strong>.</div></div>
+        <div class="mig-passo"><b>3</b><div>O <code>localStorage</code> continua intacto depois da importação, então dá para repetir a conferência quantas vezes quiser.</div></div>
+        <p class="small-note" style="margin-top:12px">A comparação usa a identidade natural de cada registro: pet por (dono + nome), agendamento por (dono + pet + data e hora), produto por código, serviço por (nome + porte) e lançamento por (data + descrição + tipo + valor).</p>
+      </section>
+
+      <section class="card" style="margin-top:var(--sp-5)">
+        <div class="page-header" style="margin-bottom:var(--sp-3)">
+          <div><h2 class="section-title">Origem dos dados</h2><p class="small-note" id="origemDescricao">Lendo o localStorage deste navegador.</p></div>
+          <div style="display:flex;gap:10px;flex-wrap:wrap">
+            <input type="file" id="arquivoBackup" accept="application/json" style="display:none">
+            <button class="btn btn-outline" type="button" id="btnArquivo">Usar arquivo de backup…</button>
+            <button class="btn btn-outline" type="button" id="btnRecarregar">Ler este navegador</button>
+          </div>
+        </div>
+        <div class="mig-grid" id="contagemOrigem"></div>
+      </section>
+
+      <section class="card" style="margin-top:var(--sp-5)">
+        <div class="page-header" style="margin-bottom:var(--sp-3)">
+          <div><h2 class="section-title">Conferência</h2><p class="small-note">Rode a conferência antes de importar.</p></div>
+          <div style="display:flex;gap:10px;flex-wrap:wrap">
+            <button class="btn btn-outline" type="button" id="btnConferir">Conferir</button>
+            <button class="btn btn-primary" type="button" id="btnImportar" disabled>Importar para o banco</button>
+          </div>
+        </div>
+        <div class="mig-grid" id="resultado"><div class="empty">Ainda não conferido.</div></div>
+      </section>
+    </main>
+  </div>
+</div>
+<script src="ui-kit.js?v=4"></script>
+<script>
+const CHAVES = ['pets', 'agendamentos', 'servicos', 'produtos', 'entradasESaidas'];
+const ROTULOS = { pets: 'Pets', agendamentos: 'Agendamentos', servicos: 'Serviços', produtos: 'Produtos', entradasESaidas: 'Entradas e saídas' };
+let origem = {};
+
+function lerNavegador() {
+  const dados = {};
+  CHAVES.forEach(chave => {
+    try {
+      const valor = JSON.parse(localStorage.getItem(chave) || '[]');
+      dados[chave] = Array.isArray(valor) ? valor : [];
+    } catch (_) { dados[chave] = []; }
+  });
+  return dados;
+}
+
+/* O backup antigo guardava cada chave como uma STRING JSON dentro do objeto. */
+function lerBackup(objeto) {
+  const dados = {};
+  CHAVES.forEach(chave => {
+    let valor = objeto[chave];
+    if (typeof valor === 'string') { try { valor = JSON.parse(valor); } catch (_) { valor = []; } }
+    dados[chave] = Array.isArray(valor) ? valor : [];
+  });
+  return dados;
+}
+
+function pintarOrigem() {
+  const total = CHAVES.reduce((s, c) => s + origem[c].length, 0);
+  document.getElementById('contagemOrigem').innerHTML = CHAVES.map(c =>
+    `<div class="mig-card"><h3>${ROTULOS[c]}</h3><div class="n">${origem[c].length}</div><div class="d">registros encontrados</div></div>`).join('');
+  document.getElementById('btnConferir').disabled = total === 0;
+  document.getElementById('btnImportar').disabled = true;
+  document.getElementById('resultado').innerHTML = total
+    ? '<div class="empty">Ainda não conferido.</div>'
+    : '<div class="empty">Nada encontrado nesta origem — pode ser que os dados estejam em outro navegador ou perfil. Use um arquivo de backup.</div>';
+}
+
+async function enviar(simular) {
+  const botao = simular ? document.getElementById('btnConferir') : document.getElementById('btnImportar');
+  const textoOriginal = botao.textContent;
+  botao.disabled = true;
+  botao.textContent = simular ? 'Conferindo…' : 'Importando…';
+  try {
+    const resposta = await LaneAdmin.importar(origem, simular);
+    const relatorio = resposta.relatorio || {};
+    const novosTotal = CHAVES.reduce((s, c) => s + ((relatorio[c] || {}).novos || 0), 0);
+    document.getElementById('resultado').innerHTML = CHAVES.map(c => {
+      const r = relatorio[c] || { novos: 0, jaExistiam: 0, ignorados: 0 };
+      return `<div class="mig-card"><h3>${ROTULOS[c]}</h3>
+        <div class="n mig-novo">${r.novos}</div><div class="d">${simular ? 'seriam gravados' : 'gravados agora'}</div>
+        <div class="d mig-repetido">${r.jaExistiam} já estavam no banco · ${r.ignorados} sem dados suficientes</div></div>`;
+    }).join('');
+    document.getElementById('btnImportar').disabled = !simular || novosTotal === 0;
+    if (simular) toast(novosTotal ? `${novosTotal} registro(s) novo(s) prontos para importar.` : 'Nada novo: o banco já tem tudo.', novosTotal ? 'info' : 'success');
+    else toast(`Importação concluída: ${novosTotal} registro(s) gravados.`, 'success');
+  } catch (erro) {
+    console.error('[LanePets] migração:', erro);
+    toast(erro.message, 'error');
+  } finally { botao.textContent = textoOriginal; botao.disabled = false; }
+}
+
+document.getElementById('btnConferir').onclick = () => enviar(true);
+document.getElementById('btnImportar').onclick = () => enviar(false);
+document.getElementById('btnRecarregar').onclick = () => {
+  origem = lerNavegador();
+  document.getElementById('origemDescricao').textContent = 'Lendo o localStorage deste navegador.';
+  pintarOrigem();
+};
+document.getElementById('btnArquivo').onclick = () => document.getElementById('arquivoBackup').click();
+document.getElementById('arquivoBackup').onchange = evento => {
+  const arquivo = evento.target.files[0];
+  if (!arquivo) return;
+  const leitor = new FileReader();
+  leitor.onload = e => {
+    try {
+      origem = lerBackup(JSON.parse(e.target.result));
+      document.getElementById('origemDescricao').textContent = `Lendo o arquivo ${arquivo.name}.`;
+      pintarOrigem();
+    } catch (_) { toast('Arquivo inválido: não é um backup JSON.', 'error'); }
+  };
+  leitor.readAsText(arquivo);
+};
+
+origem = lerNavegador();
+pintarOrigem();
+</script>
+</body>
+</html>

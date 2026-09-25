@@ -3,8 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Produtos | Lane Pets Caieiras</title>
-  <link rel="stylesheet" href="design-system.css?v=3">
+  <title>Produtos &middot; LanePets</title>
+  <link rel="stylesheet" href="design-system.css?v=4">
+  <link rel="stylesheet" href="css/admin-acoes.css?v=1">
   <style>
     .produto-form-actions,
     .produto-filter-actions,
@@ -22,52 +23,112 @@
   </style>
   <script src="js/config.js"></script>
   <script src="js/api.js"></script>
+  <script src="lib/signalr/signalr.min.js"></script>
+  <script src="js/admin-dados.js"></script>
+  <script src="js/admin-store.js?v=1"></script>
+<script src="js/admin-permissoes.js"></script>
+<script src="js/admin-acoes.js?v=1"></script>
+
+  <style>
+  /* =================================================================
+     PRODUTOS — apresentacao da listagem
+
+     A tabela mostrava codigo e nome como texto solto e o estoque nao
+     aparecia em lugar nenhum, embora o sistema o controle. Aqui cada
+     linha ganha uma miniatura, o preco de venda vira o numero que o
+     olho pega primeiro, e o estoque vira um selo colorido pelo ESTADO
+     (ok / baixo / zerado), nao pelo numero.
+
+     Sem campo inventado: miniatura, preco, margem e estoque saem todos
+     de codigo, nome, categoria, valorCompra, valorVenda, estoque,
+     estoqueMinimo e controlaEstoque — o que a entidade Produto tem.
+     ================================================================= */
+
+  /* ---------- Barra de filtros ---------- */
+  .prod-filtros {
+    display: grid; gap: var(--sp-3);
+    grid-template-columns: minmax(200px, 1.6fr) repeat(2, minmax(150px, 1fr)) minmax(180px, 1fr) auto;
+    align-items: end;
+  }
+  .prod-filtros .field { margin-bottom: 0; }
+  .prod-busca { position: relative; }
+  .prod-busca input { padding-left: 38px; }
+  .prod-busca svg {
+    position: absolute; left: 12px; bottom: 11px; width: 16px; height: 16px;
+    color: var(--ink-300); pointer-events: none;
+  }
+  .prod-faixa { display: flex; align-items: center; gap: 6px; }
+  .prod-faixa input { width: 100%; min-width: 0; }
+  .prod-faixa span { color: var(--ink-300); font-size: var(--fs-xs); }
+
+  /* ---------- Celula do produto ---------- */
+  .prod-item { display: flex; align-items: center; gap: var(--sp-3); min-width: 0; }
+  /* Sem campo de imagem no sistema, a miniatura e um marcador da categoria —
+     honesto e padronizado, em vez de um retangulo cinza vazio por linha. */
+  .prod-thumb {
+    width: 42px; height: 42px; flex: 0 0 auto; border-radius: var(--r-sm);
+    display: flex; align-items: center; justify-content: center;
+    background: var(--surface-muted); color: var(--ink-500);
+    border: 1px solid var(--border);
+  }
+  .prod-thumb svg { width: 20px; height: 20px; }
+  .prod-nome { min-width: 0; }
+  .prod-nome strong { display: block; color: var(--ink-900); font-size: var(--fs-sm); }
+  .prod-nome span {
+    display: block; color: var(--ink-500); font-size: var(--fs-xs);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ---------- Preco ---------- */
+  /* nowrap: "compra R$ 13,95" quebrando em duas linhas fazia a altura da
+     linha variar de produto para produto e a tabela perdia o ritmo. */
+  .prod-preco strong {
+    display: block; color: var(--ink-900); font-size: var(--fs-body);
+    font-variant-numeric: tabular-nums; white-space: nowrap;
+  }
+  .prod-preco span {
+    display: block; color: var(--ink-500); font-size: var(--fs-xs); white-space: nowrap;
+  }
+  .prod-margem { white-space: nowrap; font-variant-numeric: tabular-nums; }
+
+  /* ---------- Estoque ---------- */
+  .prod-estoque { display: inline-flex; align-items: center; gap: 7px; white-space: nowrap; }
+  .prod-bolinha { width: 8px; height: 8px; border-radius: 50%; flex: 0 0 auto; }
+  .prod-estoque--ok .prod-bolinha { background: var(--success-500); }
+  .prod-estoque--baixo .prod-bolinha { background: var(--warning-500); }
+  .prod-estoque--zero .prod-bolinha { background: var(--danger-500); }
+  .prod-estoque--livre .prod-bolinha { background: var(--ink-300); }
+  .prod-estoque--ok { color: var(--success-500); font-weight: 700; }
+  .prod-estoque--baixo { color: #9c7415; font-weight: 700; }
+  .prod-estoque--zero { color: var(--danger-500); font-weight: 700; }
+  .prod-estoque--livre { color: var(--ink-500); }
+
+  /* ---------- Detalhe ---------- */
+  .prod-detalhe-topo { display: flex; align-items: center; gap: var(--sp-4); margin-bottom: var(--sp-5); }
+  .prod-detalhe-topo .prod-thumb { width: 56px; height: 56px; }
+  .prod-detalhe-topo .prod-thumb svg { width: 26px; height: 26px; }
+  .prod-linhas { display: grid; gap: 0; }
+  .prod-linhas div {
+    display: flex; justify-content: space-between; gap: var(--sp-4);
+    padding: 11px 0; border-bottom: 1px solid var(--border); font-size: var(--fs-sm);
+  }
+  .prod-linhas div:last-child { border-bottom: 0; }
+  .prod-linhas dt { color: var(--ink-500); }
+  .prod-linhas dd { color: var(--ink-900); font-weight: 700; text-align: right; font-variant-numeric: tabular-nums; }
+
+  @media (max-width: 900px) {
+    .prod-filtros { grid-template-columns: 1fr 1fr; }
+    .prod-filtros .prod-busca { grid-column: 1 / -1; }
+  }
+  @media (max-width: 560px) {
+    .prod-filtros { grid-template-columns: 1fr; }
+  }
+  </style>
+
 </head>
 <body>
 <div class="app-shell">
-  <aside class="sidebar">
-    <div class="sidebar-brand"><a class="brand-home" href="cliente.html" title="Ir para a página inicial do LanePets">
-      <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#F2994A" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-        <circle cx="7" cy="8" r="2"/><circle cx="12" cy="5.5" r="2"/><circle cx="17" cy="8" r="2"/>
-        <path d="M12 13c-3.3 0-6 2.1-6 4.7 0 1.6 1.5 2.3 3 1.8.9-.3 1.9-.5 3-.5s2.1.2 3 .5c1.5.5 3-.2 3-1.8 0-2.6-2.7-4.7-6-4.7Z"/>
-      </svg>
-      <div><div class="brand-name">Lane Pets</div><span class="brand-sub">Franco + Caieiras</span></div><svg class="brand-home-ico" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg></a><button class="sidebar-close hide-desktop" aria-label="Fechar menu">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
-      </button>
-    </div>
-
-    <nav class="sidebar-nav" aria-label="Navegação principal">
-      <a class="nav-item" href="index.html">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg>
-        Cadastro
-      </a>
-      <a class="nav-item" href="clientes.html">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-        Clientes
-      </a>
-      <a class="nav-item" href="clientes_pacote.html">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="14" rx="2"/><path d="M8 7V5a4 4 0 0 1 8 0v2"/></svg>
-        Pacotes
-      </a>
-      <a class="nav-item" href="agendamentos.html">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
-        Agendamentos
-      </a><a class="nav-item" href="dashboard_financeiro.html">◫ <span>Dashboard</span></a>
-      <a class="nav-item active" href="Produtos.html" aria-current="page">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21 8-9-5-9 5 9 5 9-5Z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v8"/></svg>
-        Produtos
-      </a>
-      <a class="nav-item" href="entradas_e_saidas.html">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
-        Entradas e Saídas
-      </a>
-      <a class="nav-item" href="relatorio.html">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M18 17V9M13 17V5M8 17v-3"/></svg>
-        Relatório
-      </a>
-    </nav>
-    <div class="sidebar-foot">Lane Pets © 2026</div>
-  </aside>
+  <aside class="sidebar" id="menu-lateral"><div class="sidebar-brand"><a class="brand-home" href="cliente.html" title="Abrir o site LanePets"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="var(--accent-500)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="7" cy="8" r="2"/><circle cx="12" cy="5.5" r="2"/><circle cx="17" cy="8" r="2"/><path d="M12 13c-3.3 0-6 2.1-6 4.7 0 1.6 1.5 2.3 3 1.8.9-.3 1.9-.5 3-.5s2.1.2 3 .5c1.5.5 3-.2 3-1.8 0-2.6-2.7-4.7-6-4.7Z"/></svg><span class="brand-text"><span class="brand-name">LanePets</span><span class="brand-sub">Franco + Caieiras</span></span><svg class="brand-home-ico" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg></a><button class="sidebar-close hide-desktop" type="button" aria-label="Fechar menu"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div><nav class="sidebar-nav" aria-label="Menu do painel"><p class="nav-group">Operação</p><a class="nav-item" href="dashboard_financeiro.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 13h8V3H3v10Zm0 8h8v-6H3v6Zm10 0h8V11h-8v10Zm0-18v6h8V3h-8Z"/></svg><span>Dashboard</span></a><a class="nav-item" href="agendamentos.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4.5" width="18" height="16.5" rx="2.5"/><path d="M16 2.5v4M8 2.5v4M3 10h18"/></svg><span>Agendamentos</span></a><a class="nav-item" href="pedidos.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="20" r="1.4"/><circle cx="18" cy="20" r="1.4"/><path d="M2.5 3h2.2l2.3 11.2a1.6 1.6 0 0 0 1.6 1.3h8.7a1.6 1.6 0 0 0 1.6-1.25L21 7H6"/></svg><span>Pedidos</span></a><a class="nav-item" href="clientes.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 20v-1.8a3.6 3.6 0 0 0-3.6-3.6H6.6A3.6 3.6 0 0 0 3 18.2V20"/><circle cx="9.5" cy="7.5" r="3.4"/><path d="M21 20v-1.8a3.6 3.6 0 0 0-2.7-3.48"/><path d="M15.5 4.2a3.4 3.4 0 0 1 0 6.6"/></svg><span>Clientes</span></a><a class="nav-item" href="clientes_pacote.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.3 7.5 12 12l8.7-4.5"/><path d="M12 12v9.2"/><path d="M20.4 7.2v9.6a1.4 1.4 0 0 1-.76 1.24l-7 3.6a1.4 1.4 0 0 1-1.28 0l-7-3.6A1.4 1.4 0 0 1 3.6 16.8V7.2a1.4 1.4 0 0 1 .76-1.24l7-3.6a1.4 1.4 0 0 1 1.28 0l7 3.6A1.4 1.4 0 0 1 20.4 7.2Z"/></svg><span>Pacotes</span></a><a class="nav-item" href="index.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6.2" cy="9" r="1.9"/><circle cx="11" cy="6.4" r="1.9"/><circle cx="15.8" cy="9" r="1.9"/><path d="M11 13.4c-3.1 0-5.6 2-5.6 4.4 0 1.5 1.4 2.2 2.8 1.7.85-.3 1.8-.45 2.8-.45s1.95.15 2.8.45c1.4.5 2.8-.2 2.8-1.7 0-2.4-2.5-4.4-5.6-4.4Z"/><path d="M19 4.5v5M21.5 7h-5"/></svg><span>Cadastro</span></a><p class="nav-group">Catálogo</p><a class="nav-item active" href="Produtos.html" aria-current="page"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 8 9-5 9 5-9 5-9-5Z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v8"/></svg><span>Produtos</span></a><p class="nav-group">Financeiro</p><a class="nav-item" href="entradas_e_saidas.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.5v19"/><path d="M16.8 6H9.6a3.4 3.4 0 0 0 0 6.8h4.8a3.4 3.4 0 0 1 0 6.8H6.8"/></svg><span>Entradas e Saídas</span></a><a class="nav-item" href="relatorio.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 3.5v17h17"/><path d="M18 16.5V9M13 16.5V5.5M8 16.5v-4"/></svg><span>Relatório</span></a><p class="nav-group">Site público</p><a class="nav-item" href="gestao-publica.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3.3 9.5h17.4M3.3 14.5h17.4"/><path d="M12 3a15 15 0 0 1 0 18a15 15 0 0 1 0-18Z"/></svg><span>Área pública</span></a></nav><div class="sidebar-foot">LanePets &copy; 2026 &middot; Painel de gestão</div></aside>
 
   <div class="main-area">
     <header class="topbar">
@@ -80,16 +141,14 @@
           <div class="topbar-breadcrumb hide-mobile">Início / Cadastro e controle de produtos</div>
         </div>
       </div>
-      <div class="topbar-right">
-        <div class="topbar-user"><div class="avatar">LP</div><span>Lane Pets</span></div>
-      </div>
+      <div class="topbar-right"><a class="topbar-ghost hide-mobile" href="cliente.html" title="Ver o site público"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3.3 9.5h17.4M3.3 14.5h17.4"/><path d="M12 3a15 15 0 0 1 0 18a15 15 0 0 1 0-18Z"/></svg><span>Ver site</span></a><div class="topbar-user"><div class="avatar" aria-hidden="true">LP</div><div class="topbar-user-info hide-mobile"><strong>Administrador</strong><span>LanePets</span></div></div><button class="btn btn-outline btn-sm" type="button" id="btnSair" title="Encerrar sessão"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5.5A1.5 1.5 0 0 1 4 19.5v-15A1.5 1.5 0 0 1 5.5 3H9"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/></svg><span class="hide-mobile">Sair</span></button></div>
     </header>
 
     <main class="page-content">
       <div class="page-header">
         <div>
           <h1>Produtos</h1>
-          <p>Cadastre, consulte e mantenha os preços dos produtos do pet shop.</p>
+          <p>Gerencie os produtos disponíveis no LanePets.</p>
         </div>
         <button type="button" class="btn btn-primary" id="btnNovoProduto">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
@@ -97,7 +156,16 @@
         </button>
       </div>
 
-      <section class="card" id="formProdutoCard">
+      <!-- Resumo: todos os numeros saem do mesmo array "produtos" que a
+           tabela usa. Nenhum valor e calculado em outro lugar nem inventado. -->
+      <div class="kpi-grid">
+        <section class="card kpi"><div class="accent"></div><div class="eyebrow">Produtos</div><div class="value" id="kpiTotal">0</div><div class="meta">Cadastrados no catálogo</div></section>
+        <section class="card kpi"><div class="accent"></div><div class="eyebrow">Em estoque</div><div class="value" id="kpiOk">0</div><div class="meta">Acima do mínimo definido</div></section>
+        <section class="card kpi"><div class="accent"></div><div class="eyebrow">Estoque baixo</div><div class="value" id="kpiBaixo">0</div><div class="meta">No mínimo ou abaixo dele</div></section>
+        <section class="card kpi kpi-accent"><div class="accent"></div><div class="eyebrow">Sem estoque</div><div class="value" id="kpiZero">0</div><div class="meta">Zerados, com controle ligado</div></section>
+      </div>
+
+      <section class="card" id="formProdutoCard" style="margin-top:var(--sp-5)">
         <h2 class="section-title">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--brand-700)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v16H4z"/><path d="M8 8h8M8 12h8M8 16h5"/></svg>
           Cadastro de produto
@@ -153,15 +221,16 @@
           <span id="contadorProdutos" class="badge badge-neutral">0</span>
         </div>
 
-        <div class="grid grid-2" style="margin-bottom:var(--sp-5);">
-          <div class="field" style="margin-bottom:0;">
+        <div class="prod-filtros">
+          <div class="field prod-busca">
             <label for="filtro">Pesquisar</label>
-            <input type="text" id="filtro" placeholder="Código ou nome..." autocomplete="off">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
+            <input type="text" id="filtro" placeholder="Código ou nome do produto" autocomplete="off">
           </div>
-          <div class="field" style="margin-bottom:0;">
+          <div class="field">
             <label for="filtroCategoria">Categoria</label>
             <select id="filtroCategoria">
-              <option value="">Todas as categorias</option>
+              <option value="">Todas</option>
               <option value="Brinquedo">Brinquedo</option>
               <option value="Acessório">Acessório</option>
               <option value="Roupa">Roupa</option>
@@ -169,12 +238,24 @@
               <option value="Higiene">Higiene</option>
             </select>
           </div>
-        </div>
-        <div class="produto-form-actions" style="justify-content:flex-start;margin-top:0;">
-          <button type="button" class="btn btn-secondary" id="btnPesquisar">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
-            Pesquisar
-          </button>
+          <div class="field">
+            <label for="filtroEstoque">Estoque</label>
+            <select id="filtroEstoque">
+              <option value="">Todos</option>
+              <option value="ok">Em estoque</option>
+              <option value="baixo">Estoque baixo</option>
+              <option value="zero">Sem estoque</option>
+              <option value="livre">Sem controle</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="precoMin">Faixa de preço (venda)</label>
+            <div class="prod-faixa">
+              <input type="number" id="precoMin" placeholder="mín." min="0" step="0.01" aria-label="Preço mínimo">
+              <span>até</span>
+              <input type="number" id="precoMax" placeholder="máx." min="0" step="0.01" aria-label="Preço máximo">
+            </div>
+          </div>
           <button type="button" class="btn btn-outline" id="btnLimparFiltro">Limpar filtros</button>
         </div>
 
@@ -182,13 +263,12 @@
           <table class="data-table" id="tabelaProdutos">
             <thead>
               <tr>
-                <th>Código</th>
                 <th>Produto</th>
                 <th>Categoria</th>
-                <th>Compra</th>
-                <th>Venda</th>
-                <th>% Lucro</th>
-                <th>Ações</th>
+                <th>Preço</th>
+                <th>Margem</th>
+                <th>Estoque</th>
+                <th style="width:1%"></th>
               </tr>
             </thead>
             <tbody></tbody>
@@ -213,6 +293,31 @@
         </div>
       </section>
     </main>
+  </div>
+</div>
+
+<!-- Detalhe do produto: somente leitura, montado com os dados que a tela ja
+     tem em maos. Nao chama endpoint nenhum. -->
+<div id="modalDetalhe" class="modal-overlay" aria-hidden="true">
+  <div class="modal-box">
+    <div class="modal-head">
+      <div><h2>Detalhes do produto</h2><p>Consulta rápida sem sair da listagem.</p></div>
+      <button type="button" class="modal-close" id="btnFecharDetalhe" aria-label="Fechar">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div class="prod-detalhe-topo">
+      <span class="prod-thumb" id="detalheThumb"></span>
+      <div class="prod-nome">
+        <strong id="detalheNome" style="font-size:var(--fs-body)">&mdash;</strong>
+        <span id="detalheCodigo">&mdash;</span>
+      </div>
+    </div>
+    <dl class="prod-linhas" id="detalheLinhas"></dl>
+    <div class="modal-actions">
+      <button type="button" class="btn btn-outline" id="btnFecharDetalhe2">Fechar</button>
+      <button type="button" class="btn btn-primary" id="btnEditarDoDetalhe">Editar produto</button>
+    </div>
   </div>
 </div>
 
@@ -263,7 +368,7 @@
   </form>
 </div>
 
-<script src="ui-kit.js"></script>
+<script src="ui-kit.js?v=4"></script>
 <script>
   let produtos = JSON.parse(localStorage.getItem('produtos') || '[]');
 
@@ -323,11 +428,102 @@
     return true;
   }
 
+  /* ------------------------------------------------------------------
+     Apresentacao da listagem.
+
+     Tudo daqui para baixo le o MESMO array "produtos" de sempre e grava
+     pelas MESMAS funcoes de sempre. Nenhum campo novo, nenhuma chamada
+     nova: so mudou como a linha e desenhada.
+     ------------------------------------------------------------------ */
+
+  const svgProd = miolo => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${miolo}</svg>`;
+
+  /* O sistema nao guarda imagem de produto. Em vez de um retangulo cinza
+     vazio em toda linha, a miniatura mostra o simbolo da categoria: e
+     honesto, padroniza a altura das linhas e ainda ajuda a varrer a lista. */
+  const ICONE_CATEGORIA = {
+    'Brinquedo': '<circle cx="12" cy="12" r="8.5"/><path d="M3.8 9.5h16.4M3.8 14.5h16.4"/><path d="M12 3.5a14 14 0 0 1 0 17a14 14 0 0 1 0-17Z"/>',
+    'Acessório': '<circle cx="12" cy="10.5" r="6.2"/><path d="M12 16.7v2.4"/><circle cx="12" cy="20.6" r="1.3"/>',
+    'Roupa':     '<path d="M8.5 3.5 12 6l3.5-2.5 4.5 3-2.5 4-2 -1v11h-7v-11l-2 1-2.5-4Z"/>',
+    'Ração':     '<path d="M6 8.5h12l-1.2 11a1.8 1.8 0 0 1-1.8 1.6H9a1.8 1.8 0 0 1-1.8-1.6Z"/><path d="M9 8.5V6a3 3 0 0 1 6 0v2.5"/><path d="M10 13h4"/>',
+    'Higiene':   '<path d="M9 8.5h6v11a1.8 1.8 0 0 1-1.8 1.8h-2.4A1.8 1.8 0 0 1 9 19.5Z"/><path d="M10.5 8.5V5.5h3v3"/><path d="M11 3h2"/>'
+  };
+  const ICONE_PADRAO = '<path d="m3 8 9-5 9 5-9 5-9-5Z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v8"/>';
+
+  const miniatura = categoria =>
+    `<span class="prod-thumb">${svgProd(ICONE_CATEGORIA[categoria] || ICONE_PADRAO)}</span>`;
+
+  /**
+   * Estado do estoque a partir dos campos que existem. O produto nao tem
+   * "ativo/inativo" no sistema, entao o estado do estoque E o status da
+   * linha — e ele sai de estoque, estoqueMinimo e controlaEstoque.
+   */
+  function estadoEstoque(produto) {
+    if (!produto.controlaEstoque) return { chave: 'livre', texto: 'Sem controle' };
+    const quantidade = Number(produto.estoque) || 0;
+    const minimo = Number(produto.estoqueMinimo) || 0;
+    if (quantidade <= 0) return { chave: 'zero', texto: 'Sem estoque' };
+    if (quantidade <= minimo) return { chave: 'baixo', texto: `${quantidade} em estoque` };
+    return { chave: 'ok', texto: `${quantidade} em estoque` };
+  }
+
+  const ACOES_PRODUTO = [
+    { acao: 'ver',     rotulo: 'Ver detalhes',   curto: 'Ver detalhes',   icone: '<path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z"/><circle cx="12" cy="12" r="2.8"/>' },
+    { acao: 'editar',  rotulo: 'Editar produto', curto: 'Editar produto', icone: '<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/>' },
+    { acao: 'excluir', rotulo: 'Excluir produto', curto: 'Excluir produto', perigo: true, icone: '<path d="M3.5 6h17"/><path d="M8.5 6V4.5A1.5 1.5 0 0 1 10 3h4a1.5 1.5 0 0 1 1.5 1.5V6"/><path d="M6.5 6.5 7.4 19a2 2 0 0 0 2 1.9h5.2a2 2 0 0 0 2-1.9l.9-12.5"/><path d="M10.5 10.5v6M13.5 10.5v6"/>' }
+  ];
+
+  function celulaAcoesProduto(index) {
+    const linha = ACOES_PRODUTO.map(a =>
+      `<button type="button" class="acao acao--${a.acao === 'excluir' ? 'excluir' : a.acao}" data-prod="${a.acao}" data-index="${index}"
+               data-dica="${a.rotulo}" aria-label="${a.rotulo}">${svgProd(a.icone)}</button>`).join('');
+    const lista = ACOES_PRODUTO.map(a =>
+      `<button type="button" role="menuitem" class="acao-item${a.perigo ? ' acao-item--perigo' : ''}"
+               data-prod="${a.acao}" data-index="${index}">${svgProd(a.icone)}<span>${a.curto}</span></button>`).join('');
+    return `
+      <div class="acoes">
+        <div class="acoes-linha">${linha}</div>
+        <div class="acoes-compacta">
+          <button type="button" class="acao acao--menu" data-menu="prod-${index}" aria-label="Ações do produto"
+                  aria-haspopup="menu" aria-expanded="false">${svgProd('<circle cx="12" cy="5" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="12" cy="19" r="1.4"/>')}</button>
+          <div class="acoes-lista" role="menu" hidden>${lista}</div>
+        </div>
+      </div>`;
+  }
+
+  const escaparHtml = valor => {
+    const d = document.createElement('div');
+    d.textContent = valor == null ? '' : valor;
+    return d.innerHTML;
+  };
+
+  /** Cards do topo — contados sobre o catalogo inteiro, nao sobre o filtro. */
+  function atualizarResumo() {
+    let ok = 0, baixo = 0, zero = 0;
+    produtos.forEach(produto => {
+      const estado = estadoEstoque(produto).chave;
+      if (estado === 'ok') ok++;
+      else if (estado === 'baixo') baixo++;
+      else if (estado === 'zero') zero++;
+    });
+    document.getElementById('kpiTotal').textContent = produtos.length;
+    document.getElementById('kpiOk').textContent = ok;
+    document.getElementById('kpiBaixo').textContent = baixo;
+    document.getElementById('kpiZero').textContent = zero;
+  }
+
   function carregarTabela() {
     const filtro = document.getElementById('filtro').value.trim().toLowerCase();
     const filtroCategoria = document.getElementById('filtroCategoria').value;
+    const filtroEstoque = document.getElementById('filtroEstoque').value;
+    const precoMinTexto = document.getElementById('precoMin').value;
+    const precoMaxTexto = document.getElementById('precoMax').value;
+    const precoMin = precoMinTexto === '' ? null : Number(precoMinTexto);
+    const precoMax = precoMaxTexto === '' ? null : Number(precoMaxTexto);
     const tbody = document.querySelector('#tabelaProdutos tbody');
     const contador = document.getElementById('contadorProdutos');
+
+    atualizarResumo();
 
     const produtosFiltrados = produtos
       .map((produto, index) => ({ produto, index }))
@@ -337,73 +533,95 @@
         const nome = String(produto.nome || '').toLowerCase();
         if (filtro && !codigo.includes(filtro) && !nome.includes(filtro)) return false;
         if (filtroCategoria && produto.categoria !== filtroCategoria) return false;
+        if (filtroEstoque && estadoEstoque(produto).chave !== filtroEstoque) return false;
+        const venda = Number(produto.valorVenda) || 0;
+        if (precoMin !== null && Number.isFinite(precoMin) && venda < precoMin) return false;
+        if (precoMax !== null && Number.isFinite(precoMax) && venda > precoMax) return false;
         return true;
       });
 
     contador.textContent = `${produtosFiltrados.length} ${produtosFiltrados.length === 1 ? 'produto' : 'produtos'}`;
-    tbody.innerHTML = '';
 
     if (produtosFiltrados.length === 0) {
-      const linha = document.createElement('tr');
-      const celula = document.createElement('td');
-      celula.colSpan = 7;
-      celula.style.textAlign = 'center';
-      celula.className = 'empty-cell';
-      celula.textContent = produtos.length
-        ? 'Nenhum produto corresponde aos filtros informados.'
-        : 'Nenhum produto cadastrado ainda.';
-      linha.appendChild(celula);
-      tbody.appendChild(linha);
+      tbody.innerHTML = `<tr><td colspan="6" class="empty-cell" style="text-align:center">${
+        produtos.length ? 'Nenhum produto corresponde aos filtros informados.' : 'Nenhum produto cadastrado ainda.'
+      }</td></tr>`;
       return;
     }
 
-    produtosFiltrados.forEach(({ produto, index }) => {
-      const linha = document.createElement('tr');
+    tbody.innerHTML = produtosFiltrados.map(({ produto, index }) => {
+      const compra = Number(produto.valorCompra) || 0;
+      const venda = Number(produto.valorVenda) || 0;
+      const margem = compra > 0 ? ((venda - compra) / compra) * 100 : 0;
+      const estoque = estadoEstoque(produto);
 
-      const tdCodigo = document.createElement('td');
-      tdCodigo.textContent = produto.codigo || '-';
+      return `
+        <tr>
+          <td>
+            <div class="prod-item">
+              ${miniatura(produto.categoria)}
+              <div class="prod-nome">
+                <strong>${escaparHtml(produto.nome || '-')}</strong>
+                <span>${escaparHtml(produto.codigo || 'sem código')}</span>
+              </div>
+            </div>
+          </td>
+          <td><span class="badge badge-neutral">${escaparHtml(produto.categoria || '-')}</span></td>
+          <td>
+            <div class="prod-preco">
+              <strong>R$ ${formatarMoeda(venda)}</strong>
+              <span>compra R$ ${formatarMoeda(compra)}</span>
+            </div>
+          </td>
+          <td><span class="badge prod-margem ${margem >= 0 ? 'badge-success' : 'badge-danger'}">${margem.toFixed(1)}%</span></td>
+          <td><span class="prod-estoque prod-estoque--${estoque.chave}"><span class="prod-bolinha"></span>${escaparHtml(estoque.texto)}</span></td>
+          <td>${celulaAcoesProduto(index)}</td>
+        </tr>`;
+    }).join('');
+  }
 
-      const tdNome = document.createElement('td');
-      tdNome.textContent = produto.nome || '-';
+  /* ------------------------------------------------------------------
+     Detalhe do produto — leitura, sem chamada de rede.
+     ------------------------------------------------------------------ */
+  let indiceDetalhe = null;
 
-      const tdCategoria = document.createElement('td');
-      tdCategoria.innerHTML = `<span class="badge badge-neutral"></span>`;
-      tdCategoria.querySelector('.badge').textContent = produto.categoria || '-';
+  function abrirDetalhe(index) {
+    const produto = produtos[index];
+    if (!produto) return;
+    indiceDetalhe = index;
 
-      const tdCompra = document.createElement('td');
-      tdCompra.textContent = 'R$ ' + formatarMoeda(produto.valorCompra);
+    const compra = Number(produto.valorCompra) || 0;
+    const venda = Number(produto.valorVenda) || 0;
+    const margem = compra > 0 ? ((venda - compra) / compra) * 100 : 0;
+    const estoque = estadoEstoque(produto);
 
-      const tdVenda = document.createElement('td');
-      tdVenda.textContent = 'R$ ' + formatarMoeda(produto.valorVenda);
+    document.getElementById('detalheThumb').innerHTML = svgProd(ICONE_CATEGORIA[produto.categoria] || ICONE_PADRAO);
+    document.getElementById('detalheNome').textContent = produto.nome || '-';
+    document.getElementById('detalheCodigo').textContent = produto.codigo || 'sem código';
 
-      const tdLucro = document.createElement('td');
-      const valorCompra = Number(produto.valorCompra) || 0;
-      const valorVenda = Number(produto.valorVenda) || 0;
-      const lucroPercentual = valorCompra > 0 ? ((valorVenda - valorCompra) / valorCompra) * 100 : 0;
-      tdLucro.innerHTML = `<span class="${lucroPercentual >= 0 ? 'badge badge-success' : 'badge badge-danger'}"></span>`;
-      tdLucro.querySelector('.badge').textContent = `${lucroPercentual.toFixed(2)} %`;
+    const linhas = [
+      ['Categoria', produto.categoria || '-'],
+      ['Valor de compra', 'R$ ' + formatarMoeda(compra)],
+      ['Valor de venda', 'R$ ' + formatarMoeda(venda)],
+      ['Margem', margem.toFixed(1) + ' %'],
+      ['Lucro por unidade', 'R$ ' + formatarMoeda(venda - compra)],
+      ['Controle de estoque', produto.controlaEstoque ? 'Ligado' : 'Desligado'],
+      ['Estoque atual', produto.controlaEstoque ? String(Number(produto.estoque) || 0) : '—'],
+      ['Estoque mínimo', produto.controlaEstoque ? String(Number(produto.estoqueMinimo) || 0) : '—'],
+      ['Situação', estoque.texto]
+    ];
+    document.getElementById('detalheLinhas').innerHTML = linhas
+      .map(([rotulo, valor]) => `<div><dt>${rotulo}</dt><dd>${escaparHtml(valor)}</dd></div>`).join('');
 
-      const tdAcoes = document.createElement('td');
-      tdAcoes.className = 'row-actions';
+    const modal = document.getElementById('modalDetalhe');
+    modal.classList.add('ativo');
+    modal.setAttribute('aria-hidden', 'false');
+  }
 
-      const btnEditar = document.createElement('button');
-      btnEditar.className = 'btn btn-outline btn-sm';
-      btnEditar.type = 'button';
-      btnEditar.textContent = 'Editar';
-      btnEditar.addEventListener('click', () => abrirModalEditar(index));
-
-      const btnExcluir = document.createElement('button');
-      btnExcluir.className = 'btn btn-danger btn-sm';
-      btnExcluir.type = 'button';
-      btnExcluir.textContent = 'Excluir';
-      btnExcluir.addEventListener('click', () => excluirProduto(index));
-
-      tdAcoes.appendChild(btnEditar);
-      tdAcoes.appendChild(btnExcluir);
-
-      [tdCodigo, tdNome, tdCategoria, tdCompra, tdVenda, tdLucro, tdAcoes].forEach(td => linha.appendChild(td));
-      tbody.appendChild(linha);
-    });
+  function fecharDetalhe() {
+    const modal = document.getElementById('modalDetalhe');
+    modal.classList.remove('ativo');
+    modal.setAttribute('aria-hidden', 'true');
   }
 
   async function excluirProduto(index) {
@@ -483,7 +701,9 @@
       return;
     }
 
-    produtos[index] = { codigo, nome, categoria, valorCompra, valorVenda };
+    /* Mantem id, estoque e controle de estoque: sem o spread a edicao viraria
+       um produto novo no banco e o estoque seria perdido. */
+    produtos[index] = { ...produtos[index], codigo, nome, categoria, valorCompra, valorVenda };
     salvarProdutos();
     carregarTabela();
     fecharModalEditar();
@@ -501,19 +721,48 @@
     setTimeout(() => document.getElementById('codigoProduto').focus(), 250);
   });
 
-  document.getElementById('btnPesquisar').addEventListener('click', carregarTabela);
-  document.getElementById('filtro').addEventListener('keydown', function(e) {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      carregarTabela();
-    }
+  /* As linhas sao montadas com innerHTML, entao o clique e capturado na
+     tabela e nao em cada botao: assim nao ha listener orfao a cada redesenho.
+     O menu "⋮" do celular usa os mesmos data-prod / data-index. */
+  document.getElementById('tabelaProdutos').addEventListener('click', function (e) {
+    const botao = e.target.closest('[data-prod]');
+    if (!botao) return;
+    if (window.LaneAcoes) { window.LaneAcoes.fecharMenu(); window.LaneAcoes.esconderDica(); }
+
+    const index = Number(botao.dataset.index);
+    if (botao.dataset.prod === 'ver') return abrirDetalhe(index);
+    if (botao.dataset.prod === 'editar') return abrirModalEditar(index);
+    if (botao.dataset.prod === 'excluir') return excluirProduto(index);
   });
-  document.getElementById('filtroCategoria').addEventListener('change', carregarTabela);
+
+  /* A busca filtra enquanto se digita; o botao Pesquisar continua existindo
+     para quem prefere confirmar. */
+  document.getElementById('filtro').addEventListener('input', carregarTabela);
+  document.getElementById('filtro').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') { e.preventDefault(); carregarTabela(); }
+  });
+  ['filtroCategoria', 'filtroEstoque'].forEach(id =>
+    document.getElementById(id).addEventListener('change', carregarTabela));
+  ['precoMin', 'precoMax'].forEach(id =>
+    document.getElementById(id).addEventListener('input', carregarTabela));
 
   document.getElementById('btnLimparFiltro').addEventListener('click', function() {
-    document.getElementById('filtro').value = '';
-    document.getElementById('filtroCategoria').value = '';
+    ['filtro', 'filtroCategoria', 'filtroEstoque', 'precoMin', 'precoMax']
+      .forEach(id => { document.getElementById(id).value = ''; });
     carregarTabela();
+    document.getElementById('filtro').focus();
+  });
+
+  /* ---- modal de detalhe ---- */
+  document.getElementById('btnFecharDetalhe').addEventListener('click', fecharDetalhe);
+  document.getElementById('btnFecharDetalhe2').addEventListener('click', fecharDetalhe);
+  document.getElementById('modalDetalhe').addEventListener('mousedown', function(e) {
+    if (e.target === this) fecharDetalhe();
+  });
+  document.getElementById('btnEditarDoDetalhe').addEventListener('click', function() {
+    const index = indiceDetalhe;
+    fecharDetalhe();
+    if (index !== null) abrirModalEditar(index);
   });
 
   document.getElementById('btnFecharModal').addEventListener('click', fecharModalEditar);
@@ -523,9 +772,9 @@
   });
 
   document.addEventListener('keydown', function(e) {
-    if (e.key === 'Escape' && document.getElementById('modalEditar').classList.contains('ativo')) {
-      fecharModalEditar();
-    }
+    if (e.key !== 'Escape') return;
+    if (document.getElementById('modalEditar').classList.contains('ativo')) fecharModalEditar();
+    if (document.getElementById('modalDetalhe').classList.contains('ativo')) fecharDetalhe();
   });
 
   function exportarBackupCompleto(filename = 'backup-petshop.json') {
@@ -575,6 +824,15 @@
   }
 
   window.addEventListener('load', carregarTabela);
+
+/* ---------------------------------------------------------------------------
+   Atualizacao automatica: a ponte js/admin-store.js recarrega o banco (aviso
+   em tempo real do servidor ou verificacao periodica) e dispara este evento.
+   A tela apenas se redesenha com o que acabou de chegar.
+   ------------------------------------------------------------------------- */
+window.addEventListener('lanepets:dados', function () {
+  try { produtos = JSON.parse(localStorage.getItem('produtos') || '[]'); carregarTabela(); } catch (e) { console.error('[LanePets] falha ao redesenhar a tela:', e); }
+});
 </script>
 </body>
 </html>

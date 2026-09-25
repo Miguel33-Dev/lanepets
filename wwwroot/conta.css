@@ -1,0 +1,1094 @@
+/* =============================================================================
+   LANEPETS — ÁREA DO CLIENTE
+   Usa os tokens de publico.css (--verde, --laranja, --borda, --r-md…).
+   Prefixo .cc- para nunca colidir com o site público nem com auth.css.
+   ============================================================================= */
+
+.cc-app { display: grid; grid-template-columns: 264px minmax(0, 1fr); min-height: 100vh; background: var(--creme); }
+
+/* ---------- Barra lateral ---------- */
+.cc-lateral {
+  position: sticky; top: 0; align-self: start;
+  height: 100vh; display: flex; flex-direction: column;
+  background: linear-gradient(185deg, #04411f 0%, var(--verde-escuro) 46%, #02291a 100%);
+  color: rgba(255,255,255,.76);
+}
+.cc-lateral__marca {
+  display: flex; align-items: center; gap: 11px;
+  padding: 22px 20px; color: #fff; text-decoration: none;
+  border-bottom: 1px solid rgba(255,255,255,.09);
+}
+.cc-lateral__marca svg { flex-shrink: 0; color: var(--laranja); }
+.cc-lateral__marca b { display: block; font-family: 'Fraunces', Georgia, serif; font-size: 1.24rem; font-weight: 700; letter-spacing: -.02em; line-height: 1.1; }
+.cc-lateral__marca b + span { display: block; font-size: .64rem; letter-spacing: .1em; text-transform: uppercase; color: rgba(220,239,185,.66); margin-top: 3px; }
+
+.cc-nav { flex: 1; overflow-y: auto; padding: 14px 12px 20px; display: flex; flex-direction: column; gap: 2px; }
+.cc-nav__grupo { margin: 16px 10px 6px; font-size: .64rem; font-weight: 700; letter-spacing: .13em; text-transform: uppercase; color: rgba(255,255,255,.38); }
+.cc-nav__grupo:first-child { margin-top: 2px; }
+.cc-nav a {
+  position: relative;
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 14px; border-radius: var(--r-sm);
+  color: rgba(255,255,255,.76); text-decoration: none;
+  font-size: .89rem; font-weight: 600;
+  transition: background .16s var(--ease), color .16s var(--ease);
+}
+.cc-nav a svg { flex-shrink: 0; opacity: .8; }
+.cc-nav a:hover { background: rgba(255,255,255,.08); color: #fff; }
+.cc-nav a::before {
+  content: ''; position: absolute; left: 0; top: 50%;
+  transform: translateY(-50%) scaleY(0);
+  width: 3px; height: 60%; border-radius: 0 3px 3px 0; background: var(--laranja);
+  transition: transform .18s var(--ease);
+}
+.cc-nav a.is-ativo { background: rgba(255,255,255,.12); color: #fff; font-weight: 700; }
+.cc-nav a.is-ativo::before { transform: translateY(-50%) scaleY(1); }
+.cc-nav a.is-ativo svg { opacity: 1; color: var(--laranja); }
+.cc-nav a:focus-visible { outline: none; box-shadow: inset 0 0 0 2px var(--laranja); }
+.cc-nav .cc-nav__sair { color: rgba(255,200,190,.85); }
+.cc-nav .cc-nav__sair:hover { background: rgba(255,120,100,.14); color: #ffd9d2; }
+
+.cc-lateral__rodape { padding: 16px 20px 20px; font-size: .72rem; color: rgba(255,255,255,.4); border-top: 1px solid rgba(255,255,255,.09); }
+
+/* ---------- Cabeçalho ---------- */
+.cc-topo {
+  position: sticky; top: 0; z-index: 20;
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  min-height: 68px; padding: 0 clamp(18px, 3vw, 32px);
+  background: rgba(251,252,244,.92); backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--borda);
+}
+.cc-topo__titulo { font-family: 'DM Sans', sans-serif; font-size: 1.02rem; font-weight: 700; color: var(--tinta); }
+.cc-topo__trilha { font-size: .76rem; color: var(--suave); margin-top: 1px; }
+.cc-topo__acoes { display: flex; align-items: center; gap: 10px; }
+.cc-menu-botao {
+  display: none; align-items: center; justify-content: center;
+  width: 40px; height: 40px; border-radius: var(--r-sm);
+  border: 1px solid var(--borda); background: var(--branco); color: var(--tinta); cursor: pointer;
+}
+.cc-fantasma {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 8px 13px; border-radius: var(--r-sm);
+  border: 1px solid var(--borda); background: var(--branco);
+  color: var(--texto); text-decoration: none; font-size: .8rem; font-weight: 700; cursor: pointer;
+  transition: border-color .16s var(--ease), color .16s var(--ease), background .16s var(--ease);
+}
+.cc-fantasma:hover { border-color: var(--verde); color: var(--verde); background: var(--superficie); }
+.cc-usuario { display: flex; align-items: center; gap: 10px; }
+.cc-usuario__nome { display: flex; flex-direction: column; line-height: 1.25; }
+.cc-usuario__nome strong { font-size: .84rem; font-weight: 700; color: var(--tinta); }
+.cc-usuario__nome span { font-size: .72rem; color: var(--suave); }
+
+/* ---------- Avatar de iniciais ---------- */
+.cc-avatar {
+  display: grid; place-items: center; flex-shrink: 0;
+  width: 38px; height: 38px; border-radius: var(--r-full);
+  background: var(--verde); color: #fff;
+  font-family: 'DM Sans', sans-serif; font-weight: 700; font-size: .82rem; letter-spacing: .02em;
+}
+.cc-avatar--g { width: 74px; height: 74px; font-size: 1.5rem; box-shadow: 0 0 0 4px var(--superficie); }
+
+/* ---------- Conteúdo ---------- */
+.cc-conteudo { padding: clamp(22px, 3vw, 34px) clamp(18px, 3vw, 32px) 64px; max-width: 1180px; }
+.cc-secao { display: none; animation: cc-entra .24s var(--ease); }
+.cc-secao.is-ativa { display: block; }
+@keyframes cc-entra { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+.cc-cabecalho { margin-bottom: 26px; }
+.cc-cabecalho h1 { font-size: clamp(1.6rem, 1.2rem + 1.2vw, 2.1rem); line-height: 1.15; }
+.cc-cabecalho p { color: var(--suave); margin-top: 8px; }
+
+.cc-painel {
+  background: var(--branco); border: 1px solid var(--borda); border-radius: var(--r-md);
+  padding: clamp(20px, 2.4vw, 26px); box-shadow: var(--sombra-sm);
+}
+.cc-painel + .cc-painel { margin-top: 20px; }
+.cc-painel__topo { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; flex-wrap: wrap; margin-bottom: 18px; }
+.cc-painel__topo h2 { font-size: 1.14rem; }
+.cc-painel__topo p { font-size: .84rem; color: var(--suave); margin-top: 4px; }
+.cc-grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; align-items: start; }
+
+/* ---------- Cards de resumo ---------- */
+.cc-resumo { display: grid; grid-template-columns: repeat(auto-fit, minmax(184px, 1fr)); gap: 14px; margin-bottom: 22px; }
+.cc-metrica {
+  position: relative; overflow: hidden;
+  background: var(--branco); border: 1px solid var(--borda); border-radius: var(--r-md);
+  padding: 18px 20px;
+  transition: transform .18s var(--ease), box-shadow .18s var(--ease), border-color .18s var(--ease);
+}
+.cc-metrica:hover { transform: translateY(-2px); box-shadow: var(--sombra-md); border-color: var(--borda-forte); }
+.cc-metrica__ico {
+  display: grid; place-items: center; width: 36px; height: 36px;
+  border-radius: var(--r-sm); background: var(--superficie); color: var(--verde); margin-bottom: 14px;
+}
+.cc-metrica__rotulo { font-size: .72rem; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: var(--suave); }
+.cc-metrica__valor { font-family: 'Fraunces', Georgia, serif; font-size: 1.62rem; font-weight: 700; color: var(--verde-escuro); line-height: 1.1; margin-top: 5px; }
+.cc-metrica__nota { font-size: .76rem; color: var(--suave); margin-top: 4px; }
+.cc-metrica--acento .cc-metrica__ico { background: var(--laranja-suave); color: var(--laranja-forte); }
+
+/* ---------- Perfil ---------- */
+.cc-perfil { display: flex; align-items: center; gap: 18px; margin-bottom: 22px; }
+.cc-perfil__nome { font-family: 'Fraunces', Georgia, serif; font-size: 1.36rem; color: var(--verde-escuro); line-height: 1.2; }
+.cc-perfil__meta { font-size: .84rem; color: var(--suave); margin-top: 4px; }
+.cc-dados { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 2px 26px; }
+.cc-dado { padding: 12px 0; border-bottom: 1px solid var(--borda); }
+.cc-dado dt { font-size: .72rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--suave); }
+.cc-dado dd { margin: 5px 0 0; font-size: .94rem; color: var(--tinta); font-weight: 500; word-break: break-word; }
+
+/* ---------- Selo de status ---------- */
+.cc-selo {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 4px 11px; border-radius: var(--r-full);
+  font-size: .72rem; font-weight: 700; letter-spacing: .02em;
+  background: var(--superficie); color: var(--texto);
+}
+.cc-selo::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.cc-selo--ok { background: #e9f5ee; color: #1f7a45; }
+.cc-selo--aguarda { background: #fbf1dc; color: #97690f; }
+.cc-selo--erro { background: #fbeae7; color: #b2342a; }
+.cc-selo--info { background: #e8f1f9; color: #2f6fa8; }
+.cc-selo--neutro { background: var(--superficie); color: var(--suave); }
+
+/* ---------- Cards de pet ---------- */
+.cc-pets { display: grid; grid-template-columns: repeat(auto-fill, minmax(216px, 1fr)); gap: 16px; }
+.cc-pet {
+  display: flex; flex-direction: column; align-items: flex-start;
+  background: var(--branco); border: 1px solid var(--borda); border-radius: var(--r-md);
+  padding: 22px 20px;
+  transition: transform .18s var(--ease), box-shadow .18s var(--ease), border-color .18s var(--ease);
+}
+.cc-pet:hover { transform: translateY(-2px); box-shadow: var(--sombra-md); border-color: var(--borda-forte); }
+.cc-pet__ico {
+  display: grid; place-items: center; width: 52px; height: 52px; margin-bottom: 15px;
+  border-radius: var(--r-md); background: var(--superficie); color: var(--verde);
+}
+.cc-pet h3 { font-size: 1.08rem; color: var(--verde-escuro); }
+.cc-pet__meta { font-size: .82rem; color: var(--suave); margin-top: 5px; line-height: 1.5; }
+.cc-pet__tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 14px; }
+.cc-pet--novo {
+  align-items: center; justify-content: center; text-align: center;
+  border-style: dashed; border-color: var(--borda-forte); background: transparent;
+  color: var(--verde); font-weight: 700; font-size: .9rem; gap: 10px; cursor: pointer;
+  min-height: 178px;
+}
+.cc-pet--novo:hover { background: var(--superficie); border-color: var(--verde); transform: none; box-shadow: none; }
+
+/* ---------- Próximo agendamento ---------- */
+.cc-destaque {
+  border-radius: var(--r-md); padding: 24px;
+  background: linear-gradient(140deg, var(--verde-escuro), #075a31);
+  color: rgba(255,255,255,.85);
+  display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 20px; align-items: center;
+}
+.cc-destaque__rotulo { font-size: .7rem; font-weight: 700; letter-spacing: .13em; text-transform: uppercase; color: var(--lima); }
+.cc-destaque h3 { color: #fff; font-size: 1.3rem; margin-top: 8px; }
+.cc-destaque__linhas { display: flex; flex-wrap: wrap; gap: 8px 22px; margin-top: 14px; font-size: .86rem; }
+.cc-destaque__linhas span { display: inline-flex; align-items: center; gap: 7px; }
+.cc-destaque__linhas svg { color: var(--lima); flex-shrink: 0; }
+.cc-destaque .cc-selo { background: rgba(255,255,255,.16); color: #fff; }
+
+/* ---------- Linhas de lista ---------- */
+.cc-lista { display: flex; flex-direction: column; }
+.cc-linha {
+  display: grid; grid-template-columns: 42px minmax(0,1fr) auto; gap: 14px; align-items: center;
+  padding: 15px 0; border-bottom: 1px solid var(--borda);
+}
+.cc-linha:last-child { border-bottom: 0; }
+.cc-linha__ico { display: grid; place-items: center; width: 42px; height: 42px; border-radius: var(--r-sm); background: var(--superficie); color: var(--verde); }
+.cc-linha__titulo { font-weight: 700; color: var(--tinta); font-size: .94rem; }
+.cc-linha__meta { font-size: .8rem; color: var(--suave); margin-top: 3px; line-height: 1.5; }
+.cc-linha__fim { text-align: right; display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+.cc-valor { font-weight: 700; color: var(--verde); font-size: .96rem; font-variant-numeric: tabular-nums; }
+
+/* ---------- Estado vazio ---------- */
+.cc-vazio { text-align: center; padding: 40px 20px; color: var(--suave); }
+.cc-vazio svg { color: var(--verde); opacity: .35; margin-bottom: 12px; }
+.cc-vazio h3 { font-size: 1.02rem; color: var(--verde-escuro); margin-bottom: 6px; }
+.cc-vazio p { font-size: .86rem; max-width: 380px; margin: 0 auto 18px; line-height: 1.55; }
+
+/* ---------- Formulários ---------- */
+.cc-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; }
+.cc-campo { display: flex; flex-direction: column; gap: 6px; }
+.cc-campo--largo { grid-column: 1 / -1; }
+.cc-campo label { font-size: .78rem; font-weight: 700; color: var(--tinta); }
+.cc-campo input, .cc-campo select, .cc-campo textarea {
+  width: 100%; padding: 11px 13px;
+  border: 1px solid var(--borda-forte); border-radius: var(--r-sm);
+  font: .92rem 'DM Sans', sans-serif; color: var(--tinta); background: var(--branco);
+  transition: border-color .16s var(--ease), box-shadow .16s var(--ease);
+}
+.cc-campo textarea { resize: vertical; min-height: 84px; }
+.cc-campo input:focus, .cc-campo select:focus, .cc-campo textarea:focus { outline: none; border-color: var(--verde); box-shadow: var(--anel); }
+.cc-campo .cc-ajuda { font-size: .74rem; color: var(--suave); }
+.cc-form__acoes { grid-column: 1 / -1; display: flex; justify-content: flex-end; gap: 12px; flex-wrap: wrap; margin-top: 4px; }
+.cc-msg { grid-column: 1 / -1; min-height: 20px; font-size: .84rem; font-weight: 600; color: var(--verde); }
+.cc-msg[data-erro="1"] { color: #b2342a; }
+
+/* ---------- Estrelas ---------- */
+.cc-estrelas { display: flex; gap: 4px; }
+.cc-estrelas button {
+  background: none; border: 0; cursor: pointer; padding: 2px;
+  font-size: 1.6rem; line-height: 1; color: var(--borda-forte);
+  transition: color .14s var(--ease), transform .14s var(--ease);
+}
+.cc-estrelas button:hover { transform: scale(1.12); }
+.cc-estrelas button.is-on { color: var(--laranja); }
+.cc-estrelas button:focus-visible { outline: none; box-shadow: var(--anel); border-radius: 4px; }
+
+/* ---------- Planos de seguro ---------- */
+.cc-planos { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 16px; }
+.cc-plano {
+  display: flex; flex-direction: column;
+  background: var(--branco); border: 1px solid var(--borda); border-radius: var(--r-md); padding: 22px 20px;
+}
+.cc-plano--destaque { border-color: var(--verde); box-shadow: 0 0 0 1px var(--verde); }
+.cc-plano h3 { font-size: 1.14rem; color: var(--verde-escuro); }
+.cc-plano > p { font-size: .84rem; color: var(--suave); margin-top: 6px; line-height: 1.5; }
+.cc-plano ul { flex: 1; margin: 14px 0 0; padding-left: 18px; font-size: .82rem; color: var(--texto); line-height: 1.7; }
+.cc-plano ul li::marker { color: var(--laranja); }
+.cc-plano__preco { font-family: 'Fraunces', Georgia, serif; font-size: 1.5rem; color: var(--verde); margin: 16px 0 14px; }
+.cc-plano__preco small { font-family: 'DM Sans', sans-serif; font-size: .74rem; color: var(--suave); font-weight: 600; }
+
+/* ---------- Modal ---------- */
+dialog.cc-modal { max-width: 520px; }
+.cc-modal__corpo { position: relative; padding: 28px; }
+.cc-modal__corpo h2 { font-size: 1.44rem; }
+.cc-modal__corpo > p { font-size: .86rem; color: var(--suave); margin-top: 8px; line-height: 1.55; }
+.cc-modal__corpo .cc-form { margin-top: 20px; }
+
+/* =============================================================================
+   RESPONSIVO
+   ============================================================================= */
+@media (max-width: 1000px) {
+  .cc-app { grid-template-columns: 1fr; }
+  .cc-menu-botao { display: inline-flex; }
+  .cc-lateral {
+    position: fixed; inset: 0 auto 0 0; z-index: 60; width: 272px; height: 100dvh;
+    transform: translateX(-100%); transition: transform .26s var(--ease);
+    box-shadow: 0 0 44px rgba(3,44,28,.4);
+  }
+  .cc-lateral.is-aberta { transform: none; }
+  .cc-fundo { position: fixed; inset: 0; z-index: 50; background: rgba(3,44,28,.5); display: none; }
+  .cc-fundo.is-visivel { display: block; }
+  .cc-destaque { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 640px) {
+  .cc-topo { min-height: 60px; }
+  .cc-usuario__nome { display: none; }
+  .cc-fantasma span { display: none; }
+  .cc-fantasma { padding: 9px 11px; }
+  .cc-conteudo { padding: 20px 16px 56px; }
+  .cc-resumo { grid-template-columns: repeat(2, 1fr); }
+  .cc-metrica { padding: 15px 16px; }
+  .cc-metrica__valor { font-size: 1.32rem; }
+  .cc-perfil { flex-direction: column; align-items: flex-start; gap: 14px; }
+  .cc-linha { grid-template-columns: 36px minmax(0,1fr); }
+  .cc-linha__ico { width: 36px; height: 36px; }
+  .cc-linha__fim { grid-column: 2; flex-direction: row; align-items: center; text-align: left; gap: 10px; }
+  .cc-form__acoes { flex-direction: column-reverse; }
+  .cc-form__acoes .botao { width: 100%; }
+  .cc-pets { grid-template-columns: 1fr; }
+}
+
+/* ---------- Toast de confirmacao ---------- */
+.cc-toast {
+  position: fixed; left: 50%; bottom: 28px; transform: translate(-50%, 12px);
+  z-index: 999; max-width: min(90vw, 420px);
+  padding: 12px 18px; border-radius: 12px;
+  background: var(--verde, #14452f); color: #fff;
+  font-size: .9rem; font-weight: 600; letter-spacing: .01em;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, .22);
+  opacity: 0; pointer-events: none;
+  transition: opacity .18s ease, transform .18s ease;
+}
+.cc-toast.is-ativo { opacity: 1; transform: translate(-50%, 0); }
+
+/* =============================================================================
+   Seguro Pet — contratação em etapas e cancelamento
+   Usa os mesmos tokens do restante da área do cliente (--verde, --laranja,
+   --borda…). Nada aqui redefine componente já existente: são classes novas.
+   ============================================================================= */
+dialog.cc-modal--largo { max-width: 640px; }
+
+/* Trilha de etapas ------------------------------------------------------- */
+.cc-etapas { display: flex; gap: 8px; list-style: none; margin: 20px 0 4px; padding: 0; flex-wrap: wrap; }
+.cc-etapas li {
+  flex: 1 1 96px; font-size: .72rem; font-weight: 700; color: var(--suave);
+  padding-top: 9px; border-top: 3px solid var(--borda); line-height: 1.35;
+}
+.cc-etapas li.is-feita { color: var(--verde); border-top-color: var(--verde); }
+.cc-etapas li.is-atual { color: var(--laranja-forte); border-top-color: var(--laranja); }
+.cc-etapa__corpo { margin-top: 18px; display: grid; gap: 14px; }
+.cc-etapa__titulo { font-size: .96rem; font-weight: 700; color: var(--tinta); }
+
+/* Opção selecionável (pet, forma de pagamento) ---------------------------- */
+.cc-opcao {
+  display: flex; gap: 12px; align-items: flex-start; padding: 14px;
+  border: 1px solid var(--borda); border-radius: var(--r-sm); background: var(--branco);
+  cursor: pointer; transition: border-color .16s ease, box-shadow .16s ease;
+}
+.cc-opcao:hover { border-color: var(--verde); }
+.cc-opcao input { margin-top: 3px; accent-color: var(--verde); }
+.cc-opcao:has(input:checked) { border-color: var(--verde); box-shadow: var(--anel); }
+.cc-opcao__titulo { font-size: .88rem; font-weight: 700; color: var(--tinta); }
+.cc-opcao__meta { font-size: .78rem; color: var(--suave); margin-top: 2px; line-height: 1.5; }
+
+/* Blocos de leitura (dados do responsável, resumo) ------------------------ */
+.cc-resumo-bloco {
+  border: 1px solid var(--borda); border-radius: var(--r-sm);
+  background: var(--superficie); padding: 14px 16px; display: grid; gap: 10px;
+}
+.cc-resumo-linha { display: flex; justify-content: space-between; gap: 16px; font-size: .84rem; }
+.cc-resumo-linha span { color: var(--suave); }
+.cc-resumo-linha strong { color: var(--tinta); text-align: right; font-weight: 700; }
+.cc-resumo-linha--total strong { font-family: 'Fraunces', Georgia, serif; font-size: 1.12rem; color: var(--verde); }
+
+/* Formulário embutido nas etapas ----------------------------------------- */
+.cc-etapa__form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+@media (max-width: 560px) { .cc-etapa__form { grid-template-columns: 1fr; } }
+
+/* Ação destrutiva --------------------------------------------------------- */
+.botao.perigo { background: #b2342a; color: #fff; border-color: #b2342a; }
+.botao.perigo:hover { background: #8f291f; border-color: #8f291f; }
+.cc-linha__fim .botao { padding: 7px 12px; font-size: .76rem; }
+
+/* =============================================================================
+   NOVO PEDIDO — vitrine de produtos
+
+   O formulário escolhia o produto num <select>: uma lista de texto onde o
+   cliente não via preço lado a lado, não sabia o que estava acabando e não
+   tinha como procurar. Aqui a escolha vira vitrine.
+
+   REAPROVEITAMENTO: os cards, o selo de estoque, as pílulas de categoria e o
+   campo de busca são as MESMAS classes .loja-* da lojinha do site público, que
+   já vêm em publico.css (esta página carrega os dois arquivos). Abaixo só o
+   que é próprio de escolher dentro de um formulário: o estado "selecionado" e
+   o tamanho compacto para caber no painel.
+
+   O <select id="produto"> continua no DOM e continua sendo o que o envio lê.
+   ============================================================================= */
+
+.pedido-escolha { margin-bottom: 20px; }
+.pedido-escolha__topo {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 14px;
+}
+.pedido-escolha__topo > label {
+  font-size: .78rem; font-weight: 700; color: var(--tinta); margin-right: auto;
+}
+.pedido-escolha .loja-busca { flex: 1 1 220px; max-width: 320px; }
+.pedido-escolha .loja-busca input { padding: 10px 38px 10px 38px; font-size: .88rem; }
+.pedido-escolha .loja-ordenar select { padding: 9px 12px; font-size: .82rem; }
+.pedido-escolha .loja-chips { margin-bottom: 14px; }
+.pedido-escolha .loja-chip { padding: 6px 13px; font-size: .8rem; }
+
+/* O select segue no DOM para teclado e leitor de tela; visualmente ele sai do
+   caminho porque a vitrine já mostra a escolha. Não é display:none — isso o
+   tiraria da navegação por Tab. */
+.pedido-select-acessivel {
+  position: absolute; width: 1px; height: 1px; overflow: hidden;
+  clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap;
+}
+.pedido-select-acessivel:focus-within {
+  position: static; width: auto; height: auto; overflow: visible;
+  clip: auto; clip-path: none; white-space: normal;
+  display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px;
+}
+
+/* ---------- Vitrine ---------- */
+/* Altura limitada com rolagem propria: isto e um FORMULARIO, e o catalogo
+   inteiro empurraria "Quantidade", "Pagamento" e "Confirmar pedido" para
+   varias telas abaixo. A linha cortada na borda ja avisa que ha mais. */
+.grade.loja--compacta {
+  grid-template-columns: repeat(auto-fill, minmax(178px, 1fr)); gap: 12px;
+  max-height: min(58vh, 520px); overflow-y: auto; padding: 2px 6px 2px 2px;
+}
+.grade.loja--compacta::-webkit-scrollbar { width: 8px; }
+.grade.loja--compacta::-webkit-scrollbar-thumb { background: var(--borda-forte); border-radius: 99px; }
+.grade.loja--compacta::-webkit-scrollbar-track { background: transparent; }
+.loja--compacta .loja-media { aspect-ratio: 5 / 3; }
+.loja--compacta .loja-media .loja-simbolo { width: 50px; height: 50px; }
+.loja--compacta .loja-media .loja-simbolo svg { width: 23px; height: 23px; }
+.loja--compacta .loja-corpo { padding: 12px 13px 13px; gap: 6px; }
+.loja--compacta .loja-card h3 { font-size: .9rem; }
+.loja--compacta .loja-preco strong { font-size: 1.1rem; }
+.loja--compacta .loja-selo { top: 8px; left: 8px; padding: 4px 9px; font-size: .67rem; }
+
+/* O card inteiro é o botão de escolha. */
+.pedido-card {
+  border: 1px solid var(--borda); background: var(--branco); text-align: left;
+  font: inherit; padding: 0; cursor: pointer; width: 100%;
+}
+.pedido-card:focus-visible { outline: none; box-shadow: var(--anel); border-color: var(--verde); }
+
+/* Selecionado: anel verde e marca de confirmação. É o único produto que vai no
+   pedido, então precisa ser inequívoco — não basta uma borda um tom diferente. */
+.pedido-card.escolhido {
+  border-color: var(--verde); box-shadow: 0 0 0 2px var(--verde) inset, var(--sombra-md);
+}
+.pedido-card.escolhido .loja-media { background: linear-gradient(160deg, #eaf4ec, var(--branco)); }
+.pedido-card__marca {
+  position: absolute; top: 8px; right: 8px; width: 24px; height: 24px; border-radius: 50%;
+  display: none; align-items: center; justify-content: center;
+  background: var(--verde); color: #fff; box-shadow: var(--sombra-sm);
+}
+.pedido-card__marca svg { width: 14px; height: 14px; }
+.pedido-card.escolhido .pedido-card__marca { display: flex; }
+
+/* Sem estoque: não é escolhível. O backend recusa de qualquer forma; aqui a
+   tela apenas para de oferecer o que não dá para pedir. */
+.pedido-card[disabled] { cursor: not-allowed; opacity: .62; }
+.pedido-card[disabled] .loja-media { filter: grayscale(.7); }
+.pedido-card[disabled]:hover { transform: none; box-shadow: var(--sombra-sm); border-color: var(--borda); }
+
+.pedido-escolha .loja-estado { padding: 34px 20px; }
+.pedido-vazio-alerta { grid-column: 1 / -1; }
+
+@media (max-width: 620px) {
+  .grade.loja--compacta { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .pedido-escolha__topo { gap: 8px; }
+  .pedido-escolha .loja-busca { max-width: none; flex-basis: 100%; }
+  .pedido-escolha .loja-ordenar { width: 100%; }
+  .pedido-escolha .loja-ordenar select { flex: 1; }
+}
+
+/* =============================================================================
+   PRODUTOS E MEUS PEDIDOS — áreas próprias
+
+   As duas viviam empilhadas na mesma tela: o catálogo em cima, o histórico
+   embaixo, tudo sob o título "Pedidos". Agora cada uma tem rota, título e
+   navegação de volta. Nada disso é página nova em disco — a área do cliente
+   sempre foi uma só página com seções, e as duas entraram nesse mesmo esquema.
+   ============================================================================= */
+
+/* ---------- Voltar ---------- */
+.cc-voltar {
+  display: inline-flex; align-items: center; gap: 5px; margin-bottom: 10px;
+  font-size: .82rem; font-weight: 700; color: var(--verde); text-decoration: none;
+  padding: 5px 11px 5px 7px; border-radius: var(--r-full);
+  background: var(--branco); border: 1px solid var(--borda);
+  transition: border-color .16s var(--ease), transform .14s var(--ease), box-shadow .16s var(--ease);
+}
+.cc-voltar:hover { border-color: var(--verde-linha); transform: translateX(-2px); box-shadow: var(--sombra-sm); }
+.cc-voltar:focus-visible { outline: none; box-shadow: var(--anel); }
+
+/* ---------- Acesso rápido (painel) ---------- */
+.cc-atalhos__grade { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.cc-atalho {
+  display: flex; align-items: center; justify-content: center; text-align: center;
+  padding: 14px 12px; border-radius: var(--r-md); text-decoration: none;
+  font-size: .86rem; font-weight: 700; color: var(--verde-escuro);
+  background: var(--superficie); border: 1px solid var(--borda);
+  transition: background .16s var(--ease), border-color .16s var(--ease), transform .14s var(--ease);
+}
+.cc-atalho:hover { background: var(--branco); border-color: var(--verde-linha); transform: translateY(-2px); }
+.cc-atalho:focus-visible { outline: none; box-shadow: var(--anel); }
+
+/* ---------- Cards de pedido ---------- */
+.ped-grade { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 14px; }
+.ped-card {
+  display: flex; flex-direction: column; gap: 12px; padding: 16px 18px;
+  background: var(--branco); border: 1px solid var(--borda); border-radius: var(--r-lg);
+  box-shadow: var(--sombra-sm);
+  transition: border-color .18s var(--ease), box-shadow .18s var(--ease), transform .14s var(--ease);
+}
+.ped-card:hover { border-color: var(--borda-forte); box-shadow: var(--sombra-md); transform: translateY(-2px); }
+.ped-card__topo {
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 10px;
+  padding-bottom: 12px; border-bottom: 1px solid var(--borda);
+}
+.ped-card__topo strong {
+  display: block; color: var(--verde-escuro); font-size: .95rem; font-variant-numeric: tabular-nums;
+}
+.ped-card__topo span { display: block; color: var(--suave); font-size: .76rem; margin-top: 2px; }
+/* flex:1 empurra as ações para o rodapé: numa linha da grade os cards tem
+   alturas diferentes (nome de produto longo), e sem isto o "Ver detalhes" de
+   cada um ficaria numa altura. */
+.ped-card__corpo { display: flex; align-items: center; gap: 11px; flex: 1; }
+.ped-card__ico {
+  width: 36px; height: 36px; flex: 0 0 auto; border-radius: var(--r-sm);
+  display: flex; align-items: center; justify-content: center;
+  background: var(--superficie); color: var(--verde);
+}
+.ped-card__txt { flex: 1; min-width: 0; }
+.ped-card__txt strong { display: block; color: var(--tinta); font-size: .9rem; }
+.ped-card__txt span { display: block; color: var(--suave); font-size: .77rem; margin-top: 1px; }
+.ped-card__acoes { display: flex; justify-content: flex-end; }
+.ped-card__acoes .botao { padding: 8px 16px; font-size: .82rem; }
+
+/* ---------- Detalhes ---------- */
+.ped-secao {
+  margin: 20px 0 8px; font-size: .74rem; font-weight: 800;
+  text-transform: uppercase; letter-spacing: .06em; color: var(--suave);
+}
+.ped-item {
+  display: flex; align-items: center; gap: 11px; padding: 13px 14px;
+  background: var(--superficie); border: 1px solid var(--borda); border-radius: var(--r-md);
+}
+.ped-resumo { display: grid; gap: 0; margin: 0; }
+.ped-resumo div {
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  padding: 10px 0; border-bottom: 1px solid var(--borda); font-size: .86rem;
+}
+.ped-resumo div:last-child { border-bottom: 0; }
+.ped-resumo dt { color: var(--suave); margin: 0; }
+.ped-resumo dd { margin: 0; color: var(--tinta); font-weight: 700; text-align: right; }
+
+@media (max-width: 860px) { .cc-atalhos__grade { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 520px) {
+  .ped-grade { grid-template-columns: 1fr; }
+  .cc-atalhos__grade { grid-template-columns: 1fr; }
+}
+
+/* =============================================================================
+   VISÃO GERAL DA ÁREA DO CLIENTE — camada visual
+   Só apresentação: nenhuma rota, permissão ou chamada de API depende daqui.
+   Reaproveita as mesmas variáveis (--verde, --borda, --r-md, --ease) já usadas
+   no restante de conta.css.
+   ============================================================================= */
+
+/* ---------- Cards de resumo que levam para a área ---------- */
+a.cc-metrica { display: block; text-decoration: none; color: inherit; }
+.cc-metrica { display: flex; flex-direction: column; }
+.cc-metrica__topo { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 14px; }
+.cc-metrica__topo .cc-metrica__ico { margin-bottom: 0; }
+.cc-metrica__ico svg { transition: transform .2s var(--ease); }
+.cc-metrica:hover .cc-metrica__ico svg { transform: scale(1.08); }
+.cc-metrica__acao {
+  display: inline-flex; align-items: center; gap: 6px; margin-top: 14px;
+  font-size: .78rem; font-weight: 700; color: var(--verde);
+}
+.cc-metrica__acao svg { transition: transform .18s var(--ease); }
+a.cc-metrica:hover .cc-metrica__acao svg { transform: translateX(3px); }
+a.cc-metrica:focus-visible { outline: none; box-shadow: var(--anel); }
+.cc-metrica--ok .cc-metrica__ico { background: #e9f5ee; color: #1f7a45; }
+
+/* ---------- Grade de dois blocos da visão geral ---------- */
+.cc-visao-grade {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(330px, 1fr));
+  gap: 20px; align-items: start; margin-top: 20px;
+}
+.cc-visao-grade > .cc-painel + .cc-painel { margin-top: 0; }
+
+/* ---------- Link "ver tudo" no topo de um painel ---------- */
+.cc-ver-tudo {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: .8rem; font-weight: 700; color: var(--verde);
+  text-decoration: none; white-space: nowrap;
+  padding: 6px 2px; border-radius: var(--r-sm);
+}
+.cc-ver-tudo svg { transition: transform .18s var(--ease); }
+.cc-ver-tudo:hover svg { transform: translateX(3px); }
+.cc-ver-tudo:focus-visible { outline: none; box-shadow: var(--anel); }
+
+/* ---------- Mini-listas (pedidos recentes, produtos em destaque) ---------- */
+.cc-mini { display: flex; flex-direction: column; }
+.cc-mini__item {
+  display: grid; grid-template-columns: 40px minmax(0, 1fr) auto;
+  gap: 13px; align-items: center;
+  padding: 13px 0; border-bottom: 1px solid var(--borda);
+}
+.cc-mini__item:last-child { border-bottom: 0; }
+.cc-mini__ico {
+  display: grid; place-items: center; width: 40px; height: 40px;
+  border-radius: var(--r-sm); background: var(--superficie); color: var(--verde);
+}
+.cc-mini__txt { min-width: 0; }
+.cc-mini__titulo {
+  font-weight: 700; color: var(--tinta); font-size: .92rem;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.cc-mini__meta { font-size: .78rem; color: var(--suave); margin-top: 3px; }
+.cc-mini__fim { text-align: right; display: flex; flex-direction: column; align-items: flex-end; gap: 5px; }
+.cc-mini__valor { font-family: 'Fraunces', Georgia, serif; font-size: 1rem; color: var(--verde-escuro); font-weight: 700; }
+
+/* ---------- Próximo agendamento: ação dentro do destaque ---------- */
+.cc-destaque__lado { display: flex; flex-direction: column; align-items: flex-end; gap: 12px; }
+.cc-destaque .botao.claro {
+  background: rgba(255,255,255,.14); border-color: rgba(255,255,255,.28); color: #fff;
+}
+.cc-destaque .botao.claro:hover { background: rgba(255,255,255,.22); border-color: rgba(255,255,255,.45); }
+
+/* ---------- Pets: foto real quando existir, símbolo quando não ---------- */
+.cc-pet__foto {
+  width: 52px; height: 52px; border-radius: var(--r-md); margin-bottom: 15px;
+  object-fit: cover; display: block; background: var(--superficie);
+}
+
+/* ---------- Menu da conta no topo ---------- */
+.cc-conta { position: relative; }
+.cc-conta__botao {
+  display: flex; align-items: center; gap: 10px;
+  padding: 5px 9px 5px 5px; border-radius: var(--r-full);
+  border: 1px solid transparent; background: transparent; cursor: pointer;
+  transition: background .16s var(--ease), border-color .16s var(--ease);
+}
+.cc-conta__botao:hover { background: var(--superficie); border-color: var(--borda); }
+.cc-conta__botao:focus-visible { outline: none; box-shadow: var(--anel); }
+.cc-conta__seta { color: var(--suave); transition: transform .18s var(--ease); }
+.cc-conta__botao[aria-expanded="true"] .cc-conta__seta { transform: rotate(180deg); }
+.cc-conta__menu {
+  position: absolute; right: 0; top: calc(100% + 8px); z-index: 40;
+  min-width: 212px; padding: 6px; display: none;
+  background: var(--branco); border: 1px solid var(--borda);
+  border-radius: var(--r-md); box-shadow: var(--sombra-md);
+  animation: cc-entra .16s var(--ease);
+}
+.cc-conta__menu.is-aberto { display: block; }
+.cc-conta__menu a, .cc-conta__menu button {
+  width: 100%; display: flex; align-items: center; gap: 10px;
+  padding: 9px 11px; border: 0; border-radius: var(--r-sm);
+  background: transparent; cursor: pointer; text-align: left; text-decoration: none;
+  font: inherit; font-size: .86rem; font-weight: 600; color: var(--texto);
+  transition: background .14s var(--ease), color .14s var(--ease);
+}
+.cc-conta__menu a:hover, .cc-conta__menu button:hover { background: var(--superficie); color: var(--verde-escuro); }
+.cc-conta__menu a:focus-visible, .cc-conta__menu button:focus-visible { outline: none; box-shadow: var(--anel); }
+.cc-conta__menu svg { color: var(--suave); flex: none; }
+.cc-conta__menu a:hover svg, .cc-conta__menu button:hover svg { color: var(--verde); }
+.cc-conta__menu hr { border: 0; border-top: 1px solid var(--borda); margin: 5px 4px; }
+.cc-conta__menu .cc-sair-item { color: #b2342a; }
+.cc-conta__menu .cc-sair-item:hover { background: #fbeae7; color: #b2342a; }
+.cc-conta__menu .cc-sair-item svg { color: #b2342a; }
+
+/* ---------- Responsivo ---------- */
+@media (max-width: 900px) {
+  .cc-visao-grade { grid-template-columns: 1fr; }
+}
+@media (max-width: 720px) {
+  .cc-usuario__nome { display: none; }
+  .cc-conta__menu { min-width: 196px; }
+  .cc-metrica__acao { margin-top: 10px; }
+}
+@media (max-width: 520px) {
+  .cc-resumo { grid-template-columns: repeat(2, 1fr); gap: 12px; }
+  .cc-metrica { padding: 14px 15px; }
+  .cc-metrica__topo { margin-bottom: 10px; }
+  .cc-metrica__ico { width: 32px; height: 32px; }
+  .cc-metrica__valor { font-size: 1.28rem; }
+  .cc-mini__item { grid-template-columns: 36px minmax(0,1fr) auto; gap: 10px; }
+  .cc-mini__ico { width: 36px; height: 36px; }
+  .cc-destaque__lado { align-items: flex-start; }
+  .cc-destaque__lado .botao { width: 100%; justify-content: center; }
+}
+
+/* ---------- Vitrine curta da visão geral ---------- */
+.cc-vitrine-mini { display: grid; grid-template-columns: repeat(auto-fit, minmax(198px, 1fr)); gap: 14px; }
+.cc-produto {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 7px;
+  padding: 18px; border: 1px solid var(--borda); border-radius: var(--r-md);
+  background: var(--branco);
+  transition: transform .18s var(--ease), box-shadow .18s var(--ease), border-color .18s var(--ease);
+}
+.cc-produto:hover { transform: translateY(-2px); box-shadow: var(--sombra-md); border-color: var(--borda-forte); }
+.cc-produto__ico {
+  display: grid; place-items: center; width: 42px; height: 42px; margin-bottom: 4px;
+  border-radius: var(--r-sm); background: var(--superficie); color: var(--verde);
+}
+.cc-produto__cat { font-size: .68rem; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: var(--suave); }
+.cc-produto h3 { font-size: .98rem; color: var(--verde-escuro); line-height: 1.35; }
+.cc-produto__preco { font-family: 'Fraunces', Georgia, serif; font-size: 1.16rem; color: var(--verde); }
+.cc-produto .botao { width: 100%; justify-content: center; margin-top: 8px; }
+@media (max-width: 520px) {
+  .cc-vitrine-mini { grid-template-columns: 1fr; }
+}
+
+/* O estado vazio do próximo agendamento vive sozinho dentro do painel:
+   sem a altura cheia do estado vazio de uma seção inteira. */
+#cc-proximo .cc-vazio { padding: 26px 20px; }
+#cc-proximo .cc-vazio p { margin-bottom: 14px; }
+
+/* ---------- Cards de pet: faixa de mídia + conteúdo ----------
+   O cadastro de pet não tem campo de foto. Em vez de um retângulo vazio,
+   a faixa traz o símbolo do tipo do pet, do mesmo tamanho em todos os
+   cards. Quando houver foto, basta trocar o conteúdo de .cc-pet__ico. */
+.cc-pets { gap: 18px; }
+.cc-pet:not(.cc-pet--novo) { padding: 0; overflow: hidden; }
+.cc-pet:not(.cc-pet--novo) .cc-pet__ico {
+  width: 100%; height: 104px; margin: 0; border-radius: 0;
+  background: linear-gradient(150deg, var(--superficie), #e8f2e9);
+  border-bottom: 1px solid var(--borda);
+}
+.cc-pet:not(.cc-pet--novo) .cc-pet__ico svg { width: 40px; height: 40px; opacity: .9; }
+.cc-pet:not(.cc-pet--novo) > :not(.cc-pet__ico) { padding-inline: 20px; }
+.cc-pet:not(.cc-pet--novo) > h3 { padding-top: 16px; }
+.cc-pet:not(.cc-pet--novo) > .cc-pet__tags { padding-bottom: 20px; }
+.cc-pet:not(.cc-pet--novo):hover .cc-pet__ico svg { transform: scale(1.06); }
+.cc-pet__ico svg { transition: transform .2s var(--ease); }
+
+/* =============================================================================
+   MEUS PETS — cards de ficha, fluxo em etapas e detalhes
+
+   Nada aqui redefine as classes usadas pelo painel administrativo: tudo
+   convive dentro de .cc-*, que e o escopo da area do cliente.
+   ============================================================================= */
+
+/* ---------- Card do pet ---------- */
+.cc-pets { grid-template-columns: repeat(auto-fill, minmax(268px, 1fr)); }
+
+.cc-pet--ficha { display: flex; flex-direction: column; text-align: left; padding: 0; }
+.cc-pet--ficha .cc-pet__retrato {
+  display: flex; align-items: center; justify-content: center;
+  height: 132px; background: var(--superficie);
+  border-bottom: 1px solid var(--borda);
+}
+.cc-pet--ficha .cc-pet__retrato .cc-pet__foto {
+  width: 100%; height: 100%; margin: 0; border-radius: 0; object-fit: cover;
+}
+.cc-pet--ficha .cc-pet__retrato .cc-pet__ico { margin: 0; }
+.cc-pet--ficha .cc-pet__corpo { display: flex; flex-direction: column; gap: 10px; padding: 16px 18px 18px; flex: 1; }
+.cc-pet--ficha h3 { margin: 0; }
+.cc-pet__especie { font-size: .82rem; color: var(--suave); margin: 0; }
+
+.cc-pet__linhas { display: grid; gap: 5px; margin: 2px 0 0; }
+.cc-pet__linhas > div { display: flex; justify-content: space-between; gap: 12px; font-size: .84rem; }
+.cc-pet__linhas dt { color: var(--suave); }
+.cc-pet__linhas dd { margin: 0; color: var(--tinta); font-weight: 600; text-align: right; }
+
+.cc-pet__acoes { display: flex; gap: 8px; margin-top: auto; padding-top: 6px; }
+.cc-pet__acoes .botao { flex: 1; padding-inline: 10px; font-size: .84rem; }
+
+/* ---------- Retrato grande (detalhes e revisao) ---------- */
+.cc-pet__retrato-grande {
+  width: 100%; max-height: 220px; object-fit: cover;
+  border-radius: var(--r-md); margin-bottom: 16px; display: block;
+  border: 1px solid var(--borda);
+}
+.cc-pet__retrato-grande--vazio {
+  display: flex; align-items: center; justify-content: center;
+  height: 132px; color: var(--verde); background: var(--superficie);
+}
+
+.cc-pet__texto { margin-top: 14px; }
+.cc-pet__texto h4 { font-size: .82rem; text-transform: uppercase; letter-spacing: .04em; color: var(--suave); margin: 0 0 5px; }
+.cc-pet__texto p { margin: 0; font-size: .9rem; line-height: 1.55; color: var(--tinta); white-space: pre-line; }
+.cc-pet__diff { margin: 0; padding-left: 18px; display: grid; gap: 4px; font-size: .86rem; color: var(--tinta); }
+
+/* ---------- Indicador de etapas numeradas ---------- */
+.cc-etapas--pet li {
+  display: flex; align-items: center; gap: 8px;
+  flex: 1 1 128px; justify-content: center;
+}
+.cc-etapas--pet .cc-etapas__num {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 22px; height: 22px; border-radius: var(--r-full); flex: 0 0 auto;
+  font-size: .76rem; font-weight: 700;
+  background: var(--superficie); color: var(--suave);
+  border: 1px solid var(--borda);
+  transition: background .18s var(--ease), color .18s var(--ease), border-color .18s var(--ease);
+}
+.cc-etapas--pet li.is-atual .cc-etapas__num { background: var(--laranja); border-color: var(--laranja); color: #fff; }
+.cc-etapas--pet li.is-feita .cc-etapas__num { background: var(--verde); border-color: var(--verde); color: #fff; }
+.cc-etapas--pet .cc-etapas__rotulo { white-space: nowrap; }
+
+/* ---------- Campo de foto ---------- */
+.cc-foto { display: flex; gap: 14px; align-items: flex-start; }
+.cc-foto__previa {
+  width: 86px; height: 86px; flex: 0 0 auto;
+  border-radius: var(--r-md); border: 1px dashed var(--borda-forte);
+  background: var(--superficie); color: var(--verde);
+  display: flex; align-items: center; justify-content: center; overflow: hidden;
+}
+.cc-foto__previa img { width: 100%; height: 100%; object-fit: cover; }
+.cc-foto__acoes { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.cc-foto__acoes .botao { padding-block: 8px; font-size: .84rem; }
+.cc-foto__acoes .cc-ajuda { flex-basis: 100%; margin: 0; }
+
+/* ---------- Celular: uma etapa por vez, sem rolagem lateral ---------- */
+@media (max-width: 640px) {
+  .cc-pets { grid-template-columns: 1fr; }
+  .cc-pet__acoes { flex-direction: column; }
+  .cc-pet__acoes .botao { width: 100%; }
+  .cc-etapas--pet li { flex: 1 1 auto; padding-inline: 6px; }
+  .cc-etapas--pet .cc-etapas__rotulo { display: none; }
+  .cc-etapas--pet li.is-atual .cc-etapas__rotulo { display: inline; }
+  .cc-foto { flex-direction: column; }
+  .cc-foto__acoes .botao { width: 100%; }
+  #modal-pet .cc-form__acoes { flex-direction: column-reverse; }
+  #modal-pet .cc-form__acoes .botao { width: 100%; }
+  .cc-pet__linhas > div { font-size: .88rem; }
+}
+
+/* =============================================================================
+   AGENDAMENTOS — ÁREA DO CLIENTE (redesenho)
+
+   Classes novas com prefixo .ag-. Nada aqui redefine componente existente:
+   os painéis, selos, métricas, modais e botões continuam sendo os mesmos
+   .cc-* / .botao que o resto da área do cliente já usa. Só o que é próprio
+   desta tela mora aqui.
+   ============================================================================= */
+
+.sr-only {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+
+/* ---------- Cabeçalho com ação principal ---------- */
+.ag-cabecalho {
+  display: flex; align-items: flex-end; justify-content: space-between;
+  gap: 18px; flex-wrap: wrap;
+}
+.ag-cabecalho > div { flex: 1 1 320px; min-width: 0; }
+.ag-cabecalho p { max-width: 62ch; }
+.ag-novo { display: inline-flex; align-items: center; gap: 8px; flex-shrink: 0; }
+
+/* ---------- Indicadores ---------- */
+.ag-resumo { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
+.cc-metrica--info .cc-metrica__ico { background: #e8f1f9; color: #2f6fa8; }
+.cc-metrica--ok   .cc-metrica__ico { background: #e9f5ee; color: #1f7a45; }
+.cc-metrica--erro .cc-metrica__ico { background: #fbeae7; color: #b2342a; }
+
+/* ---------- Filtros ---------- */
+.ag-filtros {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 14px; flex-wrap: wrap; margin-bottom: 18px;
+  padding-bottom: 16px; border-bottom: 1px solid var(--borda);
+}
+.ag-pilulas { display: flex; gap: 8px; flex-wrap: wrap; }
+.ag-pilula {
+  border: 1px solid var(--borda-forte); background: var(--branco);
+  color: var(--texto); border-radius: var(--r-full);
+  padding: 7px 14px; font: 600 .8rem 'DM Sans', sans-serif; cursor: pointer;
+  display: inline-flex; align-items: center; gap: 7px;
+  transition: background .16s var(--ease), color .16s var(--ease), border-color .16s var(--ease);
+}
+.ag-pilula:hover { border-color: var(--verde); color: var(--verde); }
+.ag-pilula:focus-visible { outline: none; box-shadow: var(--anel); }
+.ag-pilula.is-ativa { background: var(--verde); border-color: var(--verde); color: #fff; }
+.ag-pilula__num {
+  font-variant-numeric: tabular-nums; font-size: .72rem; font-weight: 700;
+  background: var(--superficie); color: var(--suave);
+  border-radius: var(--r-full); padding: 1px 7px; min-width: 20px; text-align: center;
+}
+.ag-pilula.is-ativa .ag-pilula__num { background: rgba(255,255,255,.2); color: #fff; }
+
+.ag-filtros__extra { display: flex; gap: 10px; flex-wrap: wrap; }
+.ag-select { display: inline-flex; flex-direction: column; gap: 4px; }
+.ag-select > span { font-size: .68rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--suave); }
+.ag-select select, .ag-filtro-mobile select {
+  border: 1px solid var(--borda-forte); border-radius: var(--r-sm);
+  background: var(--branco); color: var(--tinta);
+  padding: 8px 11px; font: .84rem 'DM Sans', sans-serif; max-width: 190px;
+  transition: border-color .16s var(--ease), box-shadow .16s var(--ease);
+}
+.ag-select select:focus, .ag-filtro-mobile select:focus { outline: none; border-color: var(--verde); box-shadow: var(--anel); }
+.ag-filtro-mobile { display: none; width: 100%; }
+.ag-filtro-mobile select { width: 100%; max-width: none; }
+
+/* ---------- Cards de agendamento ---------- */
+.ag-lista { display: grid; gap: 14px; }
+.ag-card {
+  display: grid; grid-template-columns: 56px minmax(0, 1fr) auto;
+  gap: 16px; align-items: start;
+  background: var(--branco); border: 1px solid var(--borda);
+  border-left: 3px solid var(--borda-forte);
+  border-radius: var(--r-md); padding: 18px 20px;
+  transition: transform .18s var(--ease), box-shadow .18s var(--ease), border-color .18s var(--ease);
+}
+.ag-card:hover { transform: translateY(-2px); box-shadow: var(--sombra-md); }
+.ag-card[data-tom="ok"]      { border-left-color: #1f7a45; }
+.ag-card[data-tom="aguarda"] { border-left-color: var(--laranja); }
+.ag-card[data-tom="info"]    { border-left-color: #2f6fa8; }
+.ag-card[data-tom="erro"]    { border-left-color: #b2342a; }
+.ag-card[data-tom="neutro"]  { border-left-color: var(--borda-forte); }
+.ag-card--cancelado { opacity: .72; }
+
+.ag-card__retrato {
+  width: 56px; height: 56px; border-radius: var(--r-md); overflow: hidden;
+  display: grid; place-items: center; background: var(--superficie); color: var(--verde);
+}
+.ag-card__retrato img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+.ag-card__topo { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.ag-card__pet { font-family: 'Fraunces', Georgia, serif; font-size: 1.14rem; color: var(--verde-escuro); line-height: 1.2; }
+.ag-card__servico { font-size: .86rem; font-weight: 600; color: var(--texto); margin-top: 3px; }
+.ag-card__meta { display: flex; flex-wrap: wrap; gap: 6px 18px; margin-top: 12px; font-size: .82rem; color: var(--suave); }
+.ag-card__meta span { display: inline-flex; align-items: center; gap: 7px; min-width: 0; }
+.ag-card__meta svg { color: var(--verde); opacity: .8; flex-shrink: 0; }
+.ag-card__obs {
+  margin-top: 10px; font-size: .78rem; color: var(--suave);
+  background: var(--superficie); border-radius: var(--r-sm); padding: 8px 11px;
+  border-left: 2px solid var(--borda-forte);
+}
+.ag-card__fim { display: flex; flex-direction: column; align-items: flex-end; gap: 10px; text-align: right; }
+.ag-card__valor { font-family: 'Fraunces', Georgia, serif; font-size: 1.16rem; color: var(--verde); font-variant-numeric: tabular-nums; }
+.ag-card__acoes { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+.ag-card__acoes .botao { padding: 7px 13px; font-size: .78rem; }
+.ag-hoje {
+  display: inline-flex; align-items: center; gap: 5px;
+  background: var(--laranja-suave); color: var(--laranja-forte);
+  font-size: .68rem; font-weight: 800; letter-spacing: .07em; text-transform: uppercase;
+  border-radius: var(--r-full); padding: 3px 9px;
+}
+
+/* ---------- Skeleton de carregamento ---------- */
+.ag-skeleton { display: grid; gap: 14px; }
+.ag-skel-card {
+  display: grid; grid-template-columns: 56px minmax(0,1fr) 110px; gap: 16px;
+  border: 1px solid var(--borda); border-radius: var(--r-md); padding: 18px 20px; background: var(--branco);
+}
+.ag-skel { border-radius: var(--r-sm); background: var(--superficie); position: relative; overflow: hidden; }
+.ag-skel::after {
+  content: ''; position: absolute; inset: 0; transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,.75), transparent);
+  animation: ag-brilho 1.35s infinite;
+}
+@keyframes ag-brilho { 100% { transform: translateX(100%); } }
+.ag-skel--retrato { width: 56px; height: 56px; border-radius: var(--r-md); }
+.ag-skel--linha { height: 13px; }
+.ag-skel--titulo { height: 17px; width: 55%; margin-bottom: 10px; }
+.ag-skel--curta { width: 72%; margin-top: 8px; }
+@media (prefers-reduced-motion: reduce) { .ag-skel::after { animation: none; } }
+
+/* ---------- Erro ---------- */
+.ag-erro { text-align: center; padding: 38px 20px; }
+.ag-erro svg { color: #b2342a; opacity: .6; }
+.ag-erro h3 { font-size: 1.02rem; color: var(--verde-escuro); margin: 12px 0 6px; }
+.ag-erro p { font-size: .86rem; color: var(--suave); max-width: 380px; margin: 0 auto 18px; }
+
+/* ---------- Wizard: cards de escolha ---------- */
+.ag-escolhas { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 12px; }
+.ag-escolha {
+  position: relative; display: flex; gap: 12px; align-items: flex-start; text-align: left;
+  border: 1px solid var(--borda); border-radius: var(--r-md); background: var(--branco);
+  padding: 14px; cursor: pointer; width: 100%; font-family: inherit;
+  transition: border-color .16s var(--ease), box-shadow .16s var(--ease), transform .16s var(--ease);
+}
+.ag-escolha:hover { border-color: var(--verde); transform: translateY(-1px); }
+.ag-escolha:focus-visible { outline: none; box-shadow: var(--anel); }
+.ag-escolha.is-ativa { border-color: var(--verde); box-shadow: var(--anel); background: #fbfdfb; }
+.ag-escolha.is-ativa::after {
+  content: '✓'; position: absolute; top: 10px; right: 12px;
+  color: var(--verde); font-weight: 800; font-size: .9rem;
+}
+.ag-escolha__ico {
+  display: grid; place-items: center; width: 40px; height: 40px; flex-shrink: 0;
+  border-radius: var(--r-sm); background: var(--superficie); color: var(--verde); overflow: hidden;
+}
+.ag-escolha__ico img { width: 100%; height: 100%; object-fit: cover; }
+.ag-escolha__nome { font-size: .92rem; font-weight: 700; color: var(--tinta); line-height: 1.3; }
+.ag-escolha__meta { font-size: .76rem; color: var(--suave); margin-top: 3px; line-height: 1.5; }
+.ag-escolha__preco { font-size: .86rem; font-weight: 700; color: var(--verde); margin-top: 6px; font-variant-numeric: tabular-nums; }
+.ag-escolhas--largas { grid-template-columns: 1fr; }
+
+/* ---------- Wizard: data e horário ---------- */
+.ag-agenda { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 18px; align-items: start; }
+.ag-cal {
+  border: 1px solid var(--borda); border-radius: var(--r-md); background: var(--branco); padding: 14px;
+}
+.ag-cal__topo { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 12px; }
+.ag-cal__mes { font-size: .88rem; font-weight: 700; color: var(--verde-escuro); text-transform: capitalize; }
+.ag-cal__nav {
+  border: 1px solid var(--borda-forte); background: var(--branco); color: var(--verde);
+  width: 30px; height: 30px; border-radius: var(--r-sm); cursor: pointer; display: grid; place-items: center;
+  transition: border-color .16s var(--ease), background .16s var(--ease);
+}
+.ag-cal__nav:hover:not(:disabled) { border-color: var(--verde); background: var(--superficie); }
+.ag-cal__nav:disabled { opacity: .35; cursor: not-allowed; }
+.ag-cal__semana, .ag-cal__grade { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+.ag-cal__semana span {
+  text-align: center; font-size: .66rem; font-weight: 700; letter-spacing: .04em;
+  text-transform: uppercase; color: var(--suave); padding-bottom: 6px;
+}
+.ag-cal__dia {
+  aspect-ratio: 1 / 1; border: 1px solid transparent; border-radius: var(--r-sm);
+  background: transparent; color: var(--tinta); font: 600 .82rem 'DM Sans', sans-serif;
+  cursor: pointer; display: grid; place-items: center;
+  transition: background .14s var(--ease), color .14s var(--ease), border-color .14s var(--ease);
+}
+.ag-cal__dia:hover:not(:disabled) { background: var(--superficie); border-color: var(--verde); }
+.ag-cal__dia:focus-visible { outline: none; box-shadow: var(--anel); }
+.ag-cal__dia:disabled { color: var(--borda-forte); cursor: not-allowed; }
+.ag-cal__dia.is-hoje { border-color: var(--laranja); color: var(--laranja-forte); }
+.ag-cal__dia.is-ativo,
+.ag-cal__dia.is-ativo:hover:not(:disabled) { background: var(--verde); border-color: var(--verde); color: #fff; }
+.ag-cal__dia--vazio { visibility: hidden; }
+
+.ag-horarios__titulo { font-size: .82rem; font-weight: 700; color: var(--tinta); margin-bottom: 10px; }
+.ag-horarios__grade { display: grid; grid-template-columns: repeat(auto-fill, minmax(78px, 1fr)); gap: 8px; }
+.ag-hora {
+  border: 1px solid var(--borda-forte); border-radius: var(--r-sm); background: var(--branco);
+  color: var(--tinta); padding: 10px 4px; font: 600 .84rem 'DM Sans', sans-serif; cursor: pointer;
+  font-variant-numeric: tabular-nums;
+  transition: border-color .14s var(--ease), background .14s var(--ease), color .14s var(--ease);
+}
+.ag-hora:hover:not(:disabled) { border-color: var(--verde); color: var(--verde); }
+.ag-hora:focus-visible { outline: none; box-shadow: var(--anel); }
+.ag-hora.is-ativa,
+.ag-hora.is-ativa:hover:not(:disabled) { background: var(--verde); border-color: var(--verde); color: #fff; }
+.ag-hora:disabled { opacity: .45; cursor: not-allowed; }
+.ag-aviso { font-size: .8rem; color: var(--suave); line-height: 1.55; }
+.ag-aviso--alerta { color: #97690f; }
+
+/* ---------- Wizard: confirmação ---------- */
+.ag-sucesso { text-align: center; padding: 8px 0 4px; }
+.ag-sucesso__marca {
+  width: 62px; height: 62px; margin: 0 auto 14px; border-radius: 50%;
+  display: grid; place-items: center; background: #e9f5ee; color: #1f7a45;
+  animation: ag-pop .32s var(--ease) both;
+}
+@keyframes ag-pop { from { transform: scale(.7); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .ag-sucesso__marca { animation: none; } }
+.ag-sucesso h3 { font-family: 'Fraunces', Georgia, serif; font-size: 1.32rem; color: var(--verde-escuro); }
+.ag-sucesso > p { font-size: .88rem; color: var(--suave); margin-top: 6px; }
+.ag-sucesso .cc-resumo-bloco { text-align: left; margin-top: 18px; }
+
+/* ---------- Detalhes ---------- */
+.ag-detalhe { display: grid; gap: 16px; margin-top: 18px; }
+.ag-detalhe__grade { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 14px; }
+.ag-bloco { border: 1px solid var(--borda); border-radius: var(--r-md); padding: 14px 16px; background: var(--branco); }
+.ag-bloco h4 {
+  font-size: .68rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase;
+  color: var(--suave); margin-bottom: 10px;
+}
+.ag-bloco dl { display: grid; gap: 8px; margin: 0; }
+.ag-bloco .cc-resumo-linha { font-size: .83rem; }
+.ag-bloco__pet { display: flex; align-items: center; gap: 12px; }
+.ag-bloco__pet .ag-card__retrato { width: 48px; height: 48px; }
+.ag-bloco__pet strong { font-size: 1rem; color: var(--verde-escuro); display: block; }
+.ag-bloco__pet span { font-size: .78rem; color: var(--suave); }
+
+/* ---------- Responsivo ---------- */
+@media (max-width: 860px) {
+  .ag-agenda { grid-template-columns: 1fr; }
+}
+@media (max-width: 720px) {
+  .ag-cabecalho { align-items: stretch; }
+  .ag-novo { width: 100%; justify-content: center; }
+  .ag-pilulas { display: none; }
+  .ag-filtro-mobile { display: block; }
+  .ag-filtros { flex-direction: column; align-items: stretch; }
+  .ag-filtros__extra { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .ag-select select { max-width: none; width: 100%; }
+}
+@media (max-width: 560px) {
+  .ag-card { grid-template-columns: 44px minmax(0, 1fr); padding: 16px; }
+  .ag-card__retrato { width: 44px; height: 44px; }
+  /* No celular o valor fica numa linha e os botões dividem a largura toda:
+     alvo de toque grande, sem empilhar um sobre o outro. */
+  .ag-card__fim { grid-column: 1 / -1; flex-direction: row; flex-wrap: wrap; align-items: center; justify-content: space-between; width: 100%; text-align: left; }
+  .ag-card__acoes { flex: 1 1 100%; flex-wrap: nowrap; }
+  .ag-card__acoes .botao { flex: 1 1 0; padding: 10px 8px; justify-content: center; }
+  .ag-escolhas { grid-template-columns: 1fr; }
+  .ag-skel-card { grid-template-columns: 44px minmax(0,1fr); }
+  .ag-skel-card > :last-child { display: none; }
+  .cc-modal--wizard .cc-modal__corpo { padding: 22px 18px 24px; }
+  /* Mesma regra que o cadastro de pet já usa: no celular os botões do fluxo
+     empilham e ocupam a largura toda, com a ação principal em cima do dedo. */
+  #modal-agendar .cc-form__acoes,
+  #modal-agenda-detalhes .cc-form__acoes,
+  #modal-agenda-cancelar .cc-form__acoes,
+  #modal-agendar-descartar .cc-form__acoes { flex-direction: column-reverse; }
+  #modal-agendar .cc-form__acoes .botao,
+  #modal-agenda-detalhes .cc-form__acoes .botao,
+  #modal-agenda-cancelar .cc-form__acoes .botao,
+  #modal-agendar-descartar .cc-form__acoes .botao { width: 100%; justify-content: center; }
+}
+
+/* O wizard de agendamento é mais largo e rola por dentro: as etapas de pet,
+   serviço e calendário são mais altas que as do cadastro de pet. */
+dialog.cc-modal--wizard { max-width: 780px; }
+.cc-modal--wizard .cc-modal__corpo { max-height: min(88vh, 860px); overflow-y: auto; }
+.cc-modal--wizard .cc-modal__corpo::-webkit-scrollbar { width: 8px; }
+.cc-modal--wizard .cc-modal__corpo::-webkit-scrollbar-thumb { background: var(--borda-forte); border-radius: 99px; }
+dialog#modal-agenda-detalhes .cc-modal__corpo { max-height: min(88vh, 860px); overflow-y: auto; }

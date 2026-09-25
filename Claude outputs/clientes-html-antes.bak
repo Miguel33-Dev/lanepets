@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Clientes &middot; LanePets</title>
+<link rel="stylesheet" href="design-system.css?v=4">
+<style>
+  #boxClientesCadastrados { font-size: .85rem; color: var(--ink-500); font-weight: 600; margin-bottom: var(--sp-4); }
+  #boxClientesCadastrados #numClientes { color: var(--brand-700); font-weight: 800; }
+  tr.pacote td:first-child { position: relative; }
+  tr.pacote td:first-child::before { content: ""; position: absolute; left: 0; top: 8px; bottom: 8px; width: 3px; background: var(--accent-500); border-radius: 2px; }
+</style>
+  <script src="js/config.js"></script>
+  <script src="js/api.js"></script>
+  <script src="lib/signalr/signalr.min.js"></script>
+  <script src="js/admin-dados.js"></script>
+  <script src="js/admin-store.js?v=1"></script>
+<script src="js/admin-permissoes.js"></script>
+</head>
+<body>
+<div class="app-shell">
+  <aside class="sidebar" id="menu-lateral"><div class="sidebar-brand"><a class="brand-home" href="cliente.html" title="Abrir o site LanePets"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="var(--accent-500)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="7" cy="8" r="2"/><circle cx="12" cy="5.5" r="2"/><circle cx="17" cy="8" r="2"/><path d="M12 13c-3.3 0-6 2.1-6 4.7 0 1.6 1.5 2.3 3 1.8.9-.3 1.9-.5 3-.5s2.1.2 3 .5c1.5.5 3-.2 3-1.8 0-2.6-2.7-4.7-6-4.7Z"/></svg><span class="brand-text"><span class="brand-name">LanePets</span><span class="brand-sub">Franco + Caieiras</span></span><svg class="brand-home-ico" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg></a><button class="sidebar-close hide-desktop" type="button" aria-label="Fechar menu"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div><nav class="sidebar-nav" aria-label="Menu do painel"><p class="nav-group">Operação</p><a class="nav-item" href="dashboard_financeiro.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 13h8V3H3v10Zm0 8h8v-6H3v6Zm10 0h8V11h-8v10Zm0-18v6h8V3h-8Z"/></svg><span>Dashboard</span></a><a class="nav-item" href="agendamentos.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4.5" width="18" height="16.5" rx="2.5"/><path d="M16 2.5v4M8 2.5v4M3 10h18"/></svg><span>Agendamentos</span></a><a class="nav-item" href="pedidos.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="20" r="1.4"/><circle cx="18" cy="20" r="1.4"/><path d="M2.5 3h2.2l2.3 11.2a1.6 1.6 0 0 0 1.6 1.3h8.7a1.6 1.6 0 0 0 1.6-1.25L21 7H6"/></svg><span>Pedidos</span></a><a class="nav-item active" href="clientes.html" aria-current="page"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 20v-1.8a3.6 3.6 0 0 0-3.6-3.6H6.6A3.6 3.6 0 0 0 3 18.2V20"/><circle cx="9.5" cy="7.5" r="3.4"/><path d="M21 20v-1.8a3.6 3.6 0 0 0-2.7-3.48"/><path d="M15.5 4.2a3.4 3.4 0 0 1 0 6.6"/></svg><span>Clientes</span></a><a class="nav-item" href="clientes_pacote.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.3 7.5 12 12l8.7-4.5"/><path d="M12 12v9.2"/><path d="M20.4 7.2v9.6a1.4 1.4 0 0 1-.76 1.24l-7 3.6a1.4 1.4 0 0 1-1.28 0l-7-3.6A1.4 1.4 0 0 1 3.6 16.8V7.2a1.4 1.4 0 0 1 .76-1.24l7-3.6a1.4 1.4 0 0 1 1.28 0l7 3.6A1.4 1.4 0 0 1 20.4 7.2Z"/></svg><span>Pacotes</span></a><a class="nav-item" href="index.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6.2" cy="9" r="1.9"/><circle cx="11" cy="6.4" r="1.9"/><circle cx="15.8" cy="9" r="1.9"/><path d="M11 13.4c-3.1 0-5.6 2-5.6 4.4 0 1.5 1.4 2.2 2.8 1.7.85-.3 1.8-.45 2.8-.45s1.95.15 2.8.45c1.4.5 2.8-.2 2.8-1.7 0-2.4-2.5-4.4-5.6-4.4Z"/><path d="M19 4.5v5M21.5 7h-5"/></svg><span>Cadastro</span></a><p class="nav-group">Catálogo</p><a class="nav-item" href="Produtos.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 8 9-5 9 5-9 5-9-5Z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v8"/></svg><span>Produtos</span></a><p class="nav-group">Financeiro</p><a class="nav-item" href="entradas_e_saidas.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.5v19"/><path d="M16.8 6H9.6a3.4 3.4 0 0 0 0 6.8h4.8a3.4 3.4 0 0 1 0 6.8H6.8"/></svg><span>Entradas e Saídas</span></a><a class="nav-item" href="relatorio.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 3.5v17h17"/><path d="M18 16.5V9M13 16.5V5.5M8 16.5v-4"/></svg><span>Relatório</span></a><p class="nav-group">Site público</p><a class="nav-item" href="gestao-publica.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3.3 9.5h17.4M3.3 14.5h17.4"/><path d="M12 3a15 15 0 0 1 0 18a15 15 0 0 1 0-18Z"/></svg><span>Área pública</span></a></nav><div class="sidebar-foot">LanePets &copy; 2026 &middot; Painel de gestão</div></aside>
+
+  <div class="main-area">
+    <header class="topbar">
+      <div class="topbar-left">
+        <button class="menu-toggle hide-desktop" aria-label="Abrir menu">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+        </button>
+        <div>
+          <div class="topbar-title">Clientes</div>
+          <div class="topbar-breadcrumb hide-mobile">Início / Clientes cadastrados</div>
+        </div>
+      </div>
+      <div class="topbar-right"><a class="topbar-ghost hide-mobile" href="cliente.html" title="Ver o site público"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3.3 9.5h17.4M3.3 14.5h17.4"/><path d="M12 3a15 15 0 0 1 0 18a15 15 0 0 1 0-18Z"/></svg><span>Ver site</span></a><div class="topbar-user"><div class="avatar" aria-hidden="true">LP</div><div class="topbar-user-info hide-mobile"><strong>Administrador</strong><span>LanePets</span></div></div><button class="btn btn-outline btn-sm" type="button" id="btnSair" title="Encerrar sessão"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5.5A1.5 1.5 0 0 1 4 19.5v-15A1.5 1.5 0 0 1 5.5 3H9"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/></svg><span class="hide-mobile">Sair</span></button></div>
+    </header>
+
+    <main class="page-content">
+      <div class="page-header">
+        <div>
+          <h1>Clientes cadastrados</h1>
+          <p>Consulte, edite e gerencie os tutores e pets cadastrados no sistema.</p>
+        </div>
+        <button class="btn btn-primary" onclick="window.location.href='index.html'">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+          Novo cliente
+        </button>
+      </div>
+
+      <div class="card">
+        <div class="toolbar">
+          <div class="search-box">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+            <input type="text" id="filtro" class="input" placeholder="Buscar por dono, pet, raça, telefone ou endereço...">
+          </div>
+          <select id="filtroTipo" class="input">
+            <option value="">Todos os tipos</option>
+            <option value="Cão">Cão</option>
+            <option value="Gato">Gato</option>
+            <option value="Outro">Outro</option>
+          </select>
+          <button id="btnPesquisar" class="btn btn-secondary">Pesquisar</button>
+        </div>
+
+        <div id="boxClientesCadastrados">Clientes cadastrados: <span id="numClientes">0</span> &middot; com conta no site: <span id="numContas">0</span> &middot; pets: <span id="numPets">0</span></div>
+
+        <div class="table-wrap">
+          <table id="tabelaContas" class="data-table">
+            <thead>
+              <tr>
+                <th>Cliente</th>
+                <th>E-mail</th>
+                <th>Telefone</th>
+                <th>Cadastro</th>
+                <th>Status</th>
+                <th>Pets</th>
+                <th>Agendamentos</th>
+                <th>Ações</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:var(--sp-5);">
+        <h2 class="section-title">Pets cadastrados</h2>
+        <p class="small-note">Cada pet pertence a um cliente da lista acima. Editar um pet aqui altera o cadastro no banco.</p>
+        <div class="table-wrap">
+          <table id="tabelaClientes" class="data-table">
+            <thead>
+              <tr>
+                <th>Nome do dono</th>
+                <th>Nome do pet</th>
+                <th>Raça</th>
+                <th>Telefone</th>
+                <th>Endereço</th>
+                <th>Tipo</th>
+                <th>Ações</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<div id="modalCliente" class="modal-overlay">
+  <form id="formCliente" class="modal-box" autocomplete="off">
+    <div class="modal-head">
+      <h2>Editar cliente</h2>
+      <button type="button" class="modal-close" onclick="fecharModalCliente()" aria-label="Fechar">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <input type="hidden" id="clienteId">
+    <div class="field"><label for="clienteNome">Nome</label><input type="text" id="clienteNome" required></div>
+    <div class="field-row">
+      <div class="field"><label for="clienteTelefone">Telefone</label><input type="tel" id="clienteTelefone"></div>
+      <div class="field"><label for="clienteStatus">Status</label>
+        <select id="clienteStatus">
+          <option value="ativo">Ativo</option>
+          <option value="inativo">Inativo</option>
+        </select>
+      </div>
+    </div>
+    <div class="field"><label for="clienteEndereco">Endereço</label><input type="text" id="clienteEndereco"></div>
+    <div class="field"><label for="clienteObs">Observações</label><input type="text" id="clienteObs"></div>
+    <p class="small-note">O e-mail e a senha pertencem à conta que o cliente criou no site e só podem ser alterados por ele.</p>
+    <div class="modal-actions">
+      <button type="button" class="btn btn-outline" onclick="fecharModalCliente()">Cancelar</button>
+      <button type="submit" class="btn btn-primary">Salvar</button>
+    </div>
+  </form>
+</div>
+
+<div id="modalEditar" class="modal-overlay">
+  <form id="formEditar" class="modal-box" autocomplete="off">
+    <div class="modal-head">
+      <h2>Editar cliente</h2>
+      <button type="button" class="modal-close" onclick="fecharModal()" aria-label="Fechar">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <input type="hidden" id="editIndex">
+    <div class="field-row">
+      <div class="field"><label for="editDono">Nome do dono</label><input type="text" id="editDono" required></div>
+      <div class="field"><label for="editPet">Nome do pet</label><input type="text" id="editPet" required></div>
+    </div>
+    <div class="field"><label for="editPetExtra">Adicionar mais um pet <span class="hint">(opcional)</span></label><input type="text" id="editPetExtra" placeholder="Nome do novo pet"></div>
+    <div class="field-row">
+      <div class="field"><label for="editRaca">Raça</label><input type="text" id="editRaca"></div>
+      <div class="field"><label for="editTelefone">Telefone</label><input type="tel" id="editTelefone" required></div>
+    </div>
+    <div class="field"><label for="editEndereco">Endereço</label><input type="text" id="editEndereco" required></div>
+    <div class="field"><label for="editTipo">Tipo</label>
+      <select id="editTipo" required>
+        <option value="">Selecione o tipo</option>
+        <option value="Cão">Cão</option>
+        <option value="Gato">Gato</option>
+        <option value="Outro">Outro</option>
+      </select>
+    </div>
+    <label class="checkbox-row" for="editPacote"><input type="checkbox" id="editPacote"> Cliente pacote</label>
+    <div class="modal-actions">
+      <button type="button" class="btn btn-outline" onclick="fecharModal()">Cancelar</button>
+      <button type="submit" class="btn btn-primary">Salvar</button>
+    </div>
+  </form>
+</div>
+
+<div class="page-content" style="padding-top:0;max-width:1320px;margin:0 auto;">
+  <div class="backup-buttons-container" style="display:flex;gap:var(--sp-3);flex-wrap:wrap;margin:0 var(--sp-7) var(--sp-8);">
+    <button class="btn btn-outline" onclick="exportarBackupCompleto()">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5M12 15V3"/></svg>
+      Exportar backup
+    </button>
+    <input type="file" id="importarBackupInput" onchange="importarBackupCompleto(this)" style="display:none;">
+    <button class="btn btn-outline" onclick="document.getElementById('importarBackupInput').click()">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M17 8l-5-5-5 5M12 3v12"/></svg>
+      Importar backup
+    </button>
+  </div>
+</div>
+
+<script src="ui-kit.js?v=4"></script>
+<script>
+/* =============================================================================
+   Clientes — painel administrativo.
+
+   Tudo nesta tela vem do lanepets.db atraves da ponte js/admin-store.js:
+
+       banco  ->  GET /api/admin/estado  ->  localStorage (adaptado)  ->  tela
+       tela   ->  POST /api/admin/sync/<lista>  ->  banco
+
+   A lista de cima e a tabela Clientes de verdade: aparece quem criou conta no
+   site e tambem quem a equipe cadastrou pelo painel. A lista de baixo sao os
+   pets, como antes.
+   ============================================================================= */
+
+    function lista(chave) {
+      try { return JSON.parse(localStorage.getItem(chave)) || []; }
+      catch (e) { return []; }
+    }
+
+    function abrirModalEditar() { document.getElementById("modalEditar").classList.add("ativo"); }
+    window.fecharModal = function () { document.getElementById("modalEditar").classList.remove("ativo"); };
+    window.fecharModalCliente = function () { document.getElementById("modalCliente").classList.remove("ativo"); };
+
+    function dataBr(iso) {
+      if (!iso) return "—";
+      const d = new Date(iso);
+      return isNaN(d) ? "—" : d.toLocaleDateString("pt-BR");
+    }
+
+    function exibirContadores() {
+      const clientes = lista("clientes");
+      document.getElementById("numClientes").textContent = clientes.length;
+      document.getElementById("numContas").textContent = clientes.filter(c => c.temConta).length;
+      document.getElementById("numPets").textContent = lista("pets").length;
+    }
+
+    function exportarBackupCompleto(filename = 'backup-petshop.json') {
+      const dados = {};
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        dados[key] = localStorage.getItem(key);
+      }
+      const blob = new Blob([JSON.stringify(dados, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast("Backup exportado com sucesso.", "success");
+    }
+
+    function importarBackupCompleto(input) {
+      if (!input.files.length) return;
+      const file = input.files[0];
+      const reader = new FileReader();
+      reader.onload = function (e) {
+        try {
+          const dados = JSON.parse(e.target.result);
+          for (const key in dados) localStorage.setItem(key, dados[key]);
+          toast("Backup importado. Os registros foram gravados no banco.", "success");
+          setTimeout(() => location.reload(), 900);
+        } catch (err) {
+          toast("Arquivo inválido!", "error");
+        }
+      };
+      reader.readAsText(file);
+    }
+
+    /* ---------------------------------------------------------------- */
+    /* Lista de clientes                                                 */
+    /* ---------------------------------------------------------------- */
+    function filtroAtual() {
+      const campo = document.getElementById("filtro");
+      return campo ? campo.value.toLowerCase().trim() : "";
+    }
+
+    function carregarClientes() {
+      const filtro = filtroAtual();
+      const pets = lista("pets");
+      const clientes = lista("clientes").filter(c =>
+        !filtro ||
+        (c.nome || "").toLowerCase().includes(filtro) ||
+        (c.email || "").toLowerCase().includes(filtro) ||
+        (c.telefone || "").toLowerCase().includes(filtro) ||
+        (c.endereco || "").toLowerCase().includes(filtro)
+      );
+
+      const tbody = document.querySelector("#tabelaContas tbody");
+      tbody.innerHTML = "";
+
+      if (!clientes.length) {
+        tbody.innerHTML = `<tr><td colspan="8">
+          <div class="empty-state" style="padding:var(--sp-7) var(--sp-4);">
+            <h3>Nenhum cliente encontrado.</h3>
+            <p>Clientes criados no site e cadastrados pelo painel aparecem aqui.</p>
+          </div></td></tr>`;
+        exibirContadores();
+        return;
+      }
+
+      clientes.forEach(c => {
+        const nomesPets = pets.filter(p => p.clienteId === c.id).map(p => p.pet).filter(Boolean);
+        const origem = c.origem === "portal_cliente" ? "Site" : "Painel";
+        const conta = c.temConta
+          ? `<span class="badge badge-success">Conta ativa</span>`
+          : `<span class="badge badge-info">Sem conta</span>`;
+        const row = document.createElement("tr");
+        row.innerHTML = `
+          <td><strong>${c.nome || "—"}</strong><div class="small-note">${origem}</div></td>
+          <td>${c.email || "—"}</td>
+          <td>${c.telefone || "—"}</td>
+          <td>${dataBr(c.criadoEm)}</td>
+          <td>${conta}<div class="small-note">${c.status || "ativo"}</div></td>
+          <td>${c.qtdPets || 0}${nomesPets.length ? `<div class="small-note">${nomesPets.join(", ")}</div>` : ""}</td>
+          <td>${c.qtdAgendamentos || 0}</td>
+          <td><div class="row-actions">
+            <button class="btn btn-outline btn-sm" onclick="editarClienteConta('${c.id}')">Editar</button>
+          </div></td>`;
+        tbody.appendChild(row);
+      });
+      exibirContadores();
+    }
+
+    window.editarClienteConta = function (id) {
+      const cliente = lista("clientes").find(c => c.id === id);
+      if (!cliente) return;
+      document.getElementById("clienteId").value = cliente.id;
+      document.getElementById("clienteNome").value = cliente.nome || "";
+      document.getElementById("clienteTelefone").value = cliente.telefone || "";
+      document.getElementById("clienteEndereco").value = cliente.endereco || "";
+      document.getElementById("clienteObs").value = cliente.observacoes || "";
+      document.getElementById("clienteStatus").value = (cliente.status || "ativo").toLowerCase() === "inativo" ? "inativo" : "ativo";
+      document.getElementById("modalCliente").classList.add("ativo");
+    };
+
+    document.getElementById("formCliente").onsubmit = function (e) {
+      e.preventDefault();
+      const id = document.getElementById("clienteId").value;
+      const clientes = lista("clientes");
+      const alvo = clientes.find(c => c.id === id);
+      if (!alvo) return;
+      alvo.nome = document.getElementById("clienteNome").value.trim();
+      alvo.telefone = document.getElementById("clienteTelefone").value.trim();
+      alvo.endereco = document.getElementById("clienteEndereco").value.trim();
+      alvo.observacoes = document.getElementById("clienteObs").value.trim();
+      alvo.status = document.getElementById("clienteStatus").value;
+      localStorage.setItem("clientes", JSON.stringify(clientes));
+      fecharModalCliente();
+      toast("Cliente atualizado no banco.", "success");
+    };
+
+    /* ---------------------------------------------------------------- */
+    /* Lista de pets                                                     */
+    /* ---------------------------------------------------------------- */
+    function carregarTabela() {
+      const todosPets = lista("pets");
+      const filtroTipo = document.getElementById("filtroTipo") ? document.getElementById("filtroTipo").value : "";
+      const filtro = filtroAtual();
+
+      const petsFiltrados = todosPets
+        .map((p, i) => ({ ...p, realIndex: i }))
+        .filter(p =>
+          ((p.dono || "").toLowerCase().includes(filtro) ||
+            (p.pet || "").toLowerCase().includes(filtro) ||
+            (p.raca || "").toLowerCase().includes(filtro) ||
+            (p.telefone || "").toLowerCase().includes(filtro) ||
+            (p.endereco || "").toLowerCase().includes(filtro)) &&
+          (filtroTipo === "" || (p.tipo || "").toLowerCase() === filtroTipo.toLowerCase())
+        )
+        .sort((a, b) => (a.dono || "").localeCompare(b.dono || "") || (a.pet || "").localeCompare(b.pet || ""));
+
+      const tbody = document.querySelector("#tabelaClientes tbody");
+      tbody.innerHTML = "";
+
+      if (!petsFiltrados.length) {
+        tbody.innerHTML = `<tr><td colspan="7">
+          <div class="empty-state" style="padding:var(--sp-7) var(--sp-4);">
+            <h3>${todosPets.length === 0 ? "Nenhum pet cadastrado." : "Nenhum pet encontrado."}</h3>
+            <p>${todosPets.length === 0 ? "Cadastre o primeiro pet para começar." : "Tente ajustar os filtros de busca."}</p>
+          </div></td></tr>`;
+        return;
+      }
+
+      petsFiltrados.forEach(p => {
+        const row = document.createElement("tr");
+        if (p.pacote && p.pacote.ativo) row.classList.add("pacote");
+        row.innerHTML = `
+          <td>${p.dono || "—"}</td>
+          <td>${p.pet || "—"}</td>
+          <td>${p.raca || "-"}</td>
+          <td>${p.telefone || "-"}</td>
+          <td>${p.endereco || "-"}</td>
+          <td>${p.tipo ? `<span class="badge badge-info">${p.tipo}</span>` : "-"}</td>
+          <td><div class="row-actions">
+            <button class="btn btn-outline btn-sm" onclick="editarCliente(${p.realIndex})">Editar</button>
+            <button class="btn btn-danger btn-sm" onclick="excluirCliente(${p.realIndex})">Excluir</button>
+          </div></td>`;
+        tbody.appendChild(row);
+      });
+    }
+
+    window.excluirCliente = async function (index) {
+      const ok = await confirmarAcao({ titulo: "Excluir pet?", texto: "O cadastro será removido do banco de dados.", textoBotao: "Excluir" });
+      if (!ok) return;
+      const pets = lista("pets");
+      pets.splice(index, 1);
+      localStorage.setItem("pets", JSON.stringify(pets));
+      carregarTabela();
+      toast("Cadastro excluído.", "success");
+    };
+
+    window.editarCliente = function (index) {
+      const pet = lista("pets")[index];
+      if (!pet) return;
+      document.getElementById("editIndex").value = index;
+      document.getElementById("editDono").value = pet.dono || "";
+      document.getElementById("editPet").value = pet.pet || "";
+      document.getElementById("editPetExtra").value = "";
+      document.getElementById("editRaca").value = pet.raca || "";
+      document.getElementById("editTelefone").value = pet.telefone || "";
+      document.getElementById("editEndereco").value = pet.endereco || "";
+      document.getElementById("editTipo").value = pet.tipo || "";
+      document.getElementById("editPacote").checked = !!(pet.pacote && pet.pacote.ativo);
+      abrirModalEditar();
+    };
+
+    document.getElementById("formEditar").onsubmit = function (e) {
+      e.preventDefault();
+      const index = Number(document.getElementById("editIndex").value);
+      const pets = lista("pets");
+      const atual = pets[index];
+      if (!atual) return;
+
+      const pacote = atual.pacote && typeof atual.pacote === "object" ? atual.pacote : {};
+      pacote.ativo = document.getElementById("editPacote").checked;
+
+      /* O id e o vinculo com o cliente sao preservados: sem isso o registro
+         seria gravado como um cadastro novo, e nao como uma edicao. */
+      pets[index] = Object.assign({}, atual, {
+        dono: document.getElementById("editDono").value.trim(),
+        pet: document.getElementById("editPet").value.trim(),
+        tipo: document.getElementById("editTipo").value,
+        raca: document.getElementById("editRaca").value.trim(),
+        telefone: document.getElementById("editTelefone").value.trim(),
+        endereco: document.getElementById("editEndereco").value.trim(),
+        pacote: pacote.ativo ? pacote : {}
+      });
+
+      const novoPet = document.getElementById("editPetExtra").value.trim();
+      if (novoPet) {
+        pets.push({
+          clienteId: atual.clienteId || "",
+          dono: pets[index].dono,
+          pet: novoPet,
+          tipo: pets[index].tipo,
+          raca: "",
+          telefone: pets[index].telefone,
+          endereco: pets[index].endereco,
+          unidade: atual.unidade || ""
+        });
+      }
+
+      localStorage.setItem("pets", JSON.stringify(pets));
+      fecharModal();
+      toast("Cadastro atualizado no banco.", "success");
+    };
+
+    /* ---------------------------------------------------------------- */
+    /* Ligacao com a tela                                                */
+    /* ---------------------------------------------------------------- */
+    function desenhar() { carregarClientes(); carregarTabela(); }
+
+    document.getElementById("btnPesquisar").addEventListener("click", desenhar);
+    document.getElementById("filtro").addEventListener("keydown", function (e) {
+      if (e.key === "Enter") { e.preventDefault(); desenhar(); }
+    });
+    document.getElementById("filtroTipo").addEventListener("change", desenhar);
+
+    /* Sempre que o banco mudar (cliente criou conta, alterou dados, criou
+       agendamento) a ponte avisa e a tela se redesenha sozinha. */
+    window.addEventListener("lanepets:dados", desenhar);
+
+    window.onload = desenhar;
+
+    document.getElementById("modalEditar").addEventListener("mousedown", function (e) {
+      if (e.target === this) fecharModal();
+    });
+    document.getElementById("modalCliente").addEventListener("mousedown", function (e) {
+      if (e.target === this) fecharModalCliente();
+    });
+</script>
+
+</body>
+</html>
