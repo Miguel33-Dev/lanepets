@@ -1,5 +1,7 @@
 🐾 LanePets
 
+[![LanePets CI](https://github.com/Miguel33-Dev/lanpets/actions/workflows/dotnet-desktop.yml/badge.svg)](https://github.com/Miguel33-Dev/lanpets/actions/workflows/dotnet-desktop.yml)
+
 Sistema de gerenciamento para pet shop desenvolvido para centralizar o atendimento aos clientes, gerenciamento de produtos, pets, agendamentos e operações administrativas.
 
 O projeto possui uma área pública para os clientes, autenticação de usuários e uma área administrativa para gerenciamento das informações do sistema.
@@ -356,6 +358,26 @@ http://localhost:5180
 
 ⸻
 
+🧪 Testes automatizados
+
+O projeto tem testes automatizados em tests/LanePets.Tests (xUnit + WebApplicationFactory).
+
+Eles sobem a aplicação inteira em memória contra um banco SQLite temporário — o banco em uso nunca é tocado — e cobrem:
+
+* Login administrativo e cadastro/login do cliente
+* Clientes e produtos no painel, com o livro de estoque
+* Agendamentos (capacidade por horário, status, cancelamento)
+* Pedidos (baixa e devolução de estoque) e pagamentos (transições e reembolso)
+* Permissões (403 para quem não tem o módulo ou a ação)
+
+Para rodar, de dentro da pasta LanePetsCSharp (não precisa do dotnet run de pé):
+
+dotnet test tests/LanePets.Tests
+
+A cada push no master o GitHub Actions compila o projeto e roda os mesmos testes (selo no topo deste arquivo).
+
+⸻
+
 ⚙️ Configuração
 
 Antes de executar o projeto, confira:
@@ -484,7 +506,7 @@ Possíveis melhorias futuras:
 * [ ]	E-mail de confirmação
 * [ ]	Integração com pagamentos
 * [ ]	API REST
-* [ ]	Testes automatizados
+* [x]	Testes automatizados
 * [ ]	Docker
 * [ ]	Deploy em ambiente cloud
 * [ ]	Melhorias de segurança
