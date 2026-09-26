@@ -51,7 +51,7 @@
   $('#sucesso-continuar').addEventListener('click', () => { mostrarPainel('login'); $('#login-senha').focus(); });
   $('#esqueci').addEventListener('click', e => {
     e.preventDefault();
-    UI.alerta('#login-info', 'Para redefinir sua senha, fale com a equipe LanePets em uma das unidades — Franco ou Caieiras.');
+    UI.alerta('#login-info', 'Para redefinir sua senha, fale com a equipe LanePets em uma das nossas unidades.');
   });
   if (location.hash === '#cadastro') mostrarPainel('cadastro');
 
@@ -568,15 +568,52 @@
         </div>`).join('')}`;
   }
 
+  /* Historico de atendimentos DESTE pet (pendencia do roadmap, 25/09).
+     Mesma regra do #historico (ehRealizado = Concluído) e os mesmos
+     agendamentos de GET /api/cliente/conta — nada novo e buscado. So na ficha
+     de leitura; a previa do cadastro em etapas continua sem historico. */
+  const LIMITE_HIST_FICHA = 5;
+  function historicoDoPet(p) {
+    const itens = (conta.agendamentos || []).filter(a => a.petId === p.id && ehRealizado(a))
+      .slice().sort((a, b) => quandoMs(b) - quandoMs(a));
+    if (!itens.length) {
+      return `<div class="cc-pet__texto"><h4>Histórico de atendimentos</h4>
+        <p>Nenhum atendimento concluído ainda. Quando a equipe concluir um serviço deste pet, ele aparece aqui.</p></div>`;
+    }
+    const mostrados = itens.slice(0, LIMITE_HIST_FICHA);
+    return `<div class="cc-pet__texto">
+        <h4>Histórico de atendimentos · ${itens.length} ${itens.length === 1 ? 'concluído' : 'concluídos'}</h4>
+        <div class="cc-lista">${mostrados.map(a => linha({
+          icone: ICO.agenda,
+          titulo: esc(servicosDo(a)),
+          meta: `${dataHora(a.dataHora)} · ${esc(rotuloUnidade(a.unidade))}`,
+          fim: `<strong>${brl(a.total)}</strong>`
+        })).join('')}</div>
+        ${itens.length > LIMITE_HIST_FICHA
+          ? `<p class="cc-nota">Mostrando os ${LIMITE_HIST_FICHA} mais recentes.</p>` : ''}
+        <button class="botao claro" type="button" data-hist-pet="${esc(p.id)}">Ver no Histórico de serviços</button>
+      </div>`;
+  }
+
   function abrirDetalhes(id) {
     const pet = petPorId(id);
     if (!pet) { toast('Pet não encontrado. Atualize a página.'); return; }
     $('#pd-titulo').textContent = pet.petNome;
     $('#pd-sub').textContent = 'Ficha cadastrada na sua conta.';
-    $('#pd-corpo').innerHTML = corpoFicha(pet);
+    $('#pd-corpo').innerHTML = corpoFicha(pet) + historicoDoPet(pet);
     $('#pd-editar').dataset.id = pet.id;
     $('#modal-pet-detalhes').showModal();
   }
+
+  /* "Ver no Histórico": abre a tela de historico ja filtrada neste pet. */
+  $('#pd-corpo').addEventListener('click', evento => {
+    const botao = evento.target.closest('[data-hist-pet]');
+    if (!botao) return;
+    histPet = botao.dataset.histPet;
+    $('#modal-pet-detalhes').close();
+    renderHistorico();
+    irPara('historico');
+  });
 
   $('#pd-editar').onclick = () => {
     const id = $('#pd-editar').dataset.id;

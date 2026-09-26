@@ -6,7 +6,7 @@
 <title>Agendamentos &middot; LanePets</title>
 <link rel="stylesheet" href="design-system.css?v=6">
 <link rel="stylesheet" href="css/admin-acoes.css?v=2">
-<link rel="stylesheet" href="css/admin-agendamentos.css?v=2">
+<link rel="stylesheet" href="css/admin-agendamentos.css?v=3">
 <style>
   /* Seletor de unidade: continua sendo desta tela, mantido como estava. */
   .unit-switcher { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:var(--sp-3); margin:0 0 var(--sp-5); }
@@ -23,13 +23,14 @@
   <script src="js/api.js"></script>
   <script src="lib/signalr/signalr.min.js"></script>
   <script src="js/admin-dados.js?v=2"></script>
-  <script src="js/admin-store.js?v=1"></script>
+  <script src="js/admin-store.js?v=2"></script>
   <script src="js/admin-permissoes.js?v=5"></script>
   <script src="js/unidades.js?v=3"></script>
+<script src="js/marca-unidades.js?v=1" defer></script>
 </head>
 <body>
 <div class="app-shell">
-  <aside class="sidebar" id="menu-lateral"><div class="sidebar-brand"><a class="brand-home" href="cliente.html" title="Abrir o site LanePets"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="var(--accent-500)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="7" cy="8" r="2"/><circle cx="12" cy="5.5" r="2"/><circle cx="17" cy="8" r="2"/><path d="M12 13c-3.3 0-6 2.1-6 4.7 0 1.6 1.5 2.3 3 1.8.9-.3 1.9-.5 3-.5s2.1.2 3 .5c1.5.5 3-.2 3-1.8 0-2.6-2.7-4.7-6-4.7Z"/></svg><span class="brand-text"><span class="brand-name">LanePets</span><span class="brand-sub">Franco + Caieiras</span></span><svg class="brand-home-ico" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg></a><button class="sidebar-close hide-desktop" type="button" aria-label="Fechar menu"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div><nav class="sidebar-nav" aria-label="Menu do painel"><p class="nav-group">Operação</p><a class="nav-item" href="dashboard_financeiro.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 13h8V3H3v10Zm0 8h8v-6H3v6Zm10 0h8V11h-8v10Zm0-18v6h8V3h-8Z"/></svg><span>Dashboard</span></a><a class="nav-item active" href="agendamentos.html" aria-current="page"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4.5" width="18" height="16.5" rx="2.5"/><path d="M16 2.5v4M8 2.5v4M3 10h18"/></svg><span>Agendamentos</span></a><a class="nav-item" href="pedidos.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="20" r="1.4"/><circle cx="18" cy="20" r="1.4"/><path d="M2.5 3h2.2l2.3 11.2a1.6 1.6 0 0 0 1.6 1.3h8.7a1.6 1.6 0 0 0 1.6-1.25L21 7H6"/></svg><span>Pedidos</span></a><a class="nav-item" href="clientes.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 20v-1.8a3.6 3.6 0 0 0-3.6-3.6H6.6A3.6 3.6 0 0 0 3 18.2V20"/><circle cx="9.5" cy="7.5" r="3.4"/><path d="M21 20v-1.8a3.6 3.6 0 0 0-2.7-3.48"/><path d="M15.5 4.2a3.4 3.4 0 0 1 0 6.6"/></svg><span>Clientes</span></a><a class="nav-item" href="clientes_pacote.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.3 7.5 12 12l8.7-4.5"/><path d="M12 12v9.2"/><path d="M20.4 7.2v9.6a1.4 1.4 0 0 1-.76 1.24l-7 3.6a1.4 1.4 0 0 1-1.28 0l-7-3.6A1.4 1.4 0 0 1 3.6 16.8V7.2a1.4 1.4 0 0 1 .76-1.24l7-3.6a1.4 1.4 0 0 1 1.28 0l7 3.6A1.4 1.4 0 0 1 20.4 7.2Z"/></svg><span>Pacotes</span></a><a class="nav-item" href="index.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6.2" cy="9" r="1.9"/><circle cx="11" cy="6.4" r="1.9"/><circle cx="15.8" cy="9" r="1.9"/><path d="M11 13.4c-3.1 0-5.6 2-5.6 4.4 0 1.5 1.4 2.2 2.8 1.7.85-.3 1.8-.45 2.8-.45s1.95.15 2.8.45c1.4.5 2.8-.2 2.8-1.7 0-2.4-2.5-4.4-5.6-4.4Z"/><path d="M19 4.5v5M21.5 7h-5"/></svg><span>Cadastro</span></a><p class="nav-group">Catálogo</p><a class="nav-item" href="Produtos.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 8 9-5 9 5-9 5-9-5Z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v8"/></svg><span>Produtos</span></a><p class="nav-group">Financeiro</p><a class="nav-item" href="entradas_e_saidas.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.5v19"/><path d="M16.8 6H9.6a3.4 3.4 0 0 0 0 6.8h4.8a3.4 3.4 0 0 1 0 6.8H6.8"/></svg><span>Entradas e Saídas</span></a><a class="nav-item" href="relatorio.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 3.5v17h17"/><path d="M18 16.5V9M13 16.5V5.5M8 16.5v-4"/></svg><span>Relatório</span></a><p class="nav-group">Site público</p><a class="nav-item" href="gestao-publica.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3.3 9.5h17.4M3.3 14.5h17.4"/><path d="M12 3a15 15 0 0 1 0 18a15 15 0 0 1 0-18Z"/></svg><span>Área pública</span></a></nav><div class="sidebar-foot">LanePets &copy; 2026 &middot; Painel de gestão</div></aside>
+  <aside class="sidebar" id="menu-lateral"><div class="sidebar-brand"><a class="brand-home" href="cliente.html" title="Abrir o site LanePets"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="var(--accent-500)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="7" cy="8" r="2"/><circle cx="12" cy="5.5" r="2"/><circle cx="17" cy="8" r="2"/><path d="M12 13c-3.3 0-6 2.1-6 4.7 0 1.6 1.5 2.3 3 1.8.9-.3 1.9-.5 3-.5s2.1.2 3 .5c1.5.5 3-.2 3-1.8 0-2.6-2.7-4.7-6-4.7Z"/></svg><span class="brand-text"><span class="brand-name">LanePets</span><span class="brand-sub" data-unidades="curto">Franco + Caieiras</span></span><svg class="brand-home-ico" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg></a><button class="sidebar-close hide-desktop" type="button" aria-label="Fechar menu"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div><nav class="sidebar-nav" aria-label="Menu do painel"><p class="nav-group">Operação</p><a class="nav-item" href="dashboard_financeiro.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 13h8V3H3v10Zm0 8h8v-6H3v6Zm10 0h8V11h-8v10Zm0-18v6h8V3h-8Z"/></svg><span>Dashboard</span></a><a class="nav-item active" href="agendamentos.html" aria-current="page"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4.5" width="18" height="16.5" rx="2.5"/><path d="M16 2.5v4M8 2.5v4M3 10h18"/></svg><span>Agendamentos</span></a><a class="nav-item" href="pedidos.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="20" r="1.4"/><circle cx="18" cy="20" r="1.4"/><path d="M2.5 3h2.2l2.3 11.2a1.6 1.6 0 0 0 1.6 1.3h8.7a1.6 1.6 0 0 0 1.6-1.25L21 7H6"/></svg><span>Pedidos</span></a><a class="nav-item" href="clientes.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 20v-1.8a3.6 3.6 0 0 0-3.6-3.6H6.6A3.6 3.6 0 0 0 3 18.2V20"/><circle cx="9.5" cy="7.5" r="3.4"/><path d="M21 20v-1.8a3.6 3.6 0 0 0-2.7-3.48"/><path d="M15.5 4.2a3.4 3.4 0 0 1 0 6.6"/></svg><span>Clientes</span></a><a class="nav-item" href="clientes_pacote.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.3 7.5 12 12l8.7-4.5"/><path d="M12 12v9.2"/><path d="M20.4 7.2v9.6a1.4 1.4 0 0 1-.76 1.24l-7 3.6a1.4 1.4 0 0 1-1.28 0l-7-3.6A1.4 1.4 0 0 1 3.6 16.8V7.2a1.4 1.4 0 0 1 .76-1.24l7-3.6a1.4 1.4 0 0 1 1.28 0l7 3.6A1.4 1.4 0 0 1 20.4 7.2Z"/></svg><span>Pacotes</span></a><a class="nav-item" href="index.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6.2" cy="9" r="1.9"/><circle cx="11" cy="6.4" r="1.9"/><circle cx="15.8" cy="9" r="1.9"/><path d="M11 13.4c-3.1 0-5.6 2-5.6 4.4 0 1.5 1.4 2.2 2.8 1.7.85-.3 1.8-.45 2.8-.45s1.95.15 2.8.45c1.4.5 2.8-.2 2.8-1.7 0-2.4-2.5-4.4-5.6-4.4Z"/><path d="M19 4.5v5M21.5 7h-5"/></svg><span>Cadastro</span></a><p class="nav-group">Catálogo</p><a class="nav-item" href="Produtos.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 8 9-5 9 5-9 5-9-5Z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v8"/></svg><span>Produtos</span></a><p class="nav-group">Financeiro</p><a class="nav-item" href="entradas_e_saidas.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.5v19"/><path d="M16.8 6H9.6a3.4 3.4 0 0 0 0 6.8h4.8a3.4 3.4 0 0 1 0 6.8H6.8"/></svg><span>Entradas e Saídas</span></a><a class="nav-item" href="relatorio.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 3.5v17h17"/><path d="M18 16.5V9M13 16.5V5.5M8 16.5v-4"/></svg><span>Relatório</span></a><p class="nav-group">Site público</p><a class="nav-item" href="gestao-publica.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3.3 9.5h17.4M3.3 14.5h17.4"/><path d="M12 3a15 15 0 0 1 0 18a15 15 0 0 1 0-18Z"/></svg><span>Área pública</span></a></nav><div class="sidebar-foot">LanePets &copy; 2026 &middot; Painel de gestão</div></aside>
 
   <div class="main-area">
     <header class="topbar">
@@ -99,6 +100,10 @@
             </select>
           </div>
           <div class="field">
+            <label for="filtroResponsavel">Responsável</label>
+            <select id="filtroResponsavel"><option value="">Todos</option></select>
+          </div>
+          <div class="field">
             <label for="filtroDataInicio">Período</label>
             <div class="ag-filtros__periodo">
               <input type="date" id="filtroDataInicio" aria-label="Data inicial">
@@ -129,17 +134,6 @@
         <div id="agConteudo" aria-live="polite"></div>
       </section>
 
-      <div class="backup-buttons-container" style="display:flex;gap:var(--sp-3);flex-wrap:wrap;margin-top:var(--sp-6);">
-        <button class="btn btn-outline" type="button" onclick="exportarBackupCompleto()">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5M12 15V3"/></svg>
-          Exportar backup
-        </button>
-        <input type="file" id="importarBackupInput" onchange="importarBackupCompleto(this)" style="display:none;">
-        <button class="btn btn-outline" type="button" onclick="document.getElementById('importarBackupInput').click()">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M17 8l-5-5-5 5M12 3v12"/></svg>
-          Importar backup
-        </button>
-      </div>
     </main>
   </div>
 </div>
@@ -173,7 +167,7 @@
      MODAL: novo agendamento em etapas
      Nada é gravado enquanto o administrador percorre as etapas: o agendamento
      só vai para o banco no "Confirmar agendamento" da revisão, pela mesma
-     gravação de sempre (localStorage -> POST /api/admin/sync/agendamentos).
+     gravação de sempre (LaneStore.salvar -> POST /api/admin/sync/agendamentos).
      ========================================================================= -->
 <div id="modalNovo" class="modal-overlay">
   <div class="modal-box modal-xl" role="dialog" aria-modal="true" aria-labelledby="novoTitulo">
@@ -319,14 +313,14 @@
 
    DE ONDE VEM O DADO
    ------------------
-   Nada aqui inventa registro. A ponte js/admin-store.js troca o localStorage
-   por um adaptador ligado ao banco:
+   Nada aqui inventa registro. A ponte js/admin-store.js le e grava no banco
+   com uma API explicita (sem mexer no localStorage desde 25/09):
 
        lanepets.db  -> GET  /api/admin/estado        -> esta tela
        esta tela    -> POST /api/admin/sync/agendamentos -> lanepets.db
 
-   Ou seja: `localStorage.getItem("agendamentos")` le o banco e
-   `localStorage.setItem("agendamentos", ...)` grava no banco. E a MESMA
+   Ou seja: `LaneStore.obter("agendamentos")` le o banco e
+   `LaneStore.salvar("agendamentos", lista)` grava no banco. E a MESMA
    tabela que a area do cliente usa — um agendamento criado pelo cliente
    aparece aqui, e um status mudado aqui aparece la. Nenhuma API nova foi
    criada para esta tela.
@@ -348,15 +342,15 @@ function safeJsonParse(value, fallback) {
   } catch (error) { return fallback; }
 }
 
-let pets = safeJsonParse(localStorage.getItem("pets"), []);
-let servicos = safeJsonParse(localStorage.getItem("servicos"), []);
-let agendamentos = safeJsonParse(localStorage.getItem("agendamentos"), []);
+let pets = LaneStore.obter("pets");
+let servicos = LaneStore.obter("servicos");
+let agendamentos = LaneStore.obter("agendamentos");
 let unidadeSelecionada = localStorage.getItem("unidadeAgendamentoSelecionada") || "franco";
 
 function carregarDadosAgenda() {
-  pets = safeJsonParse(localStorage.getItem("pets"), []);
-  servicos = safeJsonParse(localStorage.getItem("servicos"), []);
-  agendamentos = safeJsonParse(localStorage.getItem("agendamentos"), []);
+  pets = LaneStore.obter("pets");
+  servicos = LaneStore.obter("servicos");
+  agendamentos = LaneStore.obter("agendamentos");
   if (!Array.isArray(agendamentos)) agendamentos = [];
   /* Item 4: so em memoria — o servidor ja devolve o nome novo. */
   agendamentos.forEach(a => { if (a && typeof a === "object") a.status = statusNovo(a.status); });
@@ -421,6 +415,10 @@ function renderAbasUnidades() {
 function selecionarUnidade(unidade) {
   unidadeSelecionada = unidade;
   localStorage.setItem("unidadeAgendamentoSelecionada", unidade);
+  /* Funcionario e da unidade: trocar de aba refaz a lista e solta o filtro de outra unidade. */
+  if (agFiltros.responsavel !== RESP_SEM) agFiltros.responsavel = "";
+  preencherFiltroResponsavel();
+  salvarFiltros();
   renderTudo();
 }
 window.selecionarUnidade = selecionarUnidade;
@@ -552,7 +550,7 @@ let agCursor = new Date(); agCursor.setHours(0, 0, 0, 0);
 let agPagina = 1;
 const AG_POR_PAGINA = 12;
 let agOrdem = { campo: "dataHora", dir: "asc" };
-let agFiltros = { busca: "", servico: "", status: "", pagamento: "", inicio: "", fim: "" };
+let agFiltros = { busca: "", servico: "", status: "", pagamento: "", responsavel: "", inicio: "", fim: "" };
 
 /* ------------------------------------------------------------- FILTRAGEM
    Um unico lugar decide o que esta na tela. Calendario, tabela, cards e
@@ -576,6 +574,10 @@ function aplicarFiltros(lista) {
     if (agFiltros.servico && !(a.servicos || []).some(s => s && s.nome === agFiltros.servico)) return false;
     if (agFiltros.status && statusNovo(a.status) !== agFiltros.status) return false;
     if (agFiltros.pagamento && String(a.pagamentoStatus || "A pagar") !== agFiltros.pagamento) return false;
+    if (agFiltros.responsavel) {
+      const resp = String(a.responsavelId || "");
+      if (agFiltros.responsavel === RESP_SEM ? resp !== "" : resp !== agFiltros.responsavel) return false;
+    }
     if (inicio || fim) {
       if (!a.dataHora) return false;
       const d = new Date(a.dataHora);
@@ -673,6 +675,30 @@ function preencherOpcoesFiltro() {
   selStatus.innerHTML = '<option value="">Todos os status</option>'
     + STATUS_LISTA.map(s => `<option value="${s}">${s}</option>`).join("");
   selStatus.value = agFiltros.status;
+
+  preencherFiltroResponsavel();
+}
+
+/* Filtro por responsavel: funcionarios ativos da unidade da aba + quem ja
+   aparece como responsavel nos agendamentos dela (inclusive desativados). */
+const RESP_SEM = "__sem";
+function opcoesResponsavel() {
+  const mapa = new Map();
+  LaneUnidades.funcionarios(unidadeSelecionada).forEach(f => mapa.set(f.id, f.nome));
+  daUnidade().forEach(a => { if (a.responsavelId && !mapa.has(a.responsavelId)) mapa.set(a.responsavelId, nomeResponsavel(a) || "Funcionário removido"); });
+  return [...mapa].sort((x, y) => x[1].localeCompare(y[1], "pt-BR"));
+}
+function preencherFiltroResponsavel() {
+  const sel = $("filtroResponsavel");
+  const opcoes = opcoesResponsavel();
+  sel.innerHTML = '<option value="">Todos</option><option value="' + RESP_SEM + '">Sem responsável</option>'
+    + opcoes.map(([id, nome]) => `<option value="${escapeHtml(id)}">${escapeHtml(nome)}</option>`).join("");
+  if (agFiltros.responsavel && agFiltros.responsavel !== RESP_SEM && !opcoes.some(([id]) => id === agFiltros.responsavel)) agFiltros.responsavel = "";
+  sel.value = agFiltros.responsavel;
+}
+function rotuloResponsavel(v) {
+  if (v === RESP_SEM) return "Sem responsável";
+  return (opcoesResponsavel().find(([id]) => id === v) || [v, v])[1];
 }
 
 function sincronizarCamposFiltro() {
@@ -680,6 +706,7 @@ function sincronizarCamposFiltro() {
   $("filtroServico").value = agFiltros.servico;
   $("filtroStatus").value = agFiltros.status;
   $("filtroPagamento").value = agFiltros.pagamento;
+  $("filtroResponsavel").value = agFiltros.responsavel;
   $("filtroDataInicio").value = agFiltros.inicio;
   $("filtroDataFim").value = agFiltros.fim;
   $("agBuscaWrap").classList.toggle("tem-texto", agFiltros.busca.length > 0);
@@ -689,13 +716,14 @@ function salvarFiltros() {
   localStorage.setItem("filtrosAgendamento", JSON.stringify({ ...agFiltros, unidade: unidadeSelecionada }));
 }
 
-const ROTULO_FILTRO = { busca: "Busca", servico: "Serviço", status: "Status", pagamento: "Pagamento", inicio: "De", fim: "Até" };
+const ROTULO_FILTRO = { busca: "Busca", servico: "Serviço", status: "Status", pagamento: "Pagamento", responsavel: "Responsável", inicio: "De", fim: "Até" };
 
 function renderChipsFiltro() {
   const chips = Object.entries(agFiltros)
     .filter(([, v]) => String(v).length > 0)
     .map(([chave, v]) => {
-      const mostrar = (chave === "inicio" || chave === "fim") ? dataCurta(v + "T12:00:00") : v;
+      const mostrar = (chave === "inicio" || chave === "fim") ? dataCurta(v + "T12:00:00")
+        : chave === "responsavel" ? rotuloResponsavel(v) : v;
       return `<span class="ag-chip">${ROTULO_FILTRO[chave]}: ${escapeHtml(mostrar)}
         <button type="button" data-tirar-filtro="${chave}" aria-label="Remover filtro ${ROTULO_FILTRO[chave]}">×</button></span>`;
     });
@@ -703,7 +731,7 @@ function renderChipsFiltro() {
 }
 
 function limparFiltros() {
-  agFiltros = { busca: "", servico: "", status: "", pagamento: "", inicio: "", fim: "" };
+  agFiltros = { busca: "", servico: "", status: "", pagamento: "", responsavel: "", inicio: "", fim: "" };
   agPagina = 1;
   sincronizarCamposFiltro();
   salvarFiltros();
@@ -1142,12 +1170,12 @@ $("detStatus").addEventListener("click", () => { fecharModal("modalDetalhes"); a
 $("detCancelar").addEventListener("click", () => { fecharModal("modalDetalhes"); abrirCancelar(detAtual && detAtual.id, agendamentos.indexOf(detAtual)); });
 
 /* ------------------------------------------------------- GRAVAÇÃO NO BANCO
-   Um só caminho de escrita: mexe na lista e entrega ao adaptador, que manda
+   Um só caminho de escrita: mexe na lista e entrega ao LaneStore.salvar, que manda
    o delta para POST /api/admin/sync/agendamentos. Se o servidor recusar (403
    por permissão, por exemplo), a própria ponte recarrega o estado real e a
    tela volta a mostrar o que o banco tem. */
 function gravarAgendamentos(mensagem) {
-  localStorage.setItem("agendamentos", JSON.stringify(agendamentos));
+  LaneStore.salvar("agendamentos", agendamentos);
   renderTudo();
   if (mensagem) toast(mensagem, "success");
 }
@@ -1259,9 +1287,9 @@ async function excluirAgendamento(id, idx) {
 
   const removido = agendamentos[index];
   agendamentos.splice(index, 1);
-  localStorage.setItem("agendamentos", JSON.stringify(agendamentos));
+  LaneStore.salvar("agendamentos", agendamentos);
 
-  const petsLS = safeJsonParse(localStorage.getItem("pets"), []);
+  const petsLS = LaneStore.obter("pets");
   const idxPet = petsLS.findIndex(p =>
     String(p.pet || "").toLowerCase() === String(removido.pet || "").toLowerCase() &&
     String(p.dono || "").toLowerCase() === String(removido.dono || "").toLowerCase() &&
@@ -1270,7 +1298,7 @@ async function excluirAgendamento(id, idx) {
     const h = petsLS[idxPet].pacote.historico.indexOf(removido.dataHora);
     if (h !== -1) petsLS[idxPet].pacote.historico.splice(h, 1);
     petsLS[idxPet].pacote.feitos = petsLS[idxPet].pacote.historico.length;
-    localStorage.setItem("pets", JSON.stringify(petsLS));
+    LaneStore.salvar("pets", petsLS);
     pets = petsLS;
   }
   renderTudo();
@@ -1283,7 +1311,7 @@ async function excluirAgendamento(id, idx) {
    O fluxo inteiro vive em memória. Enquanto o administrador percorre as
    etapas NADA é gravado: o agendamento só vai para o banco no clique final
    da revisão, pela mesma gravação que a tela antiga usava
-   (localStorage -> POST /api/admin/sync/agendamentos). A validação de pacote
+   (LaneStore.salvar -> POST /api/admin/sync/agendamentos). A validação de pacote
    e a baixa no pacote do pet são exatamente as regras que já existiam.
    =========================================================================== */
 const ETAPAS = [
@@ -1684,7 +1712,7 @@ function confirmarNovoAgendamento() {
 
   /* Baixa no pacote: mesma regra de antes, feita só depois que todos os
      agendamentos foram montados. */
-  const petsLS = safeJsonParse(localStorage.getItem("pets"), []);
+  const petsLS = LaneStore.obter("pets");
   escolhidos.forEach(pet => {
     const i = petsLS.findIndex(p =>
       String(p.pet || "").toLowerCase() === String(pet.pet || "").toLowerCase() &&
@@ -1695,9 +1723,9 @@ function confirmarNovoAgendamento() {
       petsLS[i].pacote.historico.push(dataHora);
     }
   });
-  localStorage.setItem("pets", JSON.stringify(petsLS));
+  LaneStore.salvar("pets", petsLS);
   pets = petsLS;
-  localStorage.setItem("agendamentos", JSON.stringify(agendamentos));
+  LaneStore.salvar("agendamentos", agendamentos);
 
   fluxo.salvos = escolhidos;
   fluxo.concluido = true;
@@ -1843,7 +1871,7 @@ $("formEditar").addEventListener("submit", function (e) {
     total = servicosAgendados.reduce((s, x) => s + (Number(x.preco) || 0), 0) + (transporte ? valorTransporte : 0);
   }
 
-  const petsAll = safeJsonParse(localStorage.getItem("pets"), []);
+  const petsAll = LaneStore.obter("pets");
   const petInfo = petsAll.find(p =>
     String(p.pet || "").toLowerCase() === pet.toLowerCase() &&
     String(p.dono || "").toLowerCase() === dono.toLowerCase());
@@ -1933,9 +1961,9 @@ $("filtroBusca").addEventListener("input", e => {
   aoFiltrar();
 });
 $("btnLimparBusca").addEventListener("click", () => { agFiltros.busca = ""; sincronizarCamposFiltro(); agPagina = 1; salvarFiltros(); renderTudo(); $("filtroBusca").focus(); });
-["filtroServico", "filtroStatus", "filtroPagamento", "filtroDataInicio", "filtroDataFim"].forEach(id => {
+["filtroServico", "filtroStatus", "filtroPagamento", "filtroResponsavel", "filtroDataInicio", "filtroDataFim"].forEach(id => {
   $(id).addEventListener("change", e => {
-    const mapa = { filtroServico: "servico", filtroStatus: "status", filtroPagamento: "pagamento", filtroDataInicio: "inicio", filtroDataFim: "fim" };
+    const mapa = { filtroServico: "servico", filtroStatus: "status", filtroPagamento: "pagamento", filtroResponsavel: "responsavel", filtroDataInicio: "inicio", filtroDataFim: "fim" };
     agFiltros[mapa[id]] = e.target.value;
     agPagina = 1; salvarFiltros(); renderTudo();
   });
@@ -1968,36 +1996,7 @@ function moverPeriodo(delta) {
   renderTudo();
 }
 
-/* ------------------------------------------------------------- BACKUP (igual) */
-function exportarBackupCompleto(filename = "backup-petshop.json") {
-  const dados = {};
-  for (let i = 0; i < localStorage.length; i++) {
-    const key = localStorage.key(i);
-    dados[key] = localStorage.getItem(key);
-  }
-  const blob = new Blob([JSON.stringify(dados, null, 2)], { type: "application/json" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url; a.download = filename; a.click();
-  URL.revokeObjectURL(url);
-  toast("Backup exportado com sucesso.", "success");
-}
-window.exportarBackupCompleto = exportarBackupCompleto;
 
-function importarBackupCompleto(input) {
-  if (!input.files.length) return;
-  const reader = new FileReader();
-  reader.onload = function (e) {
-    try {
-      const dados = JSON.parse(e.target.result);
-      for (const key in dados) localStorage.setItem(key, dados[key]);
-      toast("Backup importado com sucesso!", "success");
-      setTimeout(() => location.reload(), 700);
-    } catch (err) { toast("Arquivo inválido!", "error"); }
-  };
-  reader.readAsText(input.files[0]);
-}
-window.importarBackupCompleto = importarBackupCompleto;
 
 /* ===========================================================================
    CARGA E ATUALIZAÇÃO AUTOMÁTICA
@@ -2039,7 +2038,7 @@ function iniciar() {
 
   const salvos = safeJsonParse(localStorage.getItem("filtrosAgendamento"), {});
   if (typeof salvos.unidade === "string" && salvos.unidade) unidadeSelecionada = salvos.unidade;
-  ["busca", "servico", "status", "pagamento", "inicio", "fim"].forEach(k => {
+  ["busca", "servico", "status", "pagamento", "responsavel", "inicio", "fim"].forEach(k => {
     if (typeof salvos[k] === "string") agFiltros[k] = salvos[k];
   });
 
@@ -2060,6 +2059,7 @@ function iniciar() {
     if (unidadeSelecionada !== "sem-unidade" && !LaneUnidades.lista().some(u => u.id === unidadeSelecionada))
       unidadeSelecionada = (LaneUnidades.ativas()[0] || {}).id || "sem-unidade";
     renderAbasUnidades();
+    preencherFiltroResponsavel(); /* funcionarios chegam junto com as unidades */
     renderTudo();
   });
 

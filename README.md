@@ -496,23 +496,24 @@ O LanePets tem como principais objetivos:
 
 Possíveis melhorias futuras:
 
-* [ ]	Dashboard administrativo completo
-* [ ]	Gráficos de vendas
-* [ ]	Relatórios financeiros
-* [ ]	Controle de estoque
+* [x]	Dashboard administrativo completo
+* [x]	Gráficos de vendas
+* [x]	Relatórios financeiros
+* [x]	Controle de estoque
 * [ ]	Sistema de notificações
 * [ ]	Confirmação automática de agendamento
 * [ ]	Recuperação de senha
 * [ ]	E-mail de confirmação
-* [ ]	Integração com pagamentos
-* [ ]	API REST
+* [x]	Controle de pagamentos (status, reembolso, conciliação)
+* [ ]	Integração com gateway de pagamento
+* [x]	API REST
 * [x]	Testes automatizados
-* [ ]	Docker
+* [x]	Docker
 * [ ]	Deploy em ambiente cloud
-* [ ]	Melhorias de segurança
-* [ ]	Sistema de permissões administrativas
-* [ ]	Logs do sistema
-* [ ]	Backup do banco de dados
+* [x]	Melhorias de segurança
+* [x]	Sistema de permissões administrativas
+* [x]	Logs do sistema
+* [x]	Backup do banco de dados
 
 ⸻
 

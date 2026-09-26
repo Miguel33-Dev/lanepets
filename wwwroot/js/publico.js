@@ -372,6 +372,30 @@
     }
   }
 
+  /* ---------- Faixa de números -------------------------------------------
+     Só números reais: pets com atendimento concluído e média das avaliações
+     aprovadas. Zero/sem avaliação = card continua escondido. */
+  async function carregarNumeros() {
+    try {
+      const n = await api('/api/public/numeros');
+      const mostrar = (chave, texto) => {
+        const card = document.querySelector(`[data-numero="${chave}"]`);
+        if (!card || !texto) return;
+        card.querySelector('strong').textContent = texto;
+        card.hidden = false;
+      };
+      const pets = Number(n.petsAtendidos || 0);
+      if (pets > 0) mostrar('pets', pets.toLocaleString('pt-BR'));
+      if (n.avaliacaoMedia != null && Number(n.avaliacoes) > 0) {
+        mostrar('avaliacao', Number(n.avaliacaoMedia).toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + '/5');
+        const rotulo = document.querySelector('[data-numero="avaliacao"] span');
+        if (rotulo) rotulo.textContent = `avaliação média · ${n.avaliacoes} ${Number(n.avaliacoes) === 1 ? 'avaliação' : 'avaliações'}`;
+      }
+    } catch (erro) {
+      console.error('[LanePets] Não foi possível carregar os números da home.', erro);
+    }
+  }
+
   async function carregar() {
     await carregarSecao('#lista-servicos', '/api/public/servicos',
       cardServico, 'Serviços LanePets', 'Em breve, novos serviços. Fale com a nossa equipe para conhecer as opções.', 6);
@@ -467,6 +491,7 @@
 
   ligarLoja();
   carregar();
+  carregarNumeros();
 })();
 
 /* =============================================================================

@@ -11,14 +11,15 @@
 
    COMO A PONTE FUNCIONA
    ---------------------
-   Este script troca o objeto `localStorage` por um adaptador para as chaves de
-   dados do sistema. Quem le, le o banco; quem grava, grava no banco:
+   Ate 25/09 este script trocava o objeto `localStorage` por um adaptador. Agora
+   a API e explicita — LaneStore.obter(colecao) le, LaneStore.salvar(colecao,
+   lista) grava — e o localStorage do navegador guarda so preferencia de tela:
 
        lanepets.db  ->  GET  /api/admin/estado       ->  telas do painel
        telas        ->  POST /api/admin/sync/<lista> ->  lanepets.db
 
-   As chaves que sao so preferencia de tela (filtros, unidade selecionada,
-   modo de visualizacao) continuam indo para o localStorage de verdade.
+   Preferencia de tela (filtros, unidade selecionada, modo de visualizacao)
+   continua no localStorage de verdade. Dado do sistema nunca vai para ele.
 
    A carga inicial e sincrona de proposito: o codigo das telas roda durante o
    parse do HTML e ja espera encontrar os dados prontos. Depois dessa primeira
@@ -40,7 +41,6 @@
     clientes: { rota: 'clientes', identidade: ['nome', 'telefone'] }
   };
 
-  var real = window.localStorage;
   var cache = {};      /* o que as telas enxergam agora            */
   var espelho = {};    /* ultima versao conhecida do banco (p/ diff) */
   var carregado = false;
@@ -220,65 +220,30 @@
   }
 
   /* --------------------------------------------------------------------- */
-  /* Adaptador que substitui o localStorage                                */
-  /* --------------------------------------------------------------------- */
-
-  function gerenciada(chave) {
-    return Object.prototype.hasOwnProperty.call(COLECOES, String(chave));
-  }
-
-  var adaptador = {
-    getItem: function (chave) {
-      if (gerenciada(chave)) return JSON.stringify(cache[chave] || []);
-      return real.getItem(chave);
-    },
-    setItem: function (chave, valor) {
-      if (!gerenciada(chave)) return real.setItem(chave, valor);
-      var lista;
-      try { lista = JSON.parse(valor); } catch (e) { lista = []; }
-      if (!Array.isArray(lista)) lista = [];
-      gravar(String(chave), lista);
-    },
-    removeItem: function (chave) {
-      if (gerenciada(chave)) return gravar(String(chave), []);
-      return real.removeItem(chave);
-    },
-    clear: function () {
-      /* Nunca apaga o banco: limpa apenas as preferencias de tela. */
-      real.clear();
-    },
-    key: function (indice) { return this._chaves()[indice] || null; },
-    _chaves: function () {
-      var lista = Object.keys(COLECOES);
-      for (var i = 0; i < real.length; i++) {
-        var k = real.key(i);
-        if (k && lista.indexOf(k) === -1) lista.push(k);
-      }
-      return lista;
-    }
-  };
-
-  Object.defineProperty(adaptador, 'length', {
-    get: function () { return this._chaves().length; }
-  });
-
-  try {
-    Object.defineProperty(window, 'localStorage', {
-      configurable: true,
-      get: function () { return adaptador; }
-    });
-  } catch (erro) {
-    console.error('[LanePets] nao foi possivel instalar a ponte de dados:', erro);
-  }
-
-  /* --------------------------------------------------------------------- */
   /* API publica da ponte                                                  */
   /* --------------------------------------------------------------------- */
+
+  function conferirColecao(colecao) {
+    if (!Object.prototype.hasOwnProperty.call(COLECOES, String(colecao)))
+      throw new Error('[LanePets] colecao desconhecida: ' + colecao);
+  }
 
   window.LaneStore = {
     recarregar: recarregar,
     aoAtualizar: function (fn) { if (typeof fn === 'function') ouvintes.push(fn); },
     lista: function (colecao) { return cache[colecao] || []; },
+    /* Copia da colecao para a tela editar a vontade; so vale no banco depois
+       de salvar(). (Substitui o antigo JSON.parse(localStorage.getItem(...)).) */
+    obter: function (colecao) {
+      conferirColecao(colecao);
+      return JSON.parse(JSON.stringify(cache[colecao] || []));
+    },
+    /* Grava a lista inteira: calcula o que mudou e manda so o delta para
+       POST /api/admin/sync/<colecao>. Devolve a Promise da gravacao. */
+    salvar: function (colecao, lista) {
+      conferirColecao(colecao);
+      return gravar(String(colecao), Array.isArray(lista) ? lista : []);
+    },
     pronto: function () { return carregado; },
     totais: {},
     atualizadoEm: ''

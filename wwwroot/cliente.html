@@ -5,14 +5,15 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="LanePets — banho, tosa, produtos e seguro para o seu pet em Franco da Rocha e Caieiras. Agende online.">
   <title>LanePets | Cuidado que aproxima</title>
-  <link rel="stylesheet" href="publico.css?v=9">
+  <link rel="stylesheet" href="publico.css?v=10">
+<script src="js/marca-unidades.js?v=1" defer></script>
 </head>
 <body>
 
 <header class="topo">
   <a class="marca" href="#inicio">
     <span class="marca-icone" aria-hidden="true">♧</span>
-    <span>Lane<span>Pets</span><small>Franco + Caieiras</small></span>
+    <span>Lane<span>Pets</span><small data-unidades="curto">Franco + Caieiras</small></span>
   </a>
 
   <button class="menu" id="abrir-menu" type="button" aria-label="Abrir menu" aria-expanded="false" aria-controls="menu-principal">☰</button>
@@ -39,7 +40,7 @@
     <div class="hero-conteudo">
       <p class="etiqueta">♥ Cuidado com amor e qualidade</p>
       <h1>Seu pet em boas patas, <em>sempre.</em></h1>
-      <p class="lead">Banho, tosa, produtos e proteção para que você viva cada momento com o seu melhor amigo — em Franco da Rocha e Caieiras.</p>
+      <p class="lead">Banho, tosa, produtos e proteção para que você viva cada momento com o seu melhor amigo — em <span data-unidades="extenso">Franco da Rocha e Caieiras</span>.</p>
       <div class="botoes">
         <a class="botao primario" href="minha-conta.html#agendar">Agendar um serviço <b>→</b></a>
         <a class="botao claro" href="#servicos">Conhecer os serviços</a>
@@ -106,9 +107,10 @@
 
   <!-- ====================== NÚMEROS ====================== -->
   <section class="numeros" aria-label="LanePets em números">
-    <div><strong>+2.500</strong><span>pets atendidos</span></div>
-    <div><strong>4,9/5</strong><span>avaliação média das famílias</span></div>
-    <div><strong>2 unidades</strong><span>Franco da Rocha e Caieiras</span></div>
+    <!-- Números reais (GET /api/public/numeros); sem dado o card fica escondido — nada inventado (§6.11). -->
+    <div data-numero="pets" hidden><strong></strong><span>pets atendidos</span></div>
+    <div data-numero="avaliacao" hidden><strong></strong><span>avaliação média das famílias</span></div>
+    <div><strong data-unidades="qtd">2 unidades</strong><span data-unidades="extenso">Franco da Rocha e Caieiras</span></div>
   </section>
 
   <!-- ====================== SERVIÇOS ====================== -->
@@ -257,7 +259,7 @@
       <p class="eyebrow">Quem somos</p>
       <h2>Cuidar é o nosso propósito.</h2>
       <p>A LanePets nasceu para ser o lugar de confiança da rotina do seu pet: banho, tosa, produtos e proteção reunidos numa experiência simples, sem burocracia e sem pressa. Cada atendimento é conduzido por uma equipe treinada, que trata cada pet pelo nome e cada tutor com transparência — do agendamento até a entrega.</p>
-      <p>Atendemos famílias de Franco da Rocha e Caieiras com o mesmo cuidado que teríamos com os nossos próprios pets, e seguimos organizando cada detalhe — do estoque da lojinha às apólices de seguro — para que a única preocupação do seu pet seja quanto vai brincar depois do banho.</p>
+      <p>Atendemos famílias de <span data-unidades="extenso">Franco da Rocha e Caieiras</span> com o mesmo cuidado que teríamos com os nossos próprios pets, e seguimos organizando cada detalhe — do estoque da lojinha às apólices de seguro — para que a única preocupação do seu pet seja quanto vai brincar depois do banho.</p>
     </div>
   </section>
 
@@ -298,7 +300,7 @@
     <div>
       <a class="marca" href="#inicio">
         <span class="marca-icone" aria-hidden="true">♧</span>
-        <span>Lane<span>Pets</span><small>Franco + Caieiras</small></span>
+        <span>Lane<span>Pets</span><small data-unidades="curto">Franco + Caieiras</small></span>
       </a>
       <p>Banho, tosa, produtos e seguro pet com o cuidado que a sua família merece.</p>
     </div>
@@ -376,6 +378,6 @@
   </form>
 </dialog>
 
-<script src="js/publico.js?v=9"></script>
+<script src="js/publico.js?v=10"></script>
 </body>
 </html>

@@ -23,7 +23,8 @@
   const ROTULO_CATEGORIA = {
     autenticacao: 'Autenticação', seguranca: 'Segurança', administracao: 'Administração',
     cliente: 'Cliente', pet: 'Pet', agendamento: 'Agendamento', pedido: 'Pedido', produto: 'Produto',
-    servico: 'Serviço', financeiro: 'Financeiro', seguro: 'Seguro', sistema: 'Sistema'
+    servico: 'Serviço', financeiro: 'Financeiro', seguro: 'Seguro', avaliacao: 'Avaliação', unidade: 'Unidade',
+    estoque: 'Estoque', pagamento: 'Pagamento', painel: 'Painel', sistema: 'Sistema'
   };
   const ORIGEM = { cliente: 'Área do cliente', admin: 'Painel', publico: 'Site público', sistema: 'Sistema' };
 

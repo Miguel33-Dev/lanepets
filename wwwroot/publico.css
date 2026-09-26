@@ -188,7 +188,8 @@ p { margin: 0; }
 
 /* ---------- Faixa de números ---------- */
 .numeros {
-  display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px;
+  /* auto-fit: com card escondido (sem dado), os que sobram ocupam a faixa inteira. */
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px;
   max-width: var(--largura); margin: -48px auto 0;
   padding: 0 var(--gutter); position: relative; z-index: 3;
 }
@@ -202,6 +203,7 @@ p { margin: 0; }
   width: 38px; height: 38px; display: grid; place-items: center;
   border-radius: var(--r-md); background: var(--superficie); color: var(--verde); font-size: 1rem;
 }
+.numeros > div[hidden] { display: none; }
 .numeros strong { display: block; font-family: 'Fraunces', serif; font-size: 1.32rem; color: var(--verde); line-height: 1.1; }
 .numeros span { font-size: .78rem; color: var(--suave); }
 

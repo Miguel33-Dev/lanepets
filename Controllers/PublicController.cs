@@ -1,3 +1,4 @@
+using System.Globalization;
 using LanePets.Data;
 using LanePets.Models;
 using LanePets.Services;
@@ -7,8 +8,15 @@ using Microsoft.EntityFrameworkCore;
 namespace LanePets.Controllers;
 
 [Route("api")]
-public class PublicController(LanePetsDbContext db, PermissaoService permissoes, RealtimeNotifier realtime) : ApiControllerBase
+public class PublicController(LanePetsDbContext db, PermissaoService permissoes, RealtimeNotifier realtime, EventosService eventos) : ApiControllerBase
 {
+    /// <summary>Log de eventos (§6.25) das acoes do painel nesta controller: moderacao de
+    /// avaliacoes e solicitacoes de seguro e CRUD de planos. Sempre depois do SaveChanges.</summary>
+    private Task EventoAdmin(ContextoAdmin ctx, string categoria, string acao, string alvoId, string detalhes, string nivel = "info")
+        => eventos.RegistrarAsync(new(categoria, acao, nivel, "admin", ctx.Usuario.Id, ctx.Usuario.Email, alvoId, detalhes), HttpContext);
+    // Sem depender da cultura do servidor (Docker/CI podem nao ter pt-BR).
+    private static string Reais(decimal valor) => "R$ " + valor.ToString("0.00", CultureInfo.InvariantCulture).Replace('.', ',');
+
     [HttpGet("public/servicos")]
     public async Task<IActionResult> Servicos() => OkApi((await db.Servicos.AsNoTracking().OrderBy(s => s.Nome).ToListAsync()).Select(s => new { s.Id, s.Nome, s.Preco, s.Porte }));
 
@@ -31,6 +39,29 @@ public class PublicController(LanePetsDbContext db, PermissaoService permissoes,
         p.ControlaEstoque,
         disponivel = !p.ControlaEstoque || p.Estoque > 0
     }));
+
+    /// <summary>
+    /// Numeros da faixa da home (§6.11: nada inventado). So agregados, nenhum dado pessoal:
+    /// pets distintos com atendimento Concluído e a media das avaliacoes APROVADAS.
+    /// Sem dado, a media volta null e a tela esconde o card.
+    /// </summary>
+    [HttpGet("public/numeros")]
+    public async Task<IActionResult> Numeros()
+    {
+        var atendimentos = await db.Agendamentos.AsNoTracking().Select(a => new { a.Status, a.PetId, a.Dono, a.Pet }).ToListAsync();
+        var petsAtendidos = atendimentos
+            .Where(a => StatusAgendamento.EhConcluido(a.Status))
+            // Agendamento antigo sem PetId: dono + pet identificam o animal.
+            .Select(a => string.IsNullOrWhiteSpace(a.PetId) ? "legado|" + Normalizador.Texto(a.Dono) + "|" + Normalizador.Texto(a.Pet) : a.PetId)
+            .Distinct().Count();
+        var notas = await db.Depoimentos.AsNoTracking().Where(d => d.Status == "Aprovado").Select(d => d.Avaliacao).ToListAsync();
+        return OkApi(new
+        {
+            petsAtendidos,
+            avaliacoes = notas.Count,
+            avaliacaoMedia = notas.Count > 0 ? Math.Round(notas.Average(), 1) : (double?)null
+        });
+    }
 
     [HttpGet("public/depoimentos")]
     public async Task<IActionResult> Depoimentos() => OkApi((await db.Depoimentos.AsNoTracking().Where(d => d.Status == "Aprovado").OrderByDescending(d => d.CriadoEm).ToListAsync()).Select(d => new { d.Id, d.NomeCliente, d.NomePet, d.Avaliacao, d.Comentario, d.CriadoEm }));
@@ -61,7 +92,10 @@ public class PublicController(LanePetsDbContext db, PermissaoService permissoes,
             var pet = await db.Pets.AsNoTracking().FirstOrDefaultAsync(p => p.ClienteId == cliente.Id && p.PetNome.ToLower() == (request.Pet ?? "").Trim().ToLower());
             if (pet is null) throw new Exception("Pet não localizado para este cadastro.");
             db.Depoimentos.Add(new Depoimento { Id = "DEP-" + Guid.NewGuid().ToString("N")[..12].ToUpperInvariant(), ClienteId = cliente.Id, NomeCliente = cliente.Nome, NomePet = pet.PetNome, Telefone = cliente.Telefone, Avaliacao = request.Avaliacao, Comentario = request.Comentario.Trim(), Status = "Pendente" });
-            await db.SaveChangesAsync(); await realtime.NotificarAsync("avaliacoes", "criada"); return OkApi(new { message = "Obrigado! Seu comentário foi enviado para moderação." });
+            await db.SaveChangesAsync();
+            await eventos.RegistrarAsync(new("avaliacao", "Avaliação enviada pelo site", "info", "publico", cliente.Id, cliente.Nome, "",
+                $"{pet.PetNome} · {request.Avaliacao} estrela(s) · aguardando moderação"), HttpContext);
+            await realtime.NotificarAsync("avaliacoes", "criada"); return OkApi(new { message = "Obrigado! Seu comentário foi enviado para moderação." });
         }
         catch (Exception ex) { return ErrorApi(ex); }
     }
@@ -79,8 +113,13 @@ public class PublicController(LanePetsDbContext db, PermissaoService permissoes,
             // "Meu Seguro" dele. Agora o pedido entra como solicitacao solta
             // para a equipe tratar; quem tem conta contrata pela area do
             // cliente (POST /api/cliente/seguros), que usa a sessao.
-            db.SolicitacoesSeguro.Add(new SolicitacaoSeguro { Id = "SOL-" + Guid.NewGuid().ToString("N")[..12].ToUpperInvariant(), PlanoSeguroId = plano.Id, NomePlano = plano.Nome, ClienteId = "", PetId = "", NomeCliente = request.Nome.Trim(), Telefone = request.Telefone.Trim(), NomePet = request.Pet.Trim(), Observacao = (request.Observacao ?? "").Trim() });
-            await db.SaveChangesAsync(); await realtime.NotificarAsync("seguros", "solicitado"); return OkApi(new { message = "Recebemos seu pedido. A equipe LanePets entrará em contato para concluir a contratação." });
+            var idSolicitacao = "SOL-" + Guid.NewGuid().ToString("N")[..12].ToUpperInvariant();
+            db.SolicitacoesSeguro.Add(new SolicitacaoSeguro { Id = idSolicitacao, PlanoSeguroId = plano.Id, NomePlano = plano.Nome, ClienteId = "", PetId = "", NomeCliente = request.Nome.Trim(), Telefone = (request.Telefone ?? "").Trim(), NomePet = request.Pet.Trim(), Observacao = (request.Observacao ?? "").Trim() });
+            await db.SaveChangesAsync();
+            // Sem telefone no detalhe: o log e consultado pelo painel, o contato fica na solicitacao.
+            await eventos.RegistrarAsync(new("seguro", "Seguro solicitado pelo site", "info", "publico", "", request.Nome.Trim(), idSolicitacao,
+                $"{plano.Nome} · pet {request.Pet.Trim()}"), HttpContext);
+            await realtime.NotificarAsync("seguros", "solicitado"); return OkApi(new { message = "Recebemos seu pedido. A equipe LanePets entrará em contato para concluir a contratação." });
         }
         catch (Exception ex) { return ErrorApi(ex); }
     }
@@ -134,7 +173,7 @@ public class PublicController(LanePetsDbContext db, PermissaoService permissoes,
     [HttpGet("admin/seguros")]
     public async Task<IActionResult> ListarPlanos([FromQuery] string token = "") { try { await permissoes.ExigirAsync(token, ModulosAdmin.Seguros, AcaoPermissao.Visualizar); return OkApi(await db.PlanosSeguro.AsNoTracking().OrderBy(p => p.ValorMensal).ToListAsync()); } catch (Exception ex) { return ErrorApi(ex); } }
     [HttpPost("admin/seguros")]
-    public async Task<IActionResult> CriarPlano([FromBody] PlanoRequest request) { try { await permissoes.ExigirAsync(request.Token ?? "", ModulosAdmin.Seguros, AcaoPermissao.Criar); if (string.IsNullOrWhiteSpace(request.Nome) || request.ValorMensal <= 0) throw new Exception("Informe nome e valor do plano."); var plano = new PlanoSeguro { Id = "SEG-" + Guid.NewGuid().ToString("N")[..10].ToUpperInvariant(), Nome = request.Nome.Trim(), Descricao = (request.Descricao ?? "").Trim(), Coberturas = (request.Coberturas ?? "").Trim(), Beneficios = (request.Beneficios ?? "").Trim(), Condicoes = (request.Condicoes ?? "").Trim(), ValorMensal = request.ValorMensal, Ativo = true }; db.PlanosSeguro.Add(plano); await db.SaveChangesAsync(); await realtime.NotificarAsync("seguros", "plano_criado", new { plano.Id, plano.Nome }); return OkApi(plano); } catch (Exception ex) { return ErrorApi(ex); } }
+    public async Task<IActionResult> CriarPlano([FromBody] PlanoRequest request) { try { var ctx = await permissoes.ExigirAsync(request.Token ?? "", ModulosAdmin.Seguros, AcaoPermissao.Criar); if (string.IsNullOrWhiteSpace(request.Nome) || request.ValorMensal <= 0) throw new Exception("Informe nome e valor do plano."); var plano = new PlanoSeguro { Id = "SEG-" + Guid.NewGuid().ToString("N")[..10].ToUpperInvariant(), Nome = request.Nome.Trim(), Descricao = (request.Descricao ?? "").Trim(), Coberturas = (request.Coberturas ?? "").Trim(), Beneficios = (request.Beneficios ?? "").Trim(), Condicoes = (request.Condicoes ?? "").Trim(), ValorMensal = request.ValorMensal, Ativo = true }; db.PlanosSeguro.Add(plano); await db.SaveChangesAsync(); await EventoAdmin(ctx, "seguro", "Plano de seguro criado", plano.Id, $"{plano.Nome} · {Reais(plano.ValorMensal)} por mês"); await realtime.NotificarAsync("seguros", "plano_criado", new { plano.Id, plano.Nome }); return OkApi(plano); } catch (Exception ex) { return ErrorApi(ex); } }
     /// <summary>Edita um plano do catalogo. O que muda aqui aparece na hora para
     /// o cliente, porque a area publica le a mesma tabela.</summary>
     [HttpPut("admin/seguros/{id}")]
@@ -142,9 +181,10 @@ public class PublicController(LanePetsDbContext db, PermissaoService permissoes,
     {
         try
         {
-            await permissoes.ExigirAsync(request.Token ?? "", ModulosAdmin.Seguros, AcaoPermissao.Editar);
+            var ctx = await permissoes.ExigirAsync(request.Token ?? "", ModulosAdmin.Seguros, AcaoPermissao.Editar);
             var plano = await db.PlanosSeguro.FindAsync(id) ?? throw new Exception("Plano nao encontrado.");
             if (string.IsNullOrWhiteSpace(request.Nome) || request.ValorMensal <= 0) throw new Exception("Informe nome e valor do plano.");
+            var valorAntes = plano.ValorMensal;
             plano.Nome = request.Nome.Trim();
             plano.Descricao = (request.Descricao ?? "").Trim();
             plano.Coberturas = (request.Coberturas ?? "").Trim();
@@ -152,6 +192,8 @@ public class PublicController(LanePetsDbContext db, PermissaoService permissoes,
             plano.Condicoes = (request.Condicoes ?? "").Trim();
             plano.ValorMensal = request.ValorMensal;
             await db.SaveChangesAsync();
+            await EventoAdmin(ctx, "seguro", "Plano de seguro alterado", plano.Id,
+                valorAntes != plano.ValorMensal ? $"{plano.Nome} · valor {Reais(valorAntes)} → {Reais(plano.ValorMensal)}" : plano.Nome);
             await realtime.NotificarAsync("seguros", "plano_alterado", new { plano.Id, plano.Nome });
             return OkApi(plano);
         }
@@ -169,12 +211,13 @@ public class PublicController(LanePetsDbContext db, PermissaoService permissoes,
     {
         try
         {
-            await permissoes.ExigirAsync(token, ModulosAdmin.Seguros, AcaoPermissao.Excluir);
+            var ctx = await permissoes.ExigirAsync(token, ModulosAdmin.Seguros, AcaoPermissao.Excluir);
             var plano = await db.PlanosSeguro.FindAsync(id) ?? throw new Exception("Plano nao encontrado.");
             var contratos = await db.SolicitacoesSeguro.CountAsync(s => s.PlanoSeguroId == id);
             if (contratos > 0) throw new Exception($"Este plano tem {contratos} contrato(s) e nao pode ser excluido. Desative-o para tira-lo do site sem perder o historico.");
             db.PlanosSeguro.Remove(plano);
             await db.SaveChangesAsync();
+            await EventoAdmin(ctx, "seguro", "Plano de seguro excluído", id, plano.Nome, "aviso");
             await realtime.NotificarAsync("seguros", "plano_excluido", new { id });
             return OkApi(new { id, message = "Plano excluido." });
         }
@@ -182,11 +225,55 @@ public class PublicController(LanePetsDbContext db, PermissaoService permissoes,
     }
 
     [HttpPost("admin/seguros/{id}/ativo")]
-    public async Task<IActionResult> AtualizarPlano(string id, [FromBody] PlanoStatusRequest request) { try { await permissoes.ExigirAsync(request.Token ?? "", ModulosAdmin.Seguros, AcaoPermissao.Editar); var plano = await db.PlanosSeguro.FindAsync(id) ?? throw new Exception("Plano não encontrado."); plano.Ativo = request.Ativo; await db.SaveChangesAsync(); return OkApi(plano); } catch (Exception ex) { return ErrorApi(ex); } }
+    public async Task<IActionResult> AtualizarPlano(string id, [FromBody] PlanoStatusRequest request)
+    {
+        try
+        {
+            var ctx = await permissoes.ExigirAsync(request.Token ?? "", ModulosAdmin.Seguros, AcaoPermissao.Editar);
+            var plano = await db.PlanosSeguro.FindAsync(id) ?? throw new Exception("Plano não encontrado.");
+            var mudou = plano.Ativo != request.Ativo;
+            plano.Ativo = request.Ativo;
+            await db.SaveChangesAsync();
+            if (mudou) await EventoAdmin(ctx, "seguro", request.Ativo ? "Plano de seguro ativado" : "Plano de seguro desativado", plano.Id, plano.Nome, request.Ativo ? "info" : "aviso");
+            return OkApi(plano);
+        }
+        catch (Exception ex) { return ErrorApi(ex); }
+    }
     [HttpPost("admin/depoimentos/{id}/status")]
-    public async Task<IActionResult> Moderar(string id, [FromBody] StatusRequest request) { try { await permissoes.ExigirAsync(request.Token ?? "", ModulosAdmin.Avaliacoes, AcaoPermissao.Editar); var item = await db.Depoimentos.FindAsync(id) ?? throw new Exception("Depoimento não encontrado."); item.Status = request.Status is "Aprovado" or "Recusado" ? request.Status : throw new Exception("Status inválido."); await db.SaveChangesAsync(); return OkApi(item); } catch (Exception ex) { return ErrorApi(ex); } }
+    public async Task<IActionResult> Moderar(string id, [FromBody] StatusRequest request)
+    {
+        try
+        {
+            var ctx = await permissoes.ExigirAsync(request.Token ?? "", ModulosAdmin.Avaliacoes, AcaoPermissao.Editar);
+            var item = await db.Depoimentos.FindAsync(id) ?? throw new Exception("Depoimento não encontrado.");
+            var antes = item.Status;
+            item.Status = request.Status is "Aprovado" or "Recusado" ? request.Status : throw new Exception("Status inválido.");
+            await db.SaveChangesAsync();
+            if (antes != item.Status)
+                await EventoAdmin(ctx, "avaliacao", item.Status == "Aprovado" ? "Avaliação aprovada" : "Avaliação recusada", item.Id,
+                    $"{item.NomeCliente} · {item.NomePet} · {item.Avaliacao} estrela(s) · {antes} → {item.Status}", item.Status == "Aprovado" ? "info" : "aviso");
+            return OkApi(item);
+        }
+        catch (Exception ex) { return ErrorApi(ex); }
+    }
     [HttpPost("admin/solicitacoes/{id}/status")]
-    public async Task<IActionResult> AtualizarSolicitacao(string id, [FromBody] StatusRequest request) { try { await permissoes.ExigirAsync(request.Token ?? "", ModulosAdmin.Seguros, AcaoPermissao.Editar); var item = await db.SolicitacoesSeguro.FindAsync(id) ?? throw new Exception("Solicitação não encontrada."); item.Status = request.Status is "Pendente" or "Em contato" or "Concluída" or "Cancelada" ? request.Status : throw new Exception("Status inválido."); await db.SaveChangesAsync(); await PagamentosService.ReconciliarAsync(db); return OkApi(item); } catch (Exception ex) { return ErrorApi(ex); } }
+    public async Task<IActionResult> AtualizarSolicitacao(string id, [FromBody] StatusRequest request)
+    {
+        try
+        {
+            var ctx = await permissoes.ExigirAsync(request.Token ?? "", ModulosAdmin.Seguros, AcaoPermissao.Editar);
+            var item = await db.SolicitacoesSeguro.FindAsync(id) ?? throw new Exception("Solicitação não encontrada.");
+            var antes = item.Status;
+            item.Status = request.Status is "Pendente" or "Em contato" or "Concluída" or "Cancelada" ? request.Status : throw new Exception("Status inválido.");
+            await db.SaveChangesAsync();
+            await PagamentosService.ReconciliarAsync(db);
+            if (antes != item.Status)
+                await EventoAdmin(ctx, "seguro", "Solicitação de seguro: " + item.Status, item.Id,
+                    $"{item.NomePlano} · {item.NomeCliente} · pet {item.NomePet} · {antes} → {item.Status}", item.Status == "Cancelada" ? "aviso" : "info");
+            return OkApi(item);
+        }
+        catch (Exception ex) { return ErrorApi(ex); }
+    }
     private static string NormalizarTelefone(string? value) => new string((value ?? "").Where(char.IsDigit).ToArray());
     public record DepoimentoRequest(string? Nome, string? Telefone, string? Pet, int Avaliacao, string? Comentario);
     public record SeguroRequest(string PlanoId, string? Nome, string? Telefone, string? Pet, string? Observacao);

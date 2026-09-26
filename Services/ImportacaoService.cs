@@ -146,10 +146,13 @@ public static class ImportacaoService
         return new ResultadoImportacao(novos, repetidos, ignorados);
     }
 
+    /// <summary>"HH:mm" de um "yyyy-MM-ddTHH:mm..." (vazio se não houver hora).</summary>
+    private static string HoraDe(string? dataHora) => dataHora is { Length: >= 16 } ? dataHora[11..16] : "";
+
     private static async Task<ResultadoImportacao> ImportarAgendamentos(LanePetsDbContext db, List<JsonElement> linhas, bool simular)
     {
         var existentes = (await db.Agendamentos.AsNoTracking().ToListAsync())
-            .Select(x => Chave(x.Dono, x.Pet, Normalizador.Data(x.DataHora), (x.DataHora ?? "").Length >= 16 ? x.DataHora[11..16] : "")).ToHashSet();
+            .Select(x => Chave(x.Dono, x.Pet, Normalizador.Data(x.DataHora), HoraDe(x.DataHora))).ToHashSet();
         int novos = 0, repetidos = 0, ignorados = 0;
         foreach (var linha in linhas)
         {
@@ -157,7 +160,7 @@ public static class ImportacaoService
             var pet = Texto(linha, "pet");
             if (dataHora.Length == 0 || pet.Length == 0) { ignorados++; continue; }
             var dono = Texto(linha, "dono");
-            if (!existentes.Add(Chave(dono, pet, Normalizador.Data(dataHora), dataHora.Length >= 16 ? dataHora[11..16] : ""))) { repetidos++; continue; }
+            if (!existentes.Add(Chave(dono, pet, Normalizador.Data(dataHora), HoraDe(dataHora)))) { repetidos++; continue; }
             novos++;
             if (simular) continue;
             db.Agendamentos.Add(new Agendamento

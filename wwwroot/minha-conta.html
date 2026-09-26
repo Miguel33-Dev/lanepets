@@ -13,6 +13,7 @@
     [hidden] { display: none !important; }
     body.lp-auth #portal { display: none !important; }
   </style>
+<script src="js/marca-unidades.js?v=1" defer></script>
 </head>
 <body class="lp-auth lp-auth--cliente">
 
@@ -30,7 +31,7 @@
         </span>
         <span>
           <span class="lp-brand__nome">Lane<i>Pets</i></span>
-          <span class="lp-brand__sub">Franco + Caieiras</span>
+          <span class="lp-brand__sub" data-unidades="curto">Franco + Caieiras</span>
         </span>
       </a>
 
@@ -229,7 +230,7 @@
           <circle cx="7" cy="8" r="2"/><circle cx="12" cy="5.5" r="2"/><circle cx="17" cy="8" r="2"/>
           <path d="M12 13c-3.3 0-6 2.1-6 4.7 0 1.6 1.5 2.3 3 1.8.9-.3 1.9-.5 3-.5s2.1.2 3 .5c1.5.5 3-.2 3-1.8 0-2.6-2.7-4.7-6-4.7Z"/>
         </svg>
-        <span><b>LanePets</b><span>Franco + Caieiras</span></span>
+        <span><b>LanePets</b><span data-unidades="curto">Franco + Caieiras</span></span>
       </a>
 
       <nav class="cc-nav" id="cc-nav" aria-label="Menu da conta">
@@ -837,7 +838,7 @@
   <script src="js/config.js"></script>
   <script src="js/http.js?v=5"></script>
   <script src="js/auth-ui.js?v=5"></script>
-  <script src="js/minha-conta.js?v=20"></script>
+  <script src="js/minha-conta.js?v=22"></script>
 <!-- ---------- Modal: detalhes do pedido ----------
        Somente leitura, montado com o pedido que a tela ja recebeu em
        GET /api/cliente/conta. Nenhuma chamada nova. -->

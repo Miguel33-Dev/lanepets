@@ -198,7 +198,7 @@ public class AdminStoreController(LanePetsDbContext db, PermissaoService permiss
         telefone = p.Telefone,
         endereco = p.Endereco,
         unidade = UnidadePainel(p.Unidade),
-        pacote = Json(p.PacoteJson),
+        pacote = JsonObjeto(p.PacoteJson),
         clienteId = p.ClienteId,
         // Campos da ficha que a area do cliente ja gravava e que o painel
         // precisa para mostrar o pet nos detalhes do agendamento. Acrescimo
@@ -271,6 +271,19 @@ public class AdminStoreController(LanePetsDbContext db, PermissaoService permiss
         if (valor > 0) return true;
         var texto = Normalizador.Texto(descricao);
         return !SemTransporte.Contains(texto);
+    }
+
+    /// <summary>Pacote do pet: sempre objeto (vazio = {}). Devolver [] fazia o painel
+    /// marcar "ativo" num array, que o JSON.stringify descarta — o pacote nunca gravava.</summary>
+    private static object JsonObjeto(string? bruto)
+    {
+        if (string.IsNullOrWhiteSpace(bruto)) return new { };
+        try
+        {
+            var valor = JsonSerializer.Deserialize<JsonElement>(bruto);
+            return valor.ValueKind == JsonValueKind.Object ? valor : new { };
+        }
+        catch { return new { }; }
     }
 
     private static object Json(string? bruto)

@@ -174,7 +174,10 @@ public class SeedService(LanePetsDbContext db, IWebHostEnvironment env, ILogger<
         finally { if (precisaAbrir) await conexao.CloseAsync(); }
 
         if (existe) return;
-        await db.Database.ExecuteSqlRawAsync($"ALTER TABLE {tabela} ADD COLUMN {coluna} {definicao}");
+        // Tabela, coluna e definição vêm só de constantes do próprio código (nunca do
+        // usuário) e DDL não aceita parâmetro; montar o texto antes evita o EF1002.
+        var ddl = $"ALTER TABLE {tabela} ADD COLUMN {coluna} {definicao}";
+        await db.Database.ExecuteSqlRawAsync(ddl);
         log.LogInformation("LanePets: coluna {Tabela}.{Coluna} criada.", tabela, coluna);
     }
 

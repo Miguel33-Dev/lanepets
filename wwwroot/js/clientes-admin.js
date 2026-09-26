@@ -31,7 +31,7 @@
   /* Utilidades                                                         */
   /* ----------------------------------------------------------------- */
   function lista(chave) {
-    try { return JSON.parse(localStorage.getItem(chave)) || []; }
+    try { return LaneStore.obter(chave); }
     catch (e) { return []; }
   }
 
@@ -447,7 +447,7 @@
     }).then(function (ok) {
       if (!ok) return;
       alvo.status = vai;
-      localStorage.setItem('clientes', JSON.stringify(clientes));
+      LaneStore.salvar("clientes", clientes);
       desenhar();
       window.toast(vai === 'inativo' ? 'Cliente marcado como inativo.' : 'Cliente reativado.', 'success');
     });
