@@ -1119,3 +1119,18 @@ dialog#modal-agenda-detalhes .cc-modal__corpo { max-height: min(88vh, 860px); ov
   display: flex; gap: 10px; align-items: center; padding: 12px 14px; border-radius: var(--r-sm);
   background: #fdf0dd; color: #8a4f0a; font-weight: 700; font-size: .88rem;
 }
+
+/* ---------------------------------------------------------------------------
+   Tarefa 1 (28/09): aviso "complete seu cadastro" (conta criada pelo Google, sem telefone ou sem pet).
+   --------------------------------------------------------------------------- */
+.cc-completar[hidden] { display: none; }
+.cc-completar {
+  display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap;
+  margin: 0 0 20px; padding: 16px 18px; border-radius: var(--r-md);
+  background: #fff7ec; border: 1px solid #f5d7ae; color: #7a4a0c;
+}
+.cc-completar > div { min-width: 0; }
+.cc-completar strong { display: block; font-size: .98rem; color: #5c3605; }
+.cc-completar p { font-size: .86rem; margin-top: 3px; }
+.cc-completar__acoes { display: flex; gap: 10px; flex-wrap: wrap; }
+@media (max-width: 520px) { .cc-completar__acoes, .cc-completar__acoes .botao { width: 100%; } }

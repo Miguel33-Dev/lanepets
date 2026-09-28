@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>LanePets | Minha conta</title>
   <link rel="stylesheet" href="publico.css?v=11">
-  <link rel="stylesheet" href="auth.css?v=5">
-  <link rel="stylesheet" href="conta.css?v=16">
+  <link rel="stylesheet" href="auth.css?v=6">
+  <link rel="stylesheet" href="conta.css?v=17">
   <style>
     /* A área do cliente vive em conta.css e as telas de acesso em auth.css.
        Aqui fica apenas o que depende da alternância entre as duas. */
@@ -89,7 +89,56 @@
             </button>
           </form>
 
+          <!-- Tarefa 1 (28/09): Entrar com Google. So aparece quando o servidor tem o Client ID configurado
+               (GET /api/cliente/google/config); o botao e o oficial do Google (Google Identity Services). -->
+          <div class="lp-google" id="google-area" hidden>
+            <div class="lp-ou" aria-hidden="true"><span>ou</span></div>
+            <div class="lp-google__botao" id="google-botao"></div>
+          </div>
+
           <p class="lp-card__foot">Ainda não possui uma conta? <a href="#cadastro" id="ir-cadastro">Criar minha conta</a></p>
+        </div>
+
+        <!-- ---------- Vincular a conta Google (Tarefa 1, 28/09) ----------
+             O e-mail do Google ja tem conta LanePets com senha: a senha e pedida UMA vez para ligar o Google a ela. -->
+        <div class="lp-painel" id="painel-vincular">
+          <span class="lp-badge">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></svg>
+            Vincular conta Google
+          </span>
+
+          <h1>Você já tem uma conta</h1>
+          <p class="lp-card__sub">Existe uma conta LanePets com <strong id="vinc-email"></strong>. Para ligar o Google a ela, confirme a senha dessa conta. É só desta vez: depois você entra direto com o Google.</p>
+
+          <p class="lp-alert lp-alert--erro" id="vinc-aviso" role="alert" aria-live="assertive">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5"/><path d="M12 16.2h.01"/></svg>
+            <span></span>
+          </p>
+
+          <form id="form-vincular" novalidate>
+            <div class="lp-field">
+              <div class="lp-field__topo">
+                <label for="vinc-senha">Senha da conta LanePets</label>
+                <a class="lp-field__link" href="#recuperar" id="vinc-esqueci">Esqueceu sua senha?</a>
+              </div>
+              <div class="lp-input">
+                <svg class="lp-input__icone" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
+                <input id="vinc-senha" type="password" autocomplete="current-password" placeholder="••••••••">
+                <button class="lp-input__acao" type="button" data-alvo="#vinc-senha" aria-label="Mostrar senha" aria-pressed="false">
+                  <svg class="lp-olho-on" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.8-6.5 10-6.5S22 12 22 12s-3.8 6.5-10 6.5S2 12 2 12Z"/><circle cx="12" cy="12" r="2.6"/></svg>
+                  <svg class="lp-olho-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3l18 18"/><path d="M10.6 6.2A9.6 9.6 0 0 1 12 6c6.2 0 10 6 10 6a17 17 0 0 1-3.3 3.9"/><path d="M6.3 8.1C3.6 9.8 2 12 2 12s3.8 6.5 10 6.5c1.4 0 2.7-.3 3.8-.8"/><path d="M9.6 9.8a2.6 2.6 0 0 0 3.6 3.6"/></svg>
+                </button>
+              </div>
+              <span class="lp-field__msg"></span>
+            </div>
+
+            <button class="lp-btn lp-btn--primario" type="submit" id="vincular">
+              <span class="lp-spin" aria-hidden="true"></span>
+              <span class="lp-btn__texto">Vincular e entrar</span>
+            </button>
+          </form>
+
+          <p class="lp-card__foot">Não quer vincular agora? <a href="#login" id="vinc-voltar">Voltar para o login</a></p>
         </div>
 
         <!-- ---------- Criar conta ---------- -->
@@ -378,6 +427,9 @@
             <h1 id="boas-vindas">Início</h1>
             <p>Bem-vindo à sua área do LanePets. Acompanhe seus pets, serviços e pedidos em um só lugar.</p>
           </div>
+
+          <!-- Tarefa 1: conta criada pelo Google nasce sem telefone e sem pet -->
+          <div class="cc-completar" id="cc-completar" hidden></div>
 
           <div class="cc-resumo" id="cc-resumo"></div>
 
@@ -929,7 +981,7 @@
   <script src="js/config.js"></script>
   <script src="js/http.js?v=5"></script>
   <script src="js/auth-ui.js?v=5"></script>
-  <script src="js/minha-conta.js?v=27"></script>
+  <script src="js/minha-conta.js?v=28"></script>
 <!-- ---------- Modal: detalhes do pedido ----------
        Somente leitura, montado com o pedido que a tela ja recebeu em
        GET /api/cliente/conta. Nenhuma chamada nova. -->

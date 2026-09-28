@@ -174,6 +174,9 @@ public class SeedService(LanePetsDbContext db, IWebHostEnvironment env, ILogger<
         // 29/09: cartao fidelidade — so os resgates sao gravados (os selos vem dos atendimentos concluidos).
         await db.Database.ExecuteSqlRawAsync("CREATE TABLE IF NOT EXISTS ResgatesFidelidade (Id TEXT NOT NULL PRIMARY KEY, ClienteId TEXT NOT NULL DEFAULT '', CriadoEm TEXT NOT NULL DEFAULT '', Selos INTEGER NOT NULL DEFAULT 0, Premio TEXT NOT NULL DEFAULT '', AutorId TEXT NOT NULL DEFAULT '', Autor TEXT NOT NULL DEFAULT '')");
         await db.Database.ExecuteSqlRawAsync("CREATE INDEX IF NOT EXISTS IX_ResgatesFidelidade_Cliente ON ResgatesFidelidade (ClienteId, CriadoEm)");
+        // Tarefa 1 (28/09): login com Google — "sub" da conta Google vinculada (vazio = sem Google).
+        await GarantirColunaAsync("UsuariosClientes", "GoogleSub", "TEXT NOT NULL DEFAULT ''");
+        await db.Database.ExecuteSqlRawAsync("CREATE INDEX IF NOT EXISTS IX_UsuariosClientes_GoogleSub ON UsuariosClientes (GoogleSub)");
     }
 
     /// <summary>Acrescenta uma coluna se ela ainda nao existir (SQLite nao tem IF NOT EXISTS para colunas).</summary>

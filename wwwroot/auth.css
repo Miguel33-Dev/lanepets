@@ -408,3 +408,13 @@
     transition-duration: .01ms !important;
   }
 }
+
+/* ---------------------------------------------------------------------------
+   Tarefa 1 (28/09): Entrar com Google — divisor "ou" e o espaco do botao oficial.
+   O botao em si e desenhado pelo Google (iframe); aqui so centraliza e reserva a altura.
+   --------------------------------------------------------------------------- */
+.lp-google[hidden] { display: none; }
+.lp-ou { display: flex; align-items: center; gap: 12px; margin: 18px 0 14px; color: var(--lp-suave); font-size: .82rem; }
+.lp-ou::before, .lp-ou::after { content: ""; flex: 1; height: 1px; background: var(--lp-linha); }
+.lp-google__botao { display: flex; justify-content: center; min-height: 44px; }
+.lp-google__botao > div { max-width: 100%; }

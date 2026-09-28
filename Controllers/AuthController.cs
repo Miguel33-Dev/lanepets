@@ -9,7 +9,7 @@ namespace LanePets.Controllers;
 public class AuthController(SessionService sessions, LanePetsDbContext db, PermissaoService permissoes, EventosService eventos, EmailService email, IConfiguration config, IHostEnvironment ambiente, ILogger<AuthController> log) : ApiControllerBase
 {
     [HttpGet("health")]
-    public IActionResult Health() => OkApi(new { ok=true, system="Lane Pets", version="CSharp-1.0", timezone="America/Sao_Paulo", unidades=Normalizador.Unidades.Where(u=>u.Ativa).Select(u=>u.Nome), api="ASP.NET Core + SQLite", banco="lanepets.db", escrita=new { habilitada=true, modo="DADOS_REAIS" }, demo=Hospedagem.ModoDemo(config, ambiente), visitante=Visitante.Ligado(config) });   // 29/09: demo -> a tela de login mostra as credenciais de teste
+    public IActionResult Health() => OkApi(new { ok=true, system="Lane Pets", version="CSharp-1.0", timezone="America/Sao_Paulo", unidades=Normalizador.Unidades.Where(u=>u.Ativa).Select(u=>u.Nome), api="ASP.NET Core + SQLite", banco="lanepets.db", escrita=new { habilitada=true, modo="DADOS_REAIS" }, demo=Hospedagem.ModoDemo(config, ambiente), visitante=Visitante.Ligado(config), google=GoogleLogin.Ativo(config) });   /* Tarefa 1: login com Google ligado? (conferir no Railway) */   // 29/09: demo -> a tela de login mostra as credenciais de teste
 
     // -----------------------------------------------------------------------
     // LOGIN ADMINISTRATIVO — UM SO, o que ja existia.

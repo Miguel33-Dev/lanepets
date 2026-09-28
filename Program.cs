@@ -80,6 +80,8 @@ builder.Services.AddDbContext<LanePetsDbContext>(options =>
     options.UseSqlite(DatabaseBootstrap.MontarConnectionString(caminhoDoBanco)));
 
 builder.Services.AddSingleton<SessionService>();
+builder.Services.AddSingleton<IChavesGoogle, ChavesGoogleJwks>();   // Tarefa 1: chaves publicas do Google (JWKS em cache)
+builder.Services.AddSingleton<GoogleTokenService>();
 builder.Services.AddScoped<SeedService>();
 
 // Autorizacao administrativa: quem e o usuario da requisicao e o que ele pode.
@@ -125,6 +127,7 @@ builder.Services.AddCors(options => options.AddDefaultPolicy(policy => policy
     .AllowCredentials()));
 
 var app = builder.Build();
+GoogleLogin.AvisarSeMalConfigurado(app.Configuration, app.Logger);   // Tarefa 1: chave com formato errado = desligado + aviso
 app.Services.GetRequiredService<EmailService>().AnunciarModo();   // 29/09: mostra no console se o e-mail sai por SMTP ou .txt
 
 // ---------------------------------------------------------------------------

@@ -7,7 +7,7 @@ using Microsoft.EntityFrameworkCore;
 namespace LanePets.Controllers;
 
 [Route("api/cliente")]
-public class ClientPortalController(LanePetsDbContext db, SessionService sessions, RealtimeNotifier realtime, EventosService eventos, EmailService email, IConfiguration config) : ApiControllerBase
+public class ClientPortalController(LanePetsDbContext db, SessionService sessions, RealtimeNotifier realtime, EventosService eventos, EmailService email, IConfiguration config, GoogleTokenService google) : ApiControllerBase
 {
     /// <summary>Item 15: evento de log com o IP desta requisicao. Nunca lanca.</summary>
     private Task Evento(string categoria, string acao, Cliente? cliente, string alvoId = "", string detalhes = "", string nivel = "info", string autor = "")
@@ -16,6 +16,71 @@ public class ClientPortalController(LanePetsDbContext db, SessionService session
     /// <summary>Item 11.4b: recusa da conta (senha errada etc.) vira evento "aviso" antes da excecao subir.</summary>
     private Task Recusar(ContaClienteService.Recusa r)
         => eventos.RegistrarAsync(new(r.Categoria, r.Acao, "aviso", "cliente", r.ClienteId, r.Autor, r.AlvoId, r.Detalhes), HttpContext);
+
+    // -----------------------------------------------------------------------
+    // LOGIN COM GOOGLE — etapa 1: configuracao (Tarefa 1). Sem sessao.
+    // A tela pergunta se o botao "Entrar com Google" aparece e com qual Client ID (publico).
+    // -----------------------------------------------------------------------
+    [HttpGet("google/config")]
+    public IActionResult GoogleConfig()
+    {
+        var clientId = GoogleLogin.ClientId(config);
+        return OkApi(new { ativo = clientId is not null, clientId = clientId ?? "" });
+    }
+
+    /// <summary>
+    /// Tarefa 1, etapa 4 (28/09): entrar com Google. Corpo: <c>credential</c> (o ID token que o botao do Google
+    /// entrega) e, so para vincular a uma conta que ja tem senha, <c>senha</c>. Sem estado no servidor: para vincular,
+    /// a tela manda o MESMO credential de novo junto com a senha (o token vale ~1 h).
+    /// Respostas: <c>{ token, cliente, novo, completarCadastro }</c> ou <c>{ vincular: true, email }</c> (sem token).
+    /// Recusa: 400 com mensagem unica; o motivo real (e nunca o token) vai para o Log.
+    /// </summary>
+    [HttpPost("google")]
+    public async Task<IActionResult> EntrarComGoogle([FromBody] GoogleLoginRequest request)
+    {
+        try
+        {
+            var clientId = GoogleLogin.ClientId(config);
+            if (clientId is null) throw new Exception("Login com Google indisponível no momento.");
+
+            var validacao = await google.ValidarAsync(request.Credential, clientId, DateTimeOffset.UtcNow, HttpContext.RequestAborted);
+            if (!validacao.Valido)
+            {
+                await Evento("autenticacao", "Login com Google recusado", null, detalhes: validacao.Motivo, nivel: "aviso", autor: "google");
+                throw new Exception(ContaGoogleService.MensagemRecusa);
+            }
+            var g = validacao.Identidade!;
+
+            var vinculando = !string.IsNullOrEmpty(request.Senha);
+            var r = vinculando
+                ? await ContaGoogleService.VincularAsync(db, g, request.Senha, Recusar)
+                : await ContaGoogleService.EntrarAsync(db, g, Recusar);
+
+            if (r.Situacao == ContaGoogleService.Situacao.PrecisaVincular)
+                return OkApi(new { vincular = true, email = r.Email });
+
+            var cliente = r.Cliente!;
+            var novo = r.Situacao == ContaGoogleService.Situacao.ContaCriada;
+            if (novo)
+            {
+                await realtime.NotificarAsync("clientes", "criado", new { cliente.Id, cliente.Nome });
+                await Evento("cliente", "Conta de cliente criada", cliente, cliente.Id, "Pelo Google (sem senha e sem pet).", autor: r.Email);
+                await AvisosClienteService.BoasVindasAsync(email, config, r.Email, cliente.Nome, "");
+            }
+            else if (vinculando) await Evento("seguranca", "Conta Google vinculada", cliente, cliente.Id, "Senha da conta conferida.", autor: r.Email);
+            await Evento("autenticacao", "Login de cliente", cliente, detalhes: "Pelo Google.", autor: r.Email);
+
+            var temPet = await db.Pets.AnyAsync(p => p.ClienteId == cliente.Id);
+            return OkApi(new
+            {
+                token = sessions.CreateClient(cliente.Id),
+                cliente = new { cliente.Nome, Email = r.Email },
+                novo,
+                completarCadastro = string.IsNullOrWhiteSpace(cliente.Telefone) || !temPet
+            });
+        }
+        catch (Exception ex) { return ErrorApi(ex); }
+    }
 
     [HttpPost("cadastro")]
     public async Task<IActionResult> Cadastro([FromBody] CadastroRequest request)
@@ -120,6 +185,8 @@ public class ClientPortalController(LanePetsDbContext db, SessionService session
                 CriadoEm = usuario?.CriadoEm,
                 Status = string.IsNullOrWhiteSpace(cliente.Status) ? "ativo" : cliente.Status,
                 cliente.ReceberAvisos,   // 28/09: avisos de agendamento por e-mail
+                googleVinculado = (usuario?.GoogleSub ?? "").Length > 0,   // Tarefa 1: login com Google
+                temSenha = (usuario?.SenhaHash ?? "").Length > 0,           // conta criada pelo Google nasce sem senha
                 fidelidade = await FidelidadeService.CartaoAsync(db, config, cliente.Id),   // 29/09: cartao fidelidade
                 // A mesma projecao usada pelos endpoints de pet, para a tela
                 // receber sempre os mesmos nomes de campo — venha o pet da
@@ -600,6 +667,7 @@ public class ClientPortalController(LanePetsDbContext db, SessionService session
     private async Task<Cliente> Cliente() { var session = sessions.RequireClient(Token()); return await db.Clientes.FindAsync(session.AdminToken) ?? throw new UnauthorizedAccessException("Cliente não localizado."); }
     public record CadastroRequest(string? Nome, string? Email, string? Senha, string? Telefone, string? Endereco, string? Pet, string? Tipo, string? Raca);
     public record LoginRequest(string? Email, string? Senha);
+    public record GoogleLoginRequest(string? Credential, string? Senha);
     public record EsqueciSenhaRequest(string? Email);
     public record AvisosRequest(bool Receber);
     public record RedefinirSenhaRequest(string? Email, string? Codigo, string? NovaSenha, string? ConfirmarSenha);

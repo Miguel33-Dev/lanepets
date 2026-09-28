@@ -123,6 +123,129 @@
   if (location.hash === '#cadastro') mostrarPainel('cadastro');
   if (location.hash === '#recuperar') abrirRecuperacao('pedir');
 
+  /* ---------------------------------------------------------------------
+     Entrar com Google (Tarefa 1, 28/09)
+     O botão é o oficial do Google (Google Identity Services). Ele devolve um
+     ID token ("credential"); quem confere é o backend (POST /api/cliente/google).
+     - conta nova ou já vinculada -> sessão de sempre (lanePetsClienteToken);
+     - e-mail que já tem conta com senha -> painel "vincular", que manda o
+       MESMO credential de volta junto com a senha (nada fica guardado no
+       servidor nem no navegador além desta variável).
+     Sem Client ID no servidor, nada aparece e o login por senha segue igual.
+     --------------------------------------------------------------------- */
+  const formVincular = $('#form-vincular');
+  UI.ligarCampos(formVincular);
+  let credencialPendente = '';
+  let googlePronto = false;
+
+  function carregarScriptGoogle() {
+    if (window.google && window.google.accounts && window.google.accounts.id) return Promise.resolve();
+    return new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = 'https://accounts.google.com/gsi/client';
+      s.async = true; s.defer = true;
+      s.onload = () => resolve();
+      s.onerror = () => reject(new Error('Não foi possível carregar o botão do Google.'));
+      document.head.appendChild(s);
+    });
+  }
+
+  function desenharBotaoGoogle() {
+    if (!googlePronto) return;
+    const alvo = $('#google-botao');
+    const largura = Math.max(200, Math.min(400, Math.floor(($('#painel-login').clientWidth || 320))));
+    alvo.innerHTML = '';
+    google.accounts.id.renderButton(alvo, {
+      type: 'standard', theme: 'outline', size: 'large', shape: 'pill',
+      text: 'continue_with', logo_alignment: 'center', width: largura, locale: 'pt-BR'
+    });
+  }
+
+  async function iniciarGoogle() {
+    let cfg;
+    try { cfg = await LanePetsHttp.request('cliente/google/config'); }
+    catch (erro) { console.error('[LanePets] Configuração do login com Google indisponível:', erro); return; }
+    if (!cfg || !cfg.ativo || !cfg.clientId) return;   /* desligado no servidor: fica só o login por senha */
+    try {
+      await carregarScriptGoogle();
+      google.accounts.id.initialize({
+        client_id: cfg.clientId,
+        callback: resposta => entrarComGoogle(resposta && resposta.credential, ''),
+        ux_mode: 'popup',
+        auto_select: false,
+        cancel_on_tap_outside: true,
+        context: 'signin'
+      });
+      googlePronto = true;
+      $('#google-area').hidden = false;
+      desenharBotaoGoogle();
+    } catch (erro) {
+      console.error('[LanePets] Falha ao preparar o login com Google:', erro);
+    }
+  }
+
+  async function entrarComGoogle(credential, senha) {
+    const vinculando = !!senha;
+    const alertaId = vinculando ? '#vinc-aviso' : '#login-aviso';
+    UI.alerta('#login-aviso', ''); UI.alerta('#login-info', ''); UI.alerta('#vinc-aviso', '');
+    if (!credential) { UI.alerta('#login-aviso', 'O Google não devolveu a sua conta. Tente de novo.'); return; }
+    if (vinculando) UI.carregando('#vincular', true, 'Vinculando…');
+    let entrou = false;
+    try {
+      const d = await api('google', { method: 'POST', body: JSON.stringify({ credential, senha }) });
+      if (d.vincular) {
+        credencialPendente = credential;
+        mostrarPainel('vincular');
+        $('#vinc-email').textContent = d.email || '';
+        UI.limpar(formVincular);
+        $('#vinc-senha').value = '';
+        $('#vinc-senha').focus();
+        return;
+      }
+      token = d.token;
+      localStorage.setItem('lanePetsClienteToken', token);
+      credencialPendente = '';
+      entrou = true;
+      await abrir();
+      if (d.novo) toast('✓ Conta criada com o Google. Bem-vindo(a) à LanePets!');
+      else if (vinculando) toast('✓ Google vinculado. Da próxima vez é só entrar com ele.');
+    } catch (erro) {
+      console.error('[LanePets] Falha ao entrar com Google:', erro);
+      if (entrou) {
+        UI.alerta('#login-aviso', 'Você entrou, mas não foi possível carregar a conta: ' + (erro.message || 'erro desconhecido.'));
+      } else if (vinculando) {
+        UI.alerta('#vinc-aviso', erro.message || 'Não foi possível vincular.');
+        UI.erro($('#vinc-senha'), 'Confira a senha da sua conta LanePets.');
+        $('#vinc-senha').value = '';
+        $('#vinc-senha').focus();
+      } else {
+        UI.alerta(alertaId, erro.message || 'Não foi possível entrar com o Google.');
+      }
+    } finally {
+      if (vinculando) UI.carregando('#vincular', false);
+    }
+  }
+
+  formVincular.addEventListener('submit', event => {
+    event.preventDefault();
+    UI.limpar(formVincular);
+    const senha = $('#vinc-senha').value;
+    if (!senha) { UI.erro($('#vinc-senha'), 'Informe a senha da sua conta LanePets.'); return; }
+    if (!credencialPendente) { mostrarPainel('login'); UI.alerta('#login-aviso', 'Entre com o Google de novo para vincular.'); return; }
+    entrarComGoogle(credencialPendente, senha);
+  });
+  $('#vinc-voltar').addEventListener('click', e => { e.preventDefault(); credencialPendente = ''; mostrarPainel('login'); desenharBotaoGoogle(); });
+  $('#vinc-esqueci').addEventListener('click', e => {
+    e.preventDefault();
+    abrirRecuperacao('pedir');
+    const campo = document.querySelector('#painel-recuperar input[type=email]');
+    if (campo) campo.value = $('#vinc-email').textContent;
+  });
+  let redesenho = null;
+  window.addEventListener('resize', () => { clearTimeout(redesenho); redesenho = setTimeout(desenharBotaoGoogle, 250); });
+
+  iniciarGoogle();
+
   /* Medidor de força da senha ------------------------------------------- */
   /* Mesma regra do servidor (Services/Validacao.cs, item 13): 8+ caracteres,
      com pelo menos uma letra e um número. O servidor decide; isto é só aviso. */
@@ -531,6 +654,29 @@
   const texto = (seletor, valor) => { const el = $(seletor); if (el) el.textContent = valor; };
   const html = (seletor, valor) => { const el = $(seletor); if (el) el.innerHTML = valor; };
 
+  /* Tarefa 1: conta criada pelo Google nasce sem telefone e sem pet. O aviso
+     some sozinho quando os dois existem (abrir() redesenha depois de salvar). */
+  function renderCompletar() {
+    const caixa = $('#cc-completar');
+    if (!caixa) return;
+    const faltaTelefone = !String(conta.telefone || '').trim();
+    const faltaPet = !(conta.pets || []).length;
+    if (!faltaTelefone && !faltaPet) { caixa.hidden = true; caixa.innerHTML = ''; return; }
+    const falta = [faltaTelefone && 'seu telefone', faltaPet && 'o seu primeiro pet'].filter(Boolean).join(' e ');
+    caixa.innerHTML = `
+      <div><strong>Complete seu cadastro</strong><p>Falta ${falta} para você conseguir agendar atendimentos.</p></div>
+      <div class="cc-completar__acoes">
+        ${faltaTelefone ? '<button class="botao claro" type="button" data-completar="perfil">Informar telefone</button>' : ''}
+        ${faltaPet ? '<button class="botao primario" type="button" data-completar="pet">Cadastrar pet</button>' : ''}
+      </div>`;
+    caixa.hidden = false;
+  }
+  document.addEventListener('click', event => {
+    const b = event.target.closest('[data-completar]');
+    if (!b) return;
+    if (b.dataset.completar === 'perfil') abrirPerfil(); else abrirFluxoPet('novo');
+  });
+
   function renderPerfil() {
     const marca = iniciais(conta.nome);
     const primeiroNome = String(conta.nome || '').split(' ')[0] || 'Cliente';
@@ -546,9 +692,12 @@
       <div class="cc-dado"><dt>Cliente desde</dt><dd>${conta.criadoEm ? dataCurta(conta.criadoEm) : '—'}</dd></div>
       <div class="cc-dado"><dt>Status da conta</dt><dd>${selo(conta.status || 'ativo')}</dd></div>`;
     html('#cc-dados-2', campos);
+    // Tarefa 1: conta criada pelo Google nasce sem senha (temSenha=false); conta antiga sem o campo = tem senha.
+    const semSenha = conta.temSenha === false;
     html('#cc-acesso', `
       <div class="cc-dado"><dt>E-mail de acesso</dt><dd>${esc(conta.email) || '—'}</dd></div>
-      <div class="cc-dado"><dt>Senha</dt><dd>••••••••</dd></div>`);
+      <div class="cc-dado"><dt>Senha</dt><dd>${semSenha ? 'Ainda não criada — você entra com o Google' : '••••••••'}</dd></div>
+      <div class="cc-dado"><dt>Conta Google</dt><dd>${conta.googleVinculado ? 'Vinculada' : 'Não vinculada'}</dd></div>`);
     // 28/09: avisos por e-mail. Conta antiga sem o campo = ligado (o padrao do banco).
     $('#cc-receber-avisos').checked = conta.receberAvisos !== false;
   }
@@ -2945,6 +3094,7 @@
       exibirPortal(true);
 
       renderPerfil();
+      renderCompletar();
       renderResumo();
       renderProximo();
       renderFidelidade();
@@ -3356,6 +3506,10 @@
      As duas trocas pedem a senha atual; quem decide e o backend
      (PUT /api/cliente/conta/email e /conta/senha). */
   $('#cc-alterar-email').onclick = () => {
+    if (conta && conta.temSenha === false) {   /* Tarefa 1: conta só com Google */
+      toast('Sua conta entra pelo Google e ainda não tem senha. Para criar uma, saia e use “Esqueceu sua senha?” na tela de entrada.');
+      return;
+    }
     $('#em-novo').value = '';
     $('#em-senha').value = '';
     aviso('#em-msg', '');
@@ -3400,6 +3554,10 @@
   });
 
   $('#cc-alterar-senha').onclick = () => {
+    if (conta && conta.temSenha === false) {   /* Tarefa 1: conta só com Google */
+      toast('Sua conta entra pelo Google e ainda não tem senha. Para criar uma, saia e use “Esqueceu sua senha?” na tela de entrada.');
+      return;
+    }
     ['#sn-atual', '#sn-nova', '#sn-confirma'].forEach(id => { $(id).value = ''; });
     aviso('#sn-msg', '');
     $('#modal-senha').showModal();

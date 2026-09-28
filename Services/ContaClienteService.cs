@@ -71,7 +71,9 @@ public static class ContaClienteService
         }
         if (!SessionService.VerifyPassword(senha ?? "", user.SenhaHash, user.SenhaSalt))
         {
-            await aoRecusar(new("autenticacao", "Login de cliente recusado", user.ClienteId, email, "", "Senha incorreta."));
+            // Tarefa 1 (28/09): conta criada pelo Google nao tem senha — mesma resposta generica, motivo real no Log.
+            var motivo = user.SenhaHash.Length == 0 ? "Conta só com Google (sem senha definida)." : "Senha incorreta.";
+            await aoRecusar(new("autenticacao", "Login de cliente recusado", user.ClienteId, email, "", motivo));
             throw new Exception("E-mail ou senha inválidos.");
         }
         var cliente = await db.Clientes.FindAsync(user.ClienteId) ?? throw new Exception("Cadastro de cliente não localizado.");
