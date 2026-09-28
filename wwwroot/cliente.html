@@ -5,10 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="LanePets — banho, tosa, produtos e seguro para o seu pet em Franco da Rocha e Caieiras. Agende online.">
   <title>LanePets | Cuidado que aproxima</title>
-  <link rel="stylesheet" href="publico.css?v=11">
+  <link rel="stylesheet" href="publico.css?v=13">
 <script src="js/marca-unidades.js?v=1" defer></script>
 </head>
-<body>
+<body class="home">
 
 <header class="topo">
   <a class="marca" href="#inicio">
@@ -45,10 +45,21 @@
         <a class="botao primario" href="minha-conta.html#agendar">Agendar um serviço <b>→</b></a>
         <a class="botao claro" href="#servicos">Conhecer os serviços</a>
       </div>
+      <!-- 28/09: so recursos que o sistema tem de verdade (agenda online, leva e traz, retirada na unidade). -->
+      <ul class="hero-garantias">
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12.5 4.2 4.2L19 7"/></svg>Agende pelo site, a qualquer hora</li>
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12.5 4.2 4.2L19 7"/></svg>Leva e traz opcional</li>
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12.5 4.2 4.2L19 7"/></svg>Compre na lojinha e retire na unidade</li>
+      </ul>
+      <p class="hero-local"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21.5s7.5-6.6 7.5-12.4A7.5 7.5 0 0 0 4.5 9.1c0 5.8 7.5 12.4 7.5 12.4Z"/><circle cx="12" cy="9" r="2.6"/></svg><span data-unidades="extenso">Franco da Rocha e Caieiras</span></p>
     </div>
 
-    <div class="ilustracao" aria-hidden="true">
-      <svg viewBox="10 20 440 320" role="img">
+    <div class="ilustracao">
+      <!-- Cartoes flutuantes: o de nota e o de seguro so aparecem com dado real da API. -->
+      <div class="hero-chip hero-chip--agenda" aria-hidden="true"><span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4.5" width="18" height="16.5" rx="2.5"/><path d="M16 2.5v4M8 2.5v4M3 10h18"/><path d="m9 15 2 2 4-4"/></svg></span><div><strong>Agende online</strong><small>unidade, data e horário</small></div></div>
+      <div class="hero-chip hero-chip--nota" id="hero-nota" hidden><span><svg viewBox="0 0 24 24" fill="currentColor"><path d="m12 2.8 2.8 5.9 6.4.8-4.7 4.4 1.2 6.4L12 17.2l-5.7 3.1 1.2-6.4-4.7-4.4 6.4-.8Z"/></svg></span><div><strong></strong><small></small></div></div>
+      <div class="hero-chip hero-chip--seguro" id="hero-seguro" hidden><span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.8 4 6v6c0 4.6 3.4 8.2 8 9.2 4.6-1 8-4.6 8-9.2V6Z"/><path d="m9 12 2 2 4-4"/></svg></span><div><strong>Seguro pet</strong><small></small></div></div>
+      <svg viewBox="10 20 440 320" aria-hidden="true">
         <defs>
           <linearGradient id="lp-fundo" x1="0" y1="0" x2="1" y2="1">
             <stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#eef7dd"/>
@@ -108,9 +119,11 @@
   <!-- ====================== NÚMEROS ====================== -->
   <section class="numeros" aria-label="LanePets em números">
     <!-- Números reais (GET /api/public/numeros); sem dado o card fica escondido — nada inventado (§6.11). -->
-    <div data-numero="pets" hidden><strong></strong><span>pets atendidos</span></div>
-    <div data-numero="avaliacao" hidden><strong></strong><span>avaliação média das famílias</span></div>
-    <div><strong data-unidades="qtd">2 unidades</strong><span data-unidades="extenso">Franco da Rocha e Caieiras</span></div>
+    <div data-numero="pets" hidden><i aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M11 13.4c-3.1 0-5.6 2-5.6 4.4 0 1.5 1.4 2.2 2.8 1.7.85-.3 1.8-.45 2.8-.45s1.95.15 2.8.45c1.4.5 2.8-.2 2.8-1.7 0-2.4-2.5-4.4-5.6-4.4Z"/><circle cx="6.5" cy="9" r="2"/><circle cx="11" cy="6.3" r="2"/><circle cx="15.8" cy="9" r="2"/></svg></i><p><strong></strong><span>pets atendidos</span></p></div>
+    <div data-numero="avaliacao" hidden><i aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m12 2.8 2.8 5.9 6.4.8-4.7 4.4 1.2 6.4L12 17.2l-5.7 3.1 1.2-6.4-4.7-4.4 6.4-.8Z"/></svg></i><p><strong></strong><span>avaliação média das famílias</span></p></div>
+    <div data-numero="servicos" hidden><i aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="2.6"/><circle cx="6" cy="18" r="2.6"/><path d="M8.2 7.6 20 18M8.2 16.4 20 6"/></svg></i><p><strong></strong><span>serviços para o seu pet</span></p></div>
+    <div data-numero="produtos" hidden><i aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 9h14l-1.2 10.2A2 2 0 0 1 15.8 21H8.2a2 2 0 0 1-2-1.8Z"/><path d="M8.5 9V6.5a3.5 3.5 0 0 1 7 0V9"/></svg></i><p><strong></strong><span>produtos na lojinha</span></p></div>
+    <div><i aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21.5s7.5-6.6 7.5-12.4A7.5 7.5 0 0 0 4.5 9.1c0 5.8 7.5 12.4 7.5 12.4Z"/><circle cx="12" cy="9" r="2.6"/></svg></i><p><strong data-unidades="qtd">2 unidades</strong><span data-unidades="extenso">Franco da Rocha e Caieiras</span></p></div>
   </section>
 
   <!-- ====================== SERVIÇOS ====================== -->
@@ -118,7 +131,11 @@
     <p class="eyebrow">LanePets para você</p>
     <h2>Todo cuidado que seu pet precisa</h2>
     <p class="sub">Escolha o que faz sentido para a rotina do seu melhor amigo. Os valores variam conforme o porte e o pelo.</p>
-    <div id="lista-servicos" class="grade servicos"></div>
+    <!-- 28/09: os servicos vem agrupados por nome (um card com o preco de cada porte) e separados em abas.
+         Tudo sai de /api/public/servicos; as abas so existem para categorias que tem servico cadastrado. -->
+    <div class="srv-abas" id="servicos-abas" role="tablist" aria-label="Categorias de serviço"></div>
+    <div id="lista-servicos" class="grade servicos srv-grade"></div>
+    <p class="srv-nota">Valores de referência por porte. O valor final é confirmado no agendamento.</p>
   </section>
 
   <!-- ====================== PRODUTOS ====================== -->
@@ -151,6 +168,9 @@
     <p class="loja-contagem" id="lojaContagem"></p>
 
     <div id="lista-produtos" class="grade loja"></div>
+    <div class="loja-mais" id="loja-mais" hidden>
+      <button class="botao claro" type="button" id="loja-mais-botao">Ver mais produtos</button>
+    </div>
   </section>
 
   <!-- ====================== SEGURO ====================== -->
@@ -244,16 +264,14 @@
 
   <!-- ====================== SOBRE A LANEPETS ====================== -->
   <section id="sobre" class="sobre reveal">
-    <div class="sobre-media" aria-hidden="true">
-      <svg viewBox="0 0 200 200" role="img">
-        <circle cx="100" cy="100" r="96" fill="#eef7dd"/>
-        <circle cx="100" cy="100" r="96" fill="none" stroke="#cfe3ab" stroke-width="2" stroke-dasharray="4 8"/>
-        <path d="M60 128v-36a40 40 0 0 1 80 0v36Z" fill="#0a6b3a"/>
-        <circle cx="82" cy="104" r="6" fill="#eef7dd"/>
-        <circle cx="118" cy="104" r="6" fill="#eef7dd"/>
-        <path d="M90 120h20l-10 9Z" fill="#f6dd9a"/>
-        <path d="M66 92c-10-6-14-18-11-30 12 2 20 10 24 20Zm68 0c10-6 14-18 11-30-12 2-20 10-24 20Z" fill="#0a6b3a"/>
-      </svg>
+    <div class="sobre-painel">
+      <svg class="sobre-pata" viewBox="0 0 24 24" aria-hidden="true"><path d="M11 13.4c-3.1 0-5.6 2-5.6 4.4 0 1.5 1.4 2.2 2.8 1.7.85-.3 1.8-.45 2.8-.45s1.95.15 2.8.45c1.4.5 2.8-.2 2.8-1.7 0-2.4-2.5-4.4-5.6-4.4Z"/><circle cx="6.5" cy="9" r="2"/><circle cx="11" cy="6.3" r="2"/><circle cx="15.8" cy="9" r="2"/></svg>
+      <p class="eyebrow">Nosso jeito de cuidar</p>
+      <ul>
+        <li><i aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.6"/><path d="M4.8 20.5a7.2 7.2 0 0 1 14.4 0"/></svg></i><div><strong>Equipe treinada</strong><span>Cada atendimento conduzido com calma e atenção.</span></div></li>
+        <li><i aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20.8 8.6c0 6.2-8.8 11.4-8.8 11.4S3.2 14.8 3.2 8.6a4.9 4.9 0 0 1 8.8-2.9 4.9 4.9 0 0 1 8.8 2.9Z"/></svg></i><div><strong>Cada pet pelo nome</strong><span>E cada tutor tratado com transparência, do agendamento à entrega.</span></div></li>
+        <li><i aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4.5" y="3.5" width="15" height="17" rx="2.5"/><path d="M8.5 8.5h7M8.5 12.5h7M8.5 16.5h4"/></svg></i><div><strong>Tudo organizado</strong><span>Do estoque da lojinha às apólices de seguro.</span></div></li>
+      </ul>
     </div>
     <div class="sobre-texto">
       <p class="eyebrow">Quem somos</p>
@@ -267,19 +285,23 @@
   <section id="unidades" class="secao reveal">
     <p class="eyebrow">Onde estamos</p>
     <h2>Encontre uma unidade LanePets</h2>
-    <p class="sub">Duas unidades preparadas para receber você e o seu pet.</p>
+    <!-- O numero de unidades vem da API (js/publico.js), nunca escrito a mao (§6.11). -->
+    <p class="sub" id="unidades-sub">Unidades preparadas para receber você e o seu pet.</p>
     <div id="lista-unidades" class="grade unidades"></div>
-  </section>
 
-  <!-- ====================== CONTATO ====================== -->
-  <section id="contato" class="contato reveal">
-    <div class="contato-intro">
-      <p class="eyebrow">Fale com a gente</p>
-      <h2>Estamos por perto</h2>
-      <p>Use os canais das nossas unidades para tirar dúvidas, ou entre na sua conta para agendar, comprar e acompanhar tudo online.</p>
-      <a class="botao claro" href="minha-conta.html#agendar">Agendar atendimento</a>
+    <!-- CONTATO (29/09): antes era uma secao propria que repetia as mesmas unidades; agora e esta faixa.
+         O id "contato" continua aqui, entao o menu e o rodape ("Contato") trazem para ca. -->
+    <div id="contato" class="contato-faixa">
+      <div>
+        <p class="eyebrow">Fale com a gente</p>
+        <h3>Ficou com alguma dúvida?</h3>
+        <p>Ligue para a unidade mais perto de você ou entre na sua conta para agendar, comprar e acompanhar tudo online.</p>
+      </div>
+      <div class="contato-faixa__acoes">
+        <a class="botao primario" href="minha-conta.html#agendar">Agendar atendimento</a>
+        <a class="botao claro" href="minha-conta.html">Minha conta</a>
+      </div>
     </div>
-    <div id="lista-contato" class="contato-lista"></div>
   </section>
 
   <!-- ====================== CHAMADA FINAL ====================== -->
@@ -289,7 +311,10 @@
       <h2>Vamos cuidar do seu pet?</h2>
       <p>Crie sua conta, escolha o serviço e reserve o melhor horário em poucos cliques.</p>
     </div>
-    <a class="botao" href="minha-conta.html#agendar">Agendar agora <b>→</b></a>
+    <div class="cta-acoes">
+      <a class="botao primario" href="minha-conta.html#agendar">Agendar agora <b>→</b></a>
+      <a class="botao cta-sec" href="#servicos">Ver os serviços</a>
+    </div>
   </section>
 
 </main>
@@ -303,6 +328,7 @@
         <span>Lane<span>Pets</span><small data-unidades="curto">Franco + Caieiras</small></span>
       </a>
       <p>Banho, tosa, produtos e seguro pet com o cuidado que a sua família merece.</p>
+      <p class="rodape-local"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21.5s7.5-6.6 7.5-12.4A7.5 7.5 0 0 0 4.5 9.1c0 5.8 7.5 12.4 7.5 12.4Z"/><circle cx="12" cy="9" r="2.6"/></svg><span data-unidades="extenso">Franco da Rocha e Caieiras</span></p>
     </div>
     <div class="rodape-col">
       <h4>Navegação</h4>
@@ -391,6 +417,6 @@
   </form>
 </dialog>
 
-<script src="js/publico.js?v=11"></script>
+<script src="js/publico.js?v=13"></script>
 </body>
 </html>

@@ -22,7 +22,13 @@ public static class AgendamentosClienteService
 
     /// <summary>Dados que a tela manda para marcar um atendimento. Nao existe ClienteId aqui.</summary>
     public sealed record NovoAgendamento(string? PetId, string? ServicoId, string? Unidade, string? Data, string? Horario,
-        string? Transporte, string? FormaPagamento, string? Observacao);
+        string? Transporte, string? FormaPagamento, string? Observacao, IReadOnlyList<string>? ServicoIds = null);
+
+    /// <summary>29/09: quantos servicos cabem num agendamento so (ex.: banho + hidratacao + corte de unhas).</summary>
+    public const int MaximoServicos = 6;
+
+    /// <summary>Acentos gravados como texto ("Hidratação"), igual ao que o painel grava.</summary>
+    private static readonly System.Text.Json.JsonSerializerOptions JsonLegivel = new() { Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping };
 
     /// <summary>
     /// Item 4: agendamentos da conta com status no nome novo e o PRIMEIRO nome
@@ -76,22 +82,32 @@ public static class AgendamentosClienteService
     /// servico, unidade ativa, servico oferecido na unidade e capacidade do horario.
     /// Devolve o agendamento gravado e o servico (para o texto do evento).
     /// </summary>
-    public static async Task<(Agendamento Agendamento, Servico Servico)> CriarAsync(LanePetsDbContext db, Cliente cliente, NovoAgendamento dados)
+    public static async Task<(Agendamento Agendamento, IReadOnlyList<Servico> Servicos)> CriarAsync(LanePetsDbContext db, Cliente cliente, NovoAgendamento dados)
     {
         ContaClienteService.ExigirTelefone(cliente, "agendar");   // Tarefa 2: conta do Google sem telefone
         var pet = await db.Pets.FirstOrDefaultAsync(p => p.Id == dados.PetId && p.ClienteId == cliente.Id) ?? throw new Exception("Pet não localizado.");
-        var servico = await db.Servicos.FindAsync(dados.ServicoId) ?? throw new Exception("Serviço não localizado.");
+
+        // 29/09: um ou mais servicos no MESMO horario. ServicoIds (novo) tem prioridade; ServicoId (antigo) continua valendo.
+        var ids = (dados.ServicoIds is { Count: > 0 } lista ? lista : [dados.ServicoId ?? ""])
+            .Select(i => (i ?? "").Trim()).Where(i => i.Length > 0).Distinct().ToList();
+        if (ids.Count == 0) throw new Exception("Escolha pelo menos um serviço.");
+        if (ids.Count > MaximoServicos) throw new Exception($"Escolha no máximo {MaximoServicos} serviços por agendamento.");
+        var achados = await db.Servicos.Where(s => ids.Contains(s.Id)).ToListAsync();
+        if (achados.Count != ids.Count) throw new Exception("Serviço não localizado.");
+        var servicos = ids.Select(i => achados.First(s => s.Id == i)).ToList();   // na ordem escolhida
         if (!DateOnly.TryParse(dados.Data, out _) || !TimeOnly.TryParse(dados.Horario, out _) || string.IsNullOrWhiteSpace(dados.Unidade)) throw new Exception("Escolha unidade, data e horário válidos.");
         var dataHora = dados.Data + "T" + dados.Horario + ":00";
 
         // Item 5: unidade ativa, servico oferecido nela e capacidade do horario.
         var unidadeReg = await UnidadesRegras.AcharAsync(db, dados.Unidade);
         if (unidadeReg is null || !unidadeReg.Ativa) throw new Exception("Esta unidade não está disponível para agendamento. Escolha outra.");
-        if (!UnidadesRegras.OfereceServico(unidadeReg, servico.Id)) throw new Exception($"{servico.Nome} não é oferecido na unidade {unidadeReg.Nome}.");
+        foreach (var servico in servicos)
+            if (!UnidadesRegras.OfereceServico(unidadeReg, servico.Id)) throw new Exception($"{servico.Nome} não é oferecido na unidade {unidadeReg.Nome}.");
         if (await UnidadesRegras.OcupadosAsync(db, unidadeReg.Id, dataHora) >= UnidadesRegras.CapacidadeDe(unidadeReg))
             throw new Exception("Este horário acabou de ser ocupado. Escolha outro horário.");
 
-        var total = servico.Preco
+        var somaServicos = servicos.Sum(s => s.Preco);
+        var total = somaServicos
             + (dados.Transporte?.Contains("Busca", StringComparison.OrdinalIgnoreCase) == true ? TaxaTransporte : 0m)
             + (dados.Transporte?.Contains("Entrega", StringComparison.OrdinalIgnoreCase) == true ? TaxaTransporte : 0m);
 
@@ -104,10 +120,10 @@ public static class AgendamentosClienteService
             Dono = cliente.Nome,
             Telefone = cliente.Telefone,
             DataHora = dataHora,
-            ServicosJson = $"[{{\"id\":\"{servico.Id}\",\"nome\":\"{servico.Nome.Replace("\"", "")}\"}}]",
+            ServicosJson = System.Text.Json.JsonSerializer.Serialize(servicos.Select(s => new { id = s.Id, nome = s.Nome, preco = s.Preco }), JsonLegivel),
             Total = total,
             Transporte = dados.Transporte ?? "Cliente leva",
-            ValorTransporte = total - servico.Preco,
+            ValorTransporte = total - somaServicos,
             // 29/09: unidade com confirmacao automatica -> ja nasce Confirmado (a capacidade acabou de ser conferida).
             Status = unidadeReg.ConfirmacaoAutomatica ? StatusAgendamento.Confirmado : StatusAgendamento.Solicitado,
             PagamentoStatus = "Pendente",
@@ -118,7 +134,7 @@ public static class AgendamentosClienteService
         db.Agendamentos.Add(agendamento);
         await db.SaveChangesAsync();
         await PagamentosService.ReconciliarAsync(db);
-        return (agendamento, servico);
+        return (agendamento, servicos);
     }
 
     /// <summary>

@@ -1448,6 +1448,7 @@
   let agFiltro = 'todos';
   let agFiltroPet = '';
   let agFiltroUnidade = '';
+  let agBusca = '';
   let agEstado = 'pronto';     /* 'carregando' | 'pronto' | 'erro' */
 
   const contarGrupo = chave => (conta && conta.agendamentos ? conta.agendamentos.filter(GRUPOS[chave].teste).length : 0);
@@ -1458,6 +1459,11 @@
       .filter(GRUPOS[agFiltro].teste)
       .filter(a => !agFiltroPet || a.petId === agFiltroPet)
       .filter(a => !agFiltroUnidade || String(a.unidade || '') === agFiltroUnidade)
+      .filter(a => {
+        const termo = agBusca.trim().toLowerCase();
+        if (!termo) return true;
+        return [a.pet, servicosDo(a), a.unidade, statusAg(a), a.formaPagamento].join(' ').toLowerCase().includes(termo);
+      })
       .slice()
       .sort((a, b) => quandoMs(b) - quandoMs(a));
   }
@@ -1469,22 +1475,130 @@
   function renderResumoAgenda() {
     const alvo = $('#ag-resumo');
     if (!alvo) return;
+    const lista = conta.agendamentos || [];
     const proximos = contarGrupo('proximos');
     const hoje = contarGrupo('hoje');
-    const concluidos = contarGrupo('concluidos');
-    const cancelados = contarGrupo('cancelados');
-    alvo.innerHTML = [
-      metrica({ icone: ICO_AG.calendario, rotulo: 'Próximos', valor: proximos,
-        nota: proximos === 1 ? '1 agendamento por vir' : `${proximos} agendamentos por vir` }),
-      metrica({ icone: ICO_AG.relogio, rotulo: 'Hoje', valor: hoje, acento: true,
-        nota: hoje === 1 ? '1 atendimento hoje' : `${hoje} atendimentos hoje` }),
-      metrica({ icone: ICO_AG.check, rotulo: 'Concluídos', valor: concluidos, ok: true,
-        nota: concluidos === 1 ? '1 atendimento concluído' : `${concluidos} atendimentos concluídos` }),
-      metrica({ icone: ICO_AG.alerta, rotulo: 'Cancelados', valor: cancelados,
-        nota: cancelados === 1 ? '1 agendamento cancelado' : `${cancelados} agendamentos cancelados` })
-    ].join('');
-    const cartoes = alvo.querySelectorAll('.cc-metrica');
-    if (cartoes[3]) cartoes[3].classList.add('cc-metrica--erro');
+    const concluidos = lista.filter(ehConcluido);
+    const investido = concluidos.reduce((t, a) => t + Number(a.total || 0), 0);
+    const tile = (rotulo, valor, nota, destaque) => `
+      <div class="pdx-resumo__item${destaque ? ' pdx-resumo__item--destaque' : ''}">
+        <span>${rotulo}</span><strong>${valor}</strong><small>${nota}</small>
+      </div>`;
+    alvo.innerHTML = lista.length ? [
+      tile('Próximos', proximos, proximos === 1 ? 'atendimento marcado' : 'atendimentos marcados', true),
+      tile('Hoje', hoje, hoje === 1 ? 'atendimento no dia' : 'atendimentos no dia'),
+      tile('Concluídos', concluidos.length, concluidos.length === 1 ? 'atendimento feito' : 'atendimentos feitos'),
+      tile('Total em serviços', brl(investido), 'somando os concluídos')
+    ].join('') : '';
+  }
+
+  /* --------------------------------------------------------------------
+     28/09: destaque do proximo atendimento — o que o cliente mais procura
+     ao abrir a tela. So entra o que nao foi cancelado nem concluido.
+     -------------------------------------------------------------------- */
+  const PASSOS_AG = ['Solicitado', 'Confirmado', 'Em andamento', 'Concluído'];
+  const DIAS_SEMANA = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
+  const MESES_CURTOS = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
+  const MESES_LONGOS = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+
+  const diasAte = a => {
+    const d = new Date(a.dataHora);
+    if (isNaN(d)) return null;
+    const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
+    const alvo = new Date(d); alvo.setHours(0, 0, 0, 0);
+    return Math.round((alvo - hoje) / 86400000);
+  };
+  function quandoTexto(a) {
+    const n = diasAte(a);
+    const hora = horaDe(a.dataHora);
+    if (n === null) return 'Data a confirmar';
+    if (n === 0) return `Hoje às ${hora}`;
+    if (n === 1) return `Amanhã às ${hora}`;
+    if (n > 1) return `Em ${n} dias · ${DIAS_SEMANA[new Date(a.dataHora).getDay()]}, ${dataCurta(a.dataHora).slice(0, 5)} às ${hora}`;
+    return `${dataCurta(a.dataHora)} às ${hora}`;
+  }
+  const listaServicos = a => {
+    try {
+      const l = JSON.parse(a.servicosJson || '[]').map(x => x && x.nome).filter(Boolean);
+      return l.length ? l : [servicosDo(a)];
+    } catch (_) { return [servicosDo(a)]; }
+  };
+  const chipsServicos = a => `<div class="agx-servicos">${listaServicos(a).map(n => `<span>${esc(n)}</span>`).join('')}</div>`;
+
+  function blocoData(a, grande) {
+    const d = new Date(a.dataHora);
+    if (isNaN(d)) return '<div class="agx-data"><strong>—</strong></div>';
+    return `<div class="agx-data${grande ? ' agx-data--grande' : ''}">
+      <small>${DIAS_SEMANA[d.getDay()]}</small>
+      <strong>${String(d.getDate()).padStart(2, '0')}</strong>
+      <small>${MESES_CURTOS[d.getMonth()]}</small>
+      <em>${esc(horaDe(a.dataHora))}</em>
+    </div>`;
+  }
+
+  function trilhaAgendamento(a) {
+    if (ehCancelado(a)) return '<div class="agx-trilha agx-trilha--cancelada">Atendimento cancelado</div>';
+    const atual = Math.max(0, PASSOS_AG.indexOf(statusAg(a)));
+    return `<ol class="agx-trilha" aria-label="Andamento: ${esc(statusAg(a))}">
+      ${PASSOS_AG.map((p, i) => `<li class="${i < atual ? 'is-feito' : i === atual ? 'is-atual' : ''}"><i></i><span>${p}</span></li>`).join('')}
+    </ol>`;
+  }
+
+  function proximoDaAgenda() {
+    return (conta.agendamentos || [])
+      .filter(a => !ehCancelado(a) && !ehConcluido(a) && (quandoMs(a) >= Date.now() || soData(a.dataHora) === hojeISO() || statusAg(a) === 'Em andamento'))
+      .sort((a, b) => quandoMs(a) - quandoMs(b))[0] || null;
+  }
+
+  function renderDestaqueAgenda() {
+    const alvo = $('#agx-destaque');
+    if (!alvo) return;
+    const lista = conta.agendamentos || [];
+    if (!lista.length) { alvo.innerHTML = ''; return; }
+    const a = proximoDaAgenda();
+    if (!a) {
+      const ultimo = lista.filter(ehConcluido).sort((x, y) => quandoMs(y) - quandoMs(x))[0];
+      alvo.innerHTML = `
+        <div class="agx-destaque__vazio">
+          <span class="agx-destaque__ico">${ico(ICO_AG.calendario, 26)}</span>
+          <div>
+            <p class="agx-rotulo">Próximo atendimento</p>
+            <h3>Nenhum horário marcado</h3>
+            <p>${ultimo ? `O último foi ${esc(servicosDo(ultimo))} de ${esc(ultimo.pet || 'seu pet')}, em ${dataCurta(ultimo.dataHora)}.` : 'Escolha o serviço, a unidade e o melhor horário em poucos passos.'}</p>
+          </div>
+          <button class="botao primario" type="button" data-ag-novo>${ico('<path d="M12 5v14M5 12h14"/>', 16)} Agendar agora</button>
+        </div>`;
+      return;
+    }
+    const pet = petDoAgendamento(a);
+    const unidade = unidadePorNome(a.unidade);
+    alvo.innerHTML = `
+      <article class="agx-destaque__card" data-tom="${tomDe(a)}">
+        ${blocoData(a, true)}
+        <div class="agx-destaque__corpo">
+          <p class="agx-rotulo">Próximo atendimento · <b>${esc(quandoTexto(a))}</b></p>
+          <div class="agx-destaque__pet">
+            ${retratoAgendamento(a, pet)}
+            <div><h3>${esc(a.pet || (pet ? pet.petNome : 'Pet'))}</h3>${selo(statusAg(a))}</div>
+          </div>
+          ${chipsServicos(a)}
+          <div class="agx-meta">
+            <span>${ico(ICO_AG.local, 15)} ${esc(a.unidade || 'Unidade a confirmar')}${unidade && unidade.endereco ? ' — ' + esc(unidade.endereco) : ''}</span>
+            <span>${ico(ICO_AG.carro, 15)} ${esc(a.transporte || 'Cliente leva')}</span>
+            ${responsavelDe(a) ? `<span>${ico(ICO.pessoa, 15)} Atendimento com ${esc(responsavelDe(a))}</span>` : ''}
+          </div>
+          ${trilhaAgendamento(a)}
+        </div>
+        <div class="agx-destaque__fim">
+          <span class="agx-rotulo">Total</span>
+          <strong>${brl(a.total)}</strong>
+          <small>${esc(a.formaPagamento || 'A combinar')}</small>
+          <div class="agx-acoes">
+            <button class="botao primario" type="button" data-ag-ver="${esc(a.id)}">Ver detalhes</button>
+            ${cancelavel(a) ? `<button class="botao claro agx-cancelar" type="button" data-cancelar="${esc(a.id)}">Cancelar</button>` : ''}
+          </div>
+        </div>
+      </article>`;
   }
 
   /* --------------------------------------------------------------------
@@ -1541,32 +1655,49 @@
     const hoje = soData(a.dataHora) === hojeISO() && !ehCancelado(a);
     const unidade = unidadePorNome(a.unidade);
     return `
-      <article class="ag-card${ehCancelado(a) ? ' ag-card--cancelado' : ''}" data-tom="${tomDe(a)}">
-        ${retratoAgendamento(a, pet)}
-        <div>
-          <div class="ag-card__topo">
-            <h3 class="ag-card__pet">${esc(a.pet || (pet ? pet.petNome : 'Pet'))}</h3>
+      <article class="agx-card${ehCancelado(a) ? ' agx-card--cancelado' : ''}" data-tom="${tomDe(a)}">
+        ${blocoData(a)}
+        <div class="agx-card__corpo">
+          <div class="agx-card__topo">
+            ${retratoAgendamento(a, pet)}
+            <h3>${esc(a.pet || (pet ? pet.petNome : 'Pet'))}</h3>
             ${hoje ? '<span class="ag-hoje">Hoje</span>' : ''}
             ${selo(statusAg(a))}
           </div>
-          <div class="ag-card__servico">${esc(servicosDo(a))}${responsavelDe(a) ? ` <span class="ag-card__resp">· Atendimento com ${esc(responsavelDe(a))}</span>` : ''}</div>
-          <div class="ag-card__meta">
-            <span>${ico(ICO_AG.calendario, 15)} ${dataCurta(a.dataHora)}</span>
-            <span>${ico(ICO_AG.relogio, 15)} ${esc(horaDe(a.dataHora))}</span>
+          ${chipsServicos(a)}
+          <div class="agx-meta">
             <span>${ico(ICO_AG.local, 15)} ${esc(a.unidade || 'Unidade a confirmar')}${unidade && unidade.endereco ? ' — ' + esc(unidade.endereco) : ''}</span>
             <span>${ico(ICO_AG.carro, 15)} ${esc(a.transporte || 'Cliente leva')}</span>
             <span>${ico(ICO_AG.cartao, 15)} ${esc(a.formaPagamento || 'A combinar')}</span>
+            ${responsavelDe(a) ? `<span>${ico(ICO.pessoa, 15)} ${esc(responsavelDe(a))}</span>` : ''}
           </div>
           ${a.obs ? `<p class="ag-card__obs">${esc(a.obs)}</p>` : ''}
         </div>
-        <div class="ag-card__fim">
-          <span class="ag-card__valor">${brl(a.total)}</span>
-          <div class="ag-card__acoes">
-            <button class="botao claro" type="button" data-ag-ver="${esc(a.id)}">Ver detalhes</button>
-            ${cancelavel(a) ? `<button class="botao claro" type="button" data-cancelar="${esc(a.id)}">Cancelar</button>` : ''}
+        <div class="agx-card__fim">
+          <strong class="agx-card__valor">${brl(a.total)}</strong>
+          <div class="agx-acoes">
+            <button class="botao claro" type="button" data-ag-ver="${esc(a.id)}">Detalhes</button>
+            ${cancelavel(a) ? `<button class="botao claro agx-cancelar" type="button" data-cancelar="${esc(a.id)}">Cancelar</button>` : ''}
           </div>
         </div>
       </article>`;
+  }
+
+  /* Lista agrupada por mes ("Setembro de 2026"), na ordem que ja vem filtrada. */
+  function listaPorMes(lista) {
+    const grupos = [];
+    for (const a of lista) {
+      const d = new Date(a.dataHora);
+      const chave = isNaN(d) ? 'sem-data' : `${d.getFullYear()}-${d.getMonth()}`;
+      let g = grupos.find(x => x.chave === chave);
+      if (!g) grupos.push(g = { chave, titulo: isNaN(d) ? 'Sem data' : `${MESES_LONGOS[d.getMonth()]} de ${d.getFullYear()}`, itens: [] });
+      g.itens.push(a);
+    }
+    return grupos.map(g => `
+      <div class="agx-mes">
+        <h4 class="agx-mes__titulo">${g.titulo}<span>${g.itens.length} ${g.itens.length === 1 ? 'atendimento' : 'atendimentos'}</span></h4>
+        <div class="agx-lista">${g.itens.map(cardAgendamento).join('')}</div>
+      </div>`).join('');
   }
 
   const SKELETON_AGENDA = `
@@ -1600,6 +1731,7 @@
     }
 
     renderResumoAgenda();
+    renderDestaqueAgenda();
     renderFiltros();
 
     const lista = agendamentosFiltrados();
@@ -1616,7 +1748,7 @@
         '<button class="botao claro" type="button" data-ag-limpar>Limpar filtros</button>');
       return;
     }
-    alvo.innerHTML = `<div class="ag-lista">${lista.map(cardAgendamento).join('')}</div>`;
+    alvo.innerHTML = listaPorMes(lista);
   }
 
   /* --------------------------------------------------------------------
@@ -1766,6 +1898,14 @@
     { valor: 'Busca e entrega',             rotulo: 'Busca e entrega',          meta: 'R$ 30,00 no total',     extra: 30 }
   ];
   const PAGAMENTOS_AG = ['Pix', 'Cartão', 'Dinheiro', 'A combinar'];
+  /* 29/09: etapa de pagamento com cara nova — icone e explicacao por forma (o valor enviado continua o nome). */
+  const PAGAMENTO_INFO = {
+    'Pix':        { nota: 'Na unidade, pelo QR code', ico: '<path d="M12 3.2 20.8 12 12 20.8 3.2 12Z"/><path d="M8.6 12 12 8.6 15.4 12 12 15.4Z"/>' },
+    'Cartão':     { nota: 'Crédito ou débito na maquininha', ico: '<rect x="2.8" y="5.5" width="18.4" height="13" rx="2.4"/><path d="M2.8 10h18.4"/><path d="M6.5 14.8h4"/>' },
+    'Dinheiro':   { nota: 'Pago na unidade, com troco', ico: '<rect x="2.8" y="6.5" width="18.4" height="11" rx="2"/><circle cx="12" cy="12" r="2.6"/><path d="M6 9.5v5M18 9.5v5"/>' },
+    'A combinar': { nota: 'Você decide com a equipe', ico: '<path d="M4 7.5h11a4 4 0 0 1 4 4v0a4 4 0 0 1-4 4h-2l-4 3.5v-3.5H8a4 4 0 0 1-4-4Z"/><path d="M8.5 11.5h.01M12 11.5h.01M15.5 11.5h.01"/>' }
+  };
+  const SUGESTOES_OBS = ['Primeira vez na LanePets', 'Pet medroso', 'Pele sensível', 'Tem alergia', 'Pode ficar agitado', 'Prefere banho morno'];
 
   const ETAPAS_AG = [
     { id: 'pet',        rotulo: 'Pet' },
@@ -1791,7 +1931,7 @@
     agFluxo = {
       etapa: 0,
       petId: conta.pets.length === 1 ? conta.pets[0].id : '',
-      servicoId: '',
+      servicoIds: [],            /* 29/09: um ou mais servicos no mesmo horario */
       unidade: unidades.length === 1 ? unidades[0].nome : '',
       data: '',
       horario: '',
@@ -1809,22 +1949,37 @@
   }
 
   const etapaAtualAg = () => ETAPAS_AG[agFluxo.etapa];
-  const servicoEscolhido = () => ((catalogo && catalogo.servicos) || []).find(s => String(s.id) === String(agFluxo.servicoId)) || null;
+  const MAX_SERVICOS_AG = 6;   /* mesmo limite do servidor (AgendamentosClienteService.MaximoServicos) */
+  const servicosEscolhidos = () => {
+    const todos = (catalogo && catalogo.servicos) || [];
+    return agFluxo.servicoIds.map(id => todos.find(s => String(s.id) === String(id))).filter(Boolean);
+  };
+  const somaServicosAg = () => servicosEscolhidos().reduce((t, s) => t + Number(s.preco || 0), 0);
   const unidadeEscolhida = () => unidadePorNome(agFluxo.unidade);
   /* Item 5 do roadmap: cada unidade pode oferecer so parte dos servicos.
      Lista vazia = oferece todos (padrao das unidades antigas). */
-  const unidadeOferece = (u, servicoId) => {
+  const unidadeOferece = (u, servicoIds) => {
     const lista = (u && Array.isArray(u.servicos)) ? u.servicos : [];
-    return !servicoId || !lista.length || lista.map(String).includes(String(servicoId));
+    const ids = Array.isArray(servicoIds) ? servicoIds : (servicoIds ? [servicoIds] : []);
+    return !ids.length || !lista.length || ids.every(id => lista.map(String).includes(String(id)));
   };
   const algumaUnidadeOferece = servicoId =>
     ((catalogo && catalogo.unidades) || []).some(u => unidadeOferece(u, servicoId));
   const petDoFluxoAg = () => (conta.pets || []).find(p => p.id === agFluxo.petId) || null;
   const extraTransporte = () => (TRANSPORTES.find(t => t.valor === agFluxo.transporte) || TRANSPORTES[0]).extra;
-  const totalAg = () => {
-    const s = servicoEscolhido();
-    return (s ? Number(s.preco || 0) : 0) + extraTransporte();
-  };
+  const totalAg = () => somaServicosAg() + extraTransporte();
+
+  /* 29/09: resumo fixo ao lado dos botoes (a barra de acoes fica presa no rodape do modal,
+     entao "Continuar" aparece sem rolar). Na etapa de servicos mostra quantos e quanto. */
+  function pintarResumoAg() {
+    const alvo = $('#aw-resumo');
+    if (!alvo) return;
+    const n = agFluxo && !agFluxo.concluido ? agFluxo.servicoIds.length : 0;
+    alvo.innerHTML = n
+      ? `<strong>${n} serviço${n > 1 ? 's' : ''}</strong><span>${brl(somaServicosAg())}</span>`
+      : '';
+    alvo.hidden = !n;
+  }
 
   function pintarEtapaAgenda() {
     if (!agFluxo) return;
@@ -1865,8 +2020,10 @@
       b.style.display = agFluxo.concluido ? 'none' : '';
     });
     aviso('#aw-msg', '');
+    pintarResumoAg();
     const corpo = $('#modal-agendar .cc-modal__corpo');
-    if (corpo) corpo.scrollTop = 0;
+    if (corpo && !agFluxo.manterRolagem) corpo.scrollTop = 0;
+    agFluxo.manterRolagem = false;
   }
 
   /* Corpos de cada etapa ------------------------------------------------- */
@@ -1891,11 +2048,11 @@
       const servicos = (catalogo && catalogo.servicos) || [];
       if (!servicos.length) return '<p class="ag-aviso ag-aviso--alerta">Nenhum serviço disponível no momento. Fale com a equipe LanePets.</p>';
       return `
-        <div class="cc-etapa__titulo">Escolha o serviço</div>
-        <p class="ag-aviso">Serviços e preços cadastrados pela equipe LanePets.</p>
-        <div class="ag-escolhas">
-          ${servicos.map(s => { const livre = algumaUnidadeOferece(s.id); return `
-            <button type="button" class="ag-escolha${String(agFluxo.servicoId) === String(s.id) ? ' is-ativa' : ''}" data-ag-servico="${esc(String(s.id))}"${livre ? '' : ' disabled aria-disabled="true" style="opacity:.55;cursor:not-allowed"'}>
+        <div class="cc-etapa__titulo">Escolha os serviços</div>
+        <p class="ag-aviso">Pode marcar mais de um — todos acontecem no mesmo horário. Toque de novo para desmarcar.</p>
+        <div class="ag-escolhas ag-escolhas--multi">
+          ${servicos.map(s => { const livre = algumaUnidadeOferece(s.id); const on = agFluxo.servicoIds.map(String).includes(String(s.id)); return `
+            <button type="button" class="ag-escolha ag-escolha--check${on ? ' is-ativa' : ''}" aria-pressed="${on}" data-ag-servico="${esc(String(s.id))}"${livre ? '' : ' disabled aria-disabled="true" style="opacity:.55;cursor:not-allowed"'}>
               <span class="ag-escolha__ico">${ico(ICO_AG.servico, 20)}</span>
               <span>
                 <span class="ag-escolha__nome">${esc(s.nome)}</span>
@@ -1914,12 +2071,12 @@
         <div class="cc-etapa__titulo">Escolha a unidade</div>
         <p class="ag-aviso">Onde o atendimento vai acontecer.</p>
         <div class="ag-escolhas ag-escolhas--largas">
-          ${unidades.map(u => { const atende = unidadeOferece(u, agFluxo.servicoId); return `
+          ${unidades.map(u => { const atende = unidadeOferece(u, agFluxo.servicoIds); return `
             <button type="button" class="ag-escolha${agFluxo.unidade === u.nome ? ' is-ativa' : ''}" data-ag-unidade="${esc(u.nome)}"${atende ? '' : ' disabled aria-disabled="true" style="opacity:.55;cursor:not-allowed"'}>
               <span class="ag-escolha__ico">${ico(ICO_AG.local, 20)}</span>
               <span>
                 <span class="ag-escolha__nome">${esc(u.nome)}</span>
-                ${atende ? '' : '<span class="ag-escolha__meta">Não oferece o serviço escolhido</span>'}
+                ${atende ? '' : `<span class="ag-escolha__meta">Não oferece ${agFluxo.servicoIds.length > 1 ? 'todos os serviços escolhidos' : 'o serviço escolhido'}</span>`}
                 ${u.endereco ? `<span class="ag-escolha__meta">${esc(u.endereco)}</span>` : ''}
                 ${u.confirmacaoAutomatica ? '<span class="ag-escolha__meta" style="display:block;margin-top:4px;color:var(--verde);font-weight:700">✓ Confirmação na hora</span>' : ''}
                 ${u.telefone ? `<span class="ag-escolha__meta">${esc(u.telefone)}</span>` : ''}
@@ -1954,30 +2111,49 @@
           </button>`).join('')}
       </div>`,
 
-    pagamento: () => `
-      <div class="cc-etapa__titulo">Forma de pagamento</div>
-      <p class="ag-aviso">O pagamento é combinado com a equipe no atendimento — nada é cobrado por aqui.</p>
-      <div class="ag-escolhas">
-        ${PAGAMENTOS_AG.map(p => `
-          <button type="button" class="ag-escolha${agFluxo.pagamento === p ? ' is-ativa' : ''}" data-ag-pagamento="${esc(p)}">
-            <span class="ag-escolha__ico">${ico(ICO_AG.cartao, 20)}</span>
-            <span><span class="ag-escolha__nome">${esc(p)}</span></span>
-          </button>`).join('')}
+    pagamento: () => {
+      const pet = petDoFluxoAg();
+      return `
+      <div class="cc-etapa__titulo">Como você prefere pagar?</div>
+      <div class="pg-aviso">
+        ${ico(ICO_AG.check, 18)}
+        <span><strong>Nada é cobrado agora.</strong> Você paga na unidade, no dia do atendimento — a forma escolhida só ajuda a equipe a se preparar.</span>
       </div>
-      <div class="cc-campo">
-        <label for="aw-obs">Observação (opcional)</label>
-        <textarea id="aw-obs" rows="3" maxlength="400" placeholder="Algo que a equipe precisa saber sobre o seu pet?">${esc(agFluxo.observacao)}</textarea>
-      </div>`,
+      <div class="pg-opcoes" role="radiogroup" aria-label="Forma de pagamento">
+        ${PAGAMENTOS_AG.map(p => { const on = agFluxo.pagamento === p; const info = PAGAMENTO_INFO[p] || { nota: '', ico: ICO_AG.cartao }; return `
+          <button type="button" class="pg-opcao${on ? ' is-ativa' : ''}" role="radio" aria-checked="${on}" data-ag-pagamento="${esc(p)}">
+            <span class="pg-opcao__radio" aria-hidden="true"></span>
+            <span class="pg-opcao__ico">${ico(info.ico, 24)}</span>
+            <span class="pg-opcao__nome">${esc(p)}</span>
+            <span class="pg-opcao__nota">${esc(info.nota)}</span>
+          </button>`; }).join('')}
+      </div>
+      <div class="pg-valor">
+        <span>Valor a pagar no atendimento</span>
+        <strong>${brl(totalAg())}</strong>
+      </div>
+
+      <div class="pg-obs">
+        <label class="pg-obs__rotulo" for="aw-obs">Algo que a equipe precisa saber${pet ? ` sobre ${esc(pet.petNome)}` : ''}? <small>(opcional)</small></label>
+        <div class="pg-sugestoes" id="aw-obs-sugestoes">
+          ${SUGESTOES_OBS.map(t => `<button type="button" data-obs-sugestao="${esc(t)}"${agFluxo.observacao.toLowerCase().includes(t.toLowerCase()) ? ' class="is-usada"' : ''}>${esc(t)}</button>`).join('')}
+        </div>
+        <textarea id="aw-obs" rows="3" maxlength="400" placeholder="Ex.: tem medo do secador, usa coleira especial, alergia a algum produto…">${esc(agFluxo.observacao)}</textarea>
+        <span class="pg-obs__contagem" id="aw-obs-contagem">${agFluxo.observacao.length}/400</span>
+      </div>`;
+    },
 
     revisao: () => {
-      const s = servicoEscolhido();
+      const lista = servicosEscolhidos();
       const u = unidadeEscolhida();
       const p = petDoFluxoAg();
       return `
         <div class="cc-etapa__titulo">Confira seu agendamento</div>
         <div class="cc-resumo-bloco">
           ${linhaResumo('Pet', esc(p ? p.petNome : '—'))}
-          ${linhaResumo('Serviço', esc(s ? s.nome : '—'))}
+          ${lista.length > 1
+            ? lista.map((s, i) => linhaResumo(i === 0 ? 'Serviços' : '', `${esc(s.nome)}${s.porte ? ` <small>(${esc(s.porte)})</small>` : ''} · ${brl(s.preco)}`)).join('')
+            : linhaResumo('Serviço', esc(lista[0] ? lista[0].nome : '—'))}
           ${linhaResumo('Unidade', esc(u ? u.nome : agFluxo.unidade || '—'))}
           ${u && u.endereco ? linhaResumo('Endereço', esc(u.endereco)) : ''}
           ${linhaResumo('Data', dataCurta(agFluxo.data + 'T12:00:00'))}
@@ -2070,7 +2246,20 @@
   function ligarEtapaAg(id) {
     if (id === 'pagamento') {
       const campo = $('#aw-obs');
-      if (campo) campo.oninput = () => { agFluxo.observacao = campo.value; };
+      const contagem = () => { const c = $('#aw-obs-contagem'); if (c) c.textContent = `${campo.value.length}/400`; };
+      if (campo) campo.oninput = () => { agFluxo.observacao = campo.value; contagem(); };
+      const sugestoes = $('#aw-obs-sugestoes');
+      if (sugestoes) sugestoes.onclick = event => {
+        const b = event.target.closest('[data-obs-sugestao]');
+        if (!b || !campo) return;
+        const frase = b.dataset.obsSugestao;
+        const atual = campo.value.trim();
+        if (atual.toLowerCase().includes(frase.toLowerCase())) return;
+        const novo = atual ? `${atual.replace(/[.!]?$/, '.')} ${frase}.` : `${frase}.`;
+        if (novo.length > 400) return;
+        campo.value = novo; agFluxo.observacao = novo;
+        b.classList.add('is-usada'); contagem(); campo.focus();
+      };
     }
   }
 
@@ -2100,9 +2289,13 @@
 
     if (d.agPet !== undefined)             { agFluxo.petId = d.agPet; }
     else if (d.agServico !== undefined)    {
-      agFluxo.servicoId = d.agServico;
+      const ids = agFluxo.servicoIds;
+      const i = ids.map(String).indexOf(String(d.agServico));
+      if (i >= 0) ids.splice(i, 1);
+      else if (ids.length >= MAX_SERVICOS_AG) { toast(`Escolha no máximo ${MAX_SERVICOS_AG} serviços por agendamento.`); return; }
+      else ids.push(d.agServico);
       const u = unidadeEscolhida();
-      if (u && !unidadeOferece(u, agFluxo.servicoId)) {
+      if (u && !unidadeOferece(u, agFluxo.servicoIds)) {
         agFluxo.unidade = ''; agFluxo.data = ''; agFluxo.horario = ''; agFluxo.horariosLivres = null;
       }
     }
@@ -2122,6 +2315,7 @@
     else if (d.agDia !== undefined) { agFluxo.data = d.agDia; await carregarHorariosAg(); return; }
     else if (d.agHora !== undefined) { agFluxo.horario = d.agHora; }
 
+    agFluxo.manterRolagem = true;   /* escolher algo na mesma etapa nao volta a tela para o topo */
     pintarEtapaAgenda();
   });
 
@@ -2129,10 +2323,10 @@
   function validarEtapaAg() {
     switch (etapaAtualAg().id) {
       case 'pet':        return agFluxo.petId ? '' : 'Escolha o pet que vai ser atendido.';
-      case 'servico':    return agFluxo.servicoId ? '' : 'Escolha o serviço desejado.';
+      case 'servico':    return agFluxo.servicoIds.length ? '' : 'Escolha pelo menos um serviço.';
       case 'unidade':
         if (!agFluxo.unidade) return 'Escolha a unidade do atendimento.';
-        return unidadeOferece(unidadeEscolhida(), agFluxo.servicoId) ? '' : 'Esta unidade não oferece o serviço escolhido.';
+        return unidadeOferece(unidadeEscolhida(), agFluxo.servicoIds) ? '' : 'Esta unidade não oferece todos os serviços escolhidos.';
       case 'quando':
         if (!agFluxo.data) return 'Escolha uma data no calendário.';
         if (!agFluxo.horario) return 'Escolha um horário disponível.';
@@ -2186,7 +2380,8 @@
     try {
       const salvo = await api('agendamentos', { method: 'POST', body: JSON.stringify({
         petId: agFluxo.petId,
-        servicoId: agFluxo.servicoId,
+        servicoId: agFluxo.servicoIds[0],
+        servicoIds: agFluxo.servicoIds,   /* 29/09: varios servicos */
         unidade: agFluxo.unidade,
         data: agFluxo.data,
         horario: agFluxo.horario,
@@ -2227,7 +2422,7 @@
 
   function pedirParaSairDoAgendamento() {
     if (!agFluxo || agFluxo.concluido) { fecharFluxoAgenda(); return; }
-    const semNada = !agFluxo.servicoId && !agFluxo.data && !agFluxo.horario && !agFluxo.observacao;
+    const semNada = !agFluxo.servicoIds.length && !agFluxo.data && !agFluxo.horario && !agFluxo.observacao;
     if (semNada) { fecharFluxoAgenda(); return; }
     $('#modal-agendar-descartar').showModal();
   }
@@ -2246,17 +2441,24 @@
     const filtro = event.target.closest('[data-ag-filtro]');
     if (filtro) { agFiltro = filtro.dataset.agFiltro; renderAgendamentos(); return; }
     if (event.target.closest('[data-ag-limpar]')) {
-      agFiltro = 'todos'; agFiltroPet = ''; agFiltroUnidade = '';
+      agFiltro = 'todos'; agFiltroPet = ''; agFiltroUnidade = ''; agBusca = '';
+      if ($('#ag-busca')) $('#ag-busca').value = '';
       renderAgendamentos();
       return;
     }
     if (event.target.closest('[data-ag-recarregar]')) { recarregarAgendamentos(); return; }
   });
 
+  /* Busca da lista de agendamentos (o campo fica fora da lista, entao nao perde o foco). */
+  document.addEventListener('input', event => {
+    if (event.target.id === 'ag-busca') { agBusca = event.target.value; renderAgendamentos(); }
+  });
+
   document.addEventListener('change', event => {
     if (event.target.id === 'ag-filtro-select') { agFiltro = event.target.value; renderAgendamentos(); }
     else if (event.target.id === 'ag-filtro-pet') { agFiltroPet = event.target.value; renderAgendamentos(); }
     else if (event.target.id === 'ag-filtro-unidade') { agFiltroUnidade = event.target.value; renderAgendamentos(); }
+
     else if (event.target.id === 'pg-filtro-tipo') { pgFiltroTipo = event.target.value; renderPagamentos(); }
     else if (event.target.id === 'pg-filtro-situacao') { pgFiltroSituacao = event.target.value; renderPagamentos(); }
   });
@@ -2268,6 +2470,10 @@
   });
 
   document.addEventListener('click', event => {
+    const pTipo = event.target.closest('[data-pg-tipo]');
+    const pSit = event.target.closest('[data-pg-situacao]');
+    if (pTipo) { pgFiltroTipo = pTipo.dataset.pgTipo; renderPagamentos(); return; }
+    if (pSit) { pgFiltroSituacao = pSit.dataset.pgSituacao; renderPagamentos(); return; }
     if (event.target.closest('[data-pg-limpar]')) {
       pgBusca = ''; pgFiltroTipo = ''; pgFiltroSituacao = '';
       const busca = $('#pg-busca'); if (busca) busca.value = '';
@@ -2348,22 +2554,150 @@
     </article>`;
   }
 
+  /* 29/09: Meus Pedidos com cara nova.
+     - Pedidos feitos juntos (mesma sacola: mesmo minuto, mesma retirada e mesma forma de pagamento) aparecem num cartao so.
+     - Linha do tempo Pedido feito -> Confirmado -> Retirado (Cancelado mostra a faixa vermelha).
+     - Resumo e filtros com numeros reais da conta. Cada produto continua sendo um pedido no servidor
+       (Ver detalhes / Cancelar agem por produto, como antes). */
+  let pedFiltro = '';
+  let pedBusca = '';
+  const statusPedido = p => {
+    const s = String(p.status || 'Pendente').toLowerCase();
+    if (s.startsWith('cancel')) return 'Cancelado';
+    if (s.startsWith('entreg') || s.startsWith('retir') || s.startsWith('conclu')) return 'Entregue';
+    if (s.startsWith('confirm') || s.startsWith('separ') || s.startsWith('pronto') || s.startsWith('em prep')) return 'Confirmado';
+    return 'Pendente';
+  };
+  const GRUPO_PED = { Pendente: 'andamento', Confirmado: 'andamento', Entregue: 'entregue', Cancelado: 'cancelado' };
+
+  function gruposDePedidos() {
+    const lista = conta.pedidos.map((pedido, indice) => ({ pedido, indice }))
+      .sort((a, b) => String(b.pedido.criadoEm).localeCompare(String(a.pedido.criadoEm)));
+    const grupos = [];
+    for (const item of lista) {
+      const p = item.pedido;
+      const chave = `${String(p.criadoEm || '').slice(0, 16)}|${p.unidade || ''}|${p.formaPagamento || ''}`;
+      const g = grupos.find(x => x.chave === chave);
+      if (g) g.itens.push(item); else grupos.push({ chave, itens: [item] });
+    }
+    return grupos;
+  }
+
+  /* Situacao do cartao: a mais "atrasada" entre os itens que nao foram cancelados. */
+  function situacaoGrupo(g) {
+    const vivos = g.itens.map(i => statusPedido(i.pedido)).filter(s => s !== 'Cancelado');
+    if (!vivos.length) return 'Cancelado';
+    if (vivos.includes('Pendente')) return 'Pendente';
+    if (vivos.includes('Confirmado')) return 'Confirmado';
+    return 'Entregue';
+  }
+
+  function linhaDoTempo(sit) {
+    if (sit === 'Cancelado') return `<div class="pdx-tempo pdx-tempo--cancelado">${ico(ICO_AG.alerta, 16)} Pedido cancelado — o estoque voltou para a loja.</div>`;
+    const passos = [['Pendente', 'Pedido feito'], ['Confirmado', 'Confirmado'], ['Entregue', 'Retirado']];
+    const atual = passos.findIndex(([s]) => s === sit);
+    return `<ol class="pdx-tempo">${passos.map(([, rotulo], i) => `
+      <li class="${i < atual ? 'is-feito' : i === atual ? 'is-atual' : ''}"><span></span>${rotulo}</li>`).join('')}</ol>`;
+  }
+
+  const TEXTO_SIT = {
+    Pendente: 'Aguardando a equipe confirmar',
+    Confirmado: 'Confirmado — já pode retirar',
+    Entregue: 'Retirado na unidade',
+    Cancelado: 'Cancelado'
+  };
+
+  function cardGrupo(g) {
+    const sit = situacaoGrupo(g);
+    const vivos = g.itens.filter(i => statusPedido(i.pedido) !== 'Cancelado');
+    const total = (vivos.length ? vivos : g.itens).reduce((t, i) => t + Number(i.pedido.total || 0), 0);
+    const pecas = g.itens.reduce((t, i) => t + Number(i.pedido.quantidade || 0), 0);
+    const p0 = g.itens[0].pedido;
+    const quando = new Date(p0.criadoEm);
+    const hora = isNaN(quando) ? '' : ' às ' + quando.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    const titulo = g.itens.length > 1 ? `Sacola com ${g.itens.length} produtos` : `Pedido ${numeroPedido(p0)}`;
+    return `<article class="pdx-card pdx-card--${GRUPO_PED[sit]}">
+      <div class="pdx-card__topo">
+        <span class="pdx-card__ico">${ico(ICO.carrinho, 20)}</span>
+        <div class="pdx-card__titulo">
+          <strong>${titulo}</strong>
+          <span>${dataCurta(p0.criadoEm)}${hora} · ${pecas} ${pecas === 1 ? 'item' : 'itens'}</span>
+        </div>
+        <span class="pdx-sit pdx-sit--${GRUPO_PED[sit]}">${TEXTO_SIT[sit]}</span>
+      </div>
+      ${linhaDoTempo(sit)}
+      <ul class="pdx-itens">${g.itens.map(({ pedido, indice }) => {
+        const st = statusPedido(pedido);
+        return `<li class="${st === 'Cancelado' ? 'is-cancelado' : ''}">
+          <span class="pdx-item__qtd">${pedido.quantidade}×</span>
+          <span class="pdx-item__nome">${esc(pedido.produtoNome)}${g.itens.length > 1 && st !== sit ? ` <small>${esc(st)}</small>` : ''}</span>
+          <span class="pdx-item__valor">${brl(pedido.total)}</span>
+          <span class="pdx-item__acoes">
+            <button type="button" class="pdx-link" data-pedido="${indice}">Detalhes</button>
+            ${st === 'Pendente' ? `<button type="button" class="pdx-link pdx-link--perigo" data-pedido-cancelar="${esc(pedido.id)}">Cancelar</button>` : ''}
+          </span>
+        </li>`; }).join('')}</ul>
+      <div class="pdx-card__rodape">
+        <span class="pdx-info">${ico(ICO.local, 15)} ${p0.unidade ? esc(nomeRetirada(p0.unidade)) : 'Retirada combinada com a equipe'}</span>
+        <span class="pdx-info">${ico(ICO.cartao, 15)} ${esc(p0.formaPagamento || 'A combinar')} · na retirada</span>
+        <span class="pdx-total"><small>Total</small>${brl(total)}</span>
+      </div>
+    </article>`;
+  }
+
   function renderPedidos() {
+    const barra = $('#ped-barra'), resumo = $('#ped-resumo-topo');
     if (!conta.pedidos.length) {
-      $('#lista-pedidos').innerHTML = vazio(
-        'Nenhum pedido ainda',
-        'Escolha um produto no catálogo para fazer o seu primeiro pedido.',
-        '<a class="botao primario" href="#produtos" data-rota="produtos">Ver produtos</a>');
+      if (barra) barra.hidden = true;
+      if (resumo) resumo.innerHTML = '';
+      $('#lista-pedidos').innerHTML = `<div class="pdx-vazio">
+        <span class="pdx-vazio__ico">${ico(ICO.carrinho, 30)}</span>
+        <h3>Nenhum pedido ainda</h3>
+        <p>Monte uma sacola na loja e retire na unidade que preferir — o pagamento é feito só na retirada.</p>
+        <a class="botao primario" href="#produtos" data-rota="produtos">Ir para a loja</a>
+      </div>`;
       return;
     }
-    /* Mais recentes primeiro: o pedido que interessa e quase sempre o ultimo. */
-    const ordenados = conta.pedidos
-      .map((pedido, indice) => ({ pedido, indice }))
-      .sort((a, b) => String(b.pedido.criadoEm).localeCompare(String(a.pedido.criadoEm)));
+    const grupos = gruposDePedidos();
+    const contar = chave => grupos.filter(g => GRUPO_PED[situacaoGrupo(g)] === chave).length;
+    const validos = conta.pedidos.filter(p => statusPedido(p) !== 'Cancelado');
+    const gasto = validos.reduce((t, p) => t + Number(p.total || 0), 0);
+    const itens = validos.reduce((t, p) => t + Number(p.quantidade || 0), 0);
+    const andamento = contar('andamento');
+    if (resumo) resumo.innerHTML = `
+      <div class="pdx-resumo__item${andamento ? ' pdx-resumo__item--destaque' : ''}"><span>Em andamento</span><strong>${andamento}</strong><small>${andamento ? 'aguardando confirmação ou retirada' : 'nenhum pedido aberto'}</small></div>
+      <div class="pdx-resumo__item"><span>Total em compras</span><strong>${brl(gasto)}</strong><small>sem contar os cancelados</small></div>
+      <div class="pdx-resumo__item"><span>Itens comprados</span><strong>${itens}</strong><small>em ${grupos.length} pedido${grupos.length === 1 ? '' : 's'}</small></div>`;
 
-    $('#lista-pedidos').innerHTML =
-      `<div class="ped-grade">${ordenados.map(({ pedido, indice }) => cardHistorico(pedido, indice)).join('')}</div>`;
+    if (barra) {
+      barra.hidden = false;
+      const pil = (valor, rotulo, n) => `<button type="button" class="pgx-pilula${pedFiltro === valor ? ' is-ativa' : ''}" data-ped-filtro="${valor}" aria-pressed="${pedFiltro === valor}">${rotulo}<span>${n}</span></button>`;
+      $('#ped-pilulas').innerHTML = pil('', 'Todos', grupos.length)
+        + (contar('andamento') ? pil('andamento', 'Em andamento', contar('andamento')) : '')
+        + (contar('entregue') ? pil('entregue', 'Retirados', contar('entregue')) : '')
+        + (contar('cancelado') ? pil('cancelado', 'Cancelados', contar('cancelado')) : '');
+    }
+
+    const termo = pedBusca.trim().toLowerCase();
+    const filtrados = grupos.filter(g =>
+      (!pedFiltro || GRUPO_PED[situacaoGrupo(g)] === pedFiltro) &&
+      (!termo || g.itens.some(({ pedido }) => `${pedido.produtoNome} ${numeroPedido(pedido)}`.toLowerCase().includes(termo))));
+
+    $('#lista-pedidos').innerHTML = filtrados.length
+      ? `<div class="pdx-lista">${filtrados.map(cardGrupo).join('')}</div>`
+      : vazio('Nenhum pedido encontrado', 'Tente outro filtro ou outra busca.',
+          '<button class="botao claro" type="button" data-ped-filtro="">Ver todos</button>');
   }
+  document.addEventListener('click', event => {
+    const b = event.target.closest('[data-ped-filtro]');
+    if (!b) return;
+    pedFiltro = b.dataset.pedFiltro;
+    if (!pedFiltro) { pedBusca = ''; const c = $('#ped-busca'); if (c) c.value = ''; }
+    renderPedidos();
+  });
+  document.addEventListener('input', event => {
+    if (event.target.id === 'ped-busca') { pedBusca = event.target.value; renderPedidos(); }
+  });
 
   /** Detalhes do pedido. So mostra campo que existe no sistema. */
   function abrirPedido(indice) {
@@ -2487,20 +2821,56 @@
     const pagos = validos.filter(l => statusPag(l.status) === 'Aprovado');
     const pendentes = validos.filter(l => ['Pendente', 'Recusado'].includes(statusPag(l.status)));
 
-    $('#cc-resumo-pagamentos').innerHTML = [
-      metrica({ icone: ICO.cartao, rotulo: 'Total', valor: brl(validos.reduce((s, l) => s + l.valor, 0)), nota: `${validos.length} lançamento(s)` }),
-      metrica({ icone: ICO.escudo, rotulo: 'Confirmados', valor: brl(pagos.reduce((s, l) => s + l.valor, 0)), nota: `${pagos.length} com pagamento registrado` }),
-      metrica({ icone: ICO.relogio, rotulo: 'A confirmar', valor: brl(pendentes.reduce((s, l) => s + l.valor, 0)), nota: `${pendentes.length} aguardando a equipe`, acento: true })
-    ].join('');
+    /* 29/09: painel de resumo — total, barra confirmados x a confirmar e o proximo a vencer. So numeros reais. */
+    const somar = l => l.reduce((s, x) => s + x.valor, 0);
+    const vTotal = somar(validos), vPago = somar(pagos), vPend = somar(pendentes);
+    const pct = vTotal > 0 ? Math.round(vPago / vTotal * 100) : 0;
+    const reembolsos = lancamentos.filter(l => l.reembolso).length;
+    $('#cc-resumo-pagamentos').innerHTML = lancamentos.length ? `
+      <div class="pgx-hero">
+        <span class="pgx-hero__rotulo">${ico(ICO.cartao, 16)} Total na sua conta</span>
+        <strong class="pgx-hero__valor">${brl(vTotal)}</strong>
+        <span class="pgx-hero__nota">${validos.length} lançamento${validos.length === 1 ? '' : 's'} válido${validos.length === 1 ? '' : 's'}</span>
+        <div class="pgx-barra" role="img" aria-label="${pct}% confirmado">
+          <span style="width:${pct}%"></span>
+        </div>
+        <div class="pgx-legenda">
+          <span><i class="pgx-ponto pgx-ponto--ok"></i>Confirmado ${pct}%</span>
+          <span><i class="pgx-ponto pgx-ponto--pend"></i>A confirmar ${100 - pct}%</span>
+        </div>
+      </div>
+      <div class="pgx-card pgx-card--ok">
+        <span class="pgx-card__ico">${ico(ICO.escudo, 18)}</span>
+        <span class="pgx-card__rotulo">Confirmados</span>
+        <strong>${brl(vPago)}</strong>
+        <small>${pagos.length} com pagamento registrado</small>
+      </div>
+      <div class="pgx-card pgx-card--pend">
+        <span class="pgx-card__ico">${ico(ICO.relogio, 18)}</span>
+        <span class="pgx-card__rotulo">A confirmar</span>
+        <strong>${brl(vPend)}</strong>
+        <small>${pendentes.length ? `${pendentes.length} aguardando a equipe` : 'nada pendente'}${reembolsos ? ` · ${reembolsos} reembolso${reembolsos > 1 ? 's' : ''} em análise` : ''}</small>
+      </div>` : '';
 
-    /* Opcoes do filtro de tipo: so os tipos que a conta realmente tem, na
-       mesma logica ja usada para pet/unidade em Agendamentos. */
-    const selTipo = $('#pg-filtro-tipo');
-    if (selTipo) {
-      const tipos = [...new Set(lancamentos.map(l => l.tipo))];
-      selTipo.innerHTML = '<option value="">Todos os tipos</option>'
-        + tipos.map(t => `<option value="${esc(t)}" ${pgFiltroTipo === t ? 'selected' : ''}>${esc(t)}</option>`).join('');
-      selTipo.parentElement.hidden = tipos.length < 2;
+    /* Filtros em pilulas: so os tipos/situacoes que a conta tem, cada um com a contagem. */
+    const contar = (lista, f) => lista.filter(f).length;
+    const tipos = [...new Set(lancamentos.map(l => l.tipo))];
+    const pilula = (grupo, valor, rotulo, n, ativo) =>
+      `<button type="button" class="pgx-pilula${ativo ? ' is-ativa' : ''}" data-pg-${grupo}="${esc(valor)}" aria-pressed="${ativo}">${esc(rotulo)}<span>${n}</span></button>`;
+    const pt = $('#pg-pilulas-tipo');
+    if (pt) {
+      pt.hidden = tipos.length < 2;
+      pt.innerHTML = pilula('tipo', '', 'Tudo', lancamentos.length, !pgFiltroTipo)
+        + tipos.map(t => pilula('tipo', t, t, contar(lancamentos, l => l.tipo === t), pgFiltroTipo === t)).join('');
+    }
+    const ordemSit = ['Pendente', 'Aprovado', 'Recusado', 'Reembolsado', 'Cancelado'];
+    const sits = ordemSit.filter(sit => lancamentos.some(l => situacaoPagamento(l) === sit));
+    const ps = $('#pg-pilulas-situacao');
+    if (ps) {
+      ps.hidden = sits.length < 2;
+      const rot = {};   /* mesmos nomes do selo de cada linha (Pendente, Aprovado...) */
+      ps.innerHTML = pilula('situacao', '', 'Qualquer situação', lancamentos.length, !pgFiltroSituacao)
+        + sits.map(sit => pilula('situacao', sit, rot[sit] || sit, contar(lancamentos, l => situacaoPagamento(l) === sit), pgFiltroSituacao === sit)).join('');
     }
 
     const termo = pgBusca.trim().toLowerCase();
@@ -2509,17 +2879,49 @@
       (!pgFiltroTipo || l.tipo === pgFiltroTipo) &&
       (!pgFiltroSituacao || situacaoPagamento(l) === pgFiltroSituacao));
 
-    $('#cc-pagamentos').innerHTML = filtrados.length
-      ? '<div class="cc-lista">' + filtrados.map(l => linha({
-          icone: l.icone,
-          titulo: l.titulo,
-          meta: `${l.tipo} · ${dataCurta(l.quando)}<br>${esc(l.forma)}`,
-          fim: `${selo(l.cancelado ? 'Cancelado' : statusPag(l.status))}${l.reembolso ? '<span class="cc-nota" style="display:block">Reembolso em análise</span>' : ''}<span class="cc-valor">${brl(l.valor)}</span>`
-        })).join('') + '</div>'
-      : (lancamentos.length
-          ? vazio('Nenhum lançamento encontrado', 'Tente ajustar a busca ou os filtros.',
-              '<button class="botao claro" type="button" data-pg-limpar>Limpar filtros</button>')
-          : vazio('Nenhum lançamento', 'Agendamentos e pedidos aparecem aqui com o valor e a forma de pagamento combinada.'));
+    if (!filtrados.length) {
+      $('#cc-pagamentos').innerHTML = lancamentos.length
+        ? vazio('Nenhum lançamento encontrado', 'Tente ajustar a busca ou os filtros.',
+            '<button class="botao claro" type="button" data-pg-limpar>Limpar filtros</button>')
+        : vazio('Nenhum lançamento', 'Agendamentos, pedidos e mensalidades do seguro aparecem aqui com o valor e a forma de pagamento combinada.');
+      return;
+    }
+
+    /* Extrato agrupado por mes (mais recente primeiro), com o subtotal valido de cada mes. */
+    const MESES = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
+    const grupos = new Map();
+    filtrados.forEach(l => {
+      const d = new Date(l.quando);
+      const chave = isNaN(d) ? 'sem-data' : `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      if (!grupos.has(chave)) grupos.set(chave, { rotulo: isNaN(d) ? 'Sem data' : `${MESES[d.getMonth()]} de ${d.getFullYear()}`, itens: [] });
+      grupos.get(chave).itens.push(l);
+    });
+    const classeTipo = t => ({ 'Serviço': 'servico', 'Produto': 'produto', 'Seguro': 'seguro' }[t] || 'outro');
+    const linhaPg = l => {
+      const sit = situacaoPagamento(l);
+      const morto = sit === 'Cancelado' || sit === 'Reembolsado';
+      return `<div class="pgx-linha${morto ? ' is-morta' : ''}">
+        <span class="pgx-linha__ico pgx-linha__ico--${classeTipo(l.tipo)}">${ico(l.icone, 18)}</span>
+        <div class="pgx-linha__txt">
+          <strong>${l.titulo}</strong>
+          <span><em class="pgx-tag pgx-tag--${classeTipo(l.tipo)}">${esc(l.tipo)}</em>${dataCurta(l.quando)} · ${esc(l.forma)}</span>
+          ${l.reembolso ? '<span class="pgx-reembolso">Reembolso em análise pela equipe</span>' : ''}
+        </div>
+        <div class="pgx-linha__fim">
+          <strong class="pgx-valor">${brl(l.valor)}</strong>
+          ${selo(l.cancelado ? 'Cancelado' : statusPag(l.status))}
+        </div>
+      </div>`;
+    };
+    $('#cc-pagamentos').innerHTML = [...grupos.entries()]
+      .sort((a, b) => b[0].localeCompare(a[0]))
+      .map(([, g]) => {
+        const sub = g.itens.filter(l => !['Cancelado', 'Reembolsado'].includes(situacaoPagamento(l))).reduce((s, l) => s + l.valor, 0);
+        return `<div class="pgx-mes">
+          <div class="pgx-mes__topo"><span>${g.rotulo}</span><span>${g.itens.length} · ${brl(sub)}</span></div>
+          ${g.itens.map(linhaPg).join('')}
+        </div>`;
+      }).join('');
   }
 
   /* =====================================================================
@@ -2599,44 +3001,115 @@
       return;
     }
 
-    const meus = segurosContratados.length
-      ? `<div class="cc-lista" style="grid-column:1/-1">` + segurosContratados.map(c => linha({
-          icone: ICO.escudo,
-          titulo: `${esc(c.nomePlano)} · ${esc(c.nomePet || 'pet não informado')}`,
-          meta: [
-            `Contratado em ${dataCurta(c.criadoEm)}`,
-            c.metodoPagamento
-              ? `Pagamento: ${esc(c.metodoPagamento)}${c.cartaoFinal ? ' **** ' + esc(c.cartaoFinal) : ''}${c.cobranca ? '' : ' · ' + esc(c.pagamentoStatus || 'Pendente')}`
-              : '',
-            cobrancaDoSeguro(c),
-            c.dataCancelamento ? `<strong>Cancelado em ${dataCurta(c.dataCancelamento)}</strong>` : '',
-            listaDe(c.coberturas).length ? 'Cobertura: ' + esc(listaDe(c.coberturas).join(', ')) : '',
-            c.beneficios ? 'Benefícios: ' + esc(c.beneficios) : '',
-            c.condicoes ? 'Condições: ' + esc(c.condicoes) : '',
-            c.observacao ? esc(c.observacao) : ''
-          ].filter(Boolean).join('<br>'),
-          /* O botao de cancelar so aparece enquanto o contrato vale. Quem
-             decide e o servidor (podeCancelar), nao a tela. */
-          fim: `${selo(c.status)}<span class="cc-valor">${brl(c.valor || c.valorMensal)}/mês</span>`
-            + (c.podeCancelar ? `<button type="button" class="botao claro" data-cancelar-seguro="${esc(c.id)}">Cancelar seguro</button>` : '')
-        })).join('') + '</div>'
-      : `<p class="cc-nota" style="grid-column:1/-1">Você ainda não contratou nenhum plano. Escolha um abaixo.</p>`;
+    /* 29/09: tela do Seguro com cara nova — resumo, contratos ativos em cartoes, historico recolhido
+       e os planos para proteger mais um pet. Os dados sao os mesmos de sempre (GET /seguros + catalogo). */
+    const estadoContrato = c => {
+      const st = String(c.status || '').toLowerCase();
+      if (c.dataCancelamento || st.startsWith('cancel')) return { chave: 'cancelado', texto: 'Cancelado' };
+      if (/conclu|ativo|aprovad/.test(st)) return { chave: 'ativo', texto: 'Ativo' };
+      return { chave: 'analise', texto: 'Em análise' };
+    };
+    const ativos = segurosContratados.filter(c => estadoContrato(c).chave !== 'cancelado');
+    const encerrados = segurosContratados.filter(c => estadoContrato(c).chave === 'cancelado');
+    const valorMes = c => Number(c.valor || c.valorMensal || 0);
+    const inicial = n => esc(String(n || '?').trim().slice(0, 1).toUpperCase());
 
-    const semPet = !conta.pets.length
-      ? `<p class="cc-nota" style="grid-column:1/-1">Você pode cadastrar o pet durante a contratação ou em <a href="#meus-pets" data-ir="meus-pets">Meus pets</a>.</p>`
+    const cobrancaCard = c => {
+      const cb = c.cobranca;
+      if (!cb || cb.situacao === 'Encerrado') return '';
+      const detalhe = cb.emAberto > 0
+        ? `${cb.emAberto} mensalidade${cb.emAberto > 1 ? 's' : ''} em aberto · ${brl(cb.valorEmAberto)} desde ${dataCurta(cb.vencimentoEmAberto)}`
+        : cb.proximoVencimento ? `Próxima mensalidade em ${dataCurta(cb.proximoVencimento)}` : '';
+      const atraso = cb.situacao === 'Inadimplente'
+        ? `<p class="sg-card__alerta">Mensalidade em atraso há ${cb.diasEmAtraso} dias. Fale com a equipe LanePets para regularizar — o seguro continua ativo.</p>` : '';
+      return `<div class="sg-card__cobranca">${selo(cb.situacao)}${detalhe ? `<span>${detalhe}</span>` : ''}</div>${atraso}`;
+    };
+
+    const cardContrato = c => {
+      const est = estadoContrato(c);
+      const coberturas = listaDe(c.coberturas);
+      return `<article class="sg-card sg-card--${est.chave}">
+        <div class="sg-card__topo">
+          <span class="sg-card__escudo">${ico(ICO.escudo, 22)}</span>
+          <div class="sg-card__titulo">
+            <span class="sg-card__plano">Plano ${esc(c.nomePlano)}</span>
+            <span class="sg-card__pet"><span class="sg-card__avatar">${inicial(c.nomePet)}</span>${esc(c.nomePet || 'Pet não informado')}</span>
+          </div>
+          <span class="sg-estado sg-estado--${est.chave}">${est.texto}</span>
+        </div>
+        <div class="sg-card__corpo">
+          <div class="sg-card__preco">${brl(valorMes(c))}<small>/mês</small></div>
+          ${cobrancaCard(c)}
+          ${coberturas.length ? `<ul class="sg-coberturas">${coberturas.map(x => `<li>${esc(x)}</li>`).join('')}</ul>` : ''}
+          ${c.beneficios ? `<p class="sg-card__beneficio"><strong>Benefícios:</strong> ${esc(c.beneficios)}</p>` : ''}
+          ${c.condicoes ? `<p class="sg-card__beneficio"><strong>Condições:</strong> ${esc(c.condicoes)}</p>` : ''}
+        </div>
+        <div class="sg-card__rodape">
+          <span>Desde ${dataCurta(c.criadoEm)}${c.metodoPagamento ? ` · ${esc(c.metodoPagamento)}${c.cartaoFinal ? ' **** ' + esc(c.cartaoFinal) : ''}` : ''}</span>
+          ${c.podeCancelar ? `<button type="button" class="sg-cancelar" data-cancelar-seguro="${esc(c.id)}">Cancelar seguro</button>` : ''}
+        </div>
+      </article>`;
+    };
+
+    const linhaEncerrado = c => `<div class="sg-hist__linha">
+        <span class="sg-card__avatar">${inicial(c.nomePet)}</span>
+        <span class="sg-hist__txt"><strong>${esc(c.nomePlano)} · ${esc(c.nomePet || 'pet')}</strong>
+          <small>${dataCurta(c.criadoEm)} → ${c.dataCancelamento ? dataCurta(c.dataCancelamento) : 'cancelado'}</small></span>
+        <span class="sg-hist__valor">${brl(valorMes(c))}/mês</span>
+      </div>`;
+
+    /* Resumo: so numeros reais da conta. */
+    const totalMes = ativos.reduce((t, c) => t + valorMes(c), 0);
+    const petsProtegidos = new Set(ativos.map(c => c.petId || c.nomePet)).size;
+    const proximas = ativos.map(c => c.cobranca && c.cobranca.proximoVencimento).filter(Boolean).sort();
+    const pendencias = ativos.filter(c => c.cobranca && c.cobranca.emAberto > 0).length;
+    const resumo = ativos.length ? `
+      <div class="sg-resumo">
+        <div class="sg-resumo__item sg-resumo__item--destaque">
+          <span>${ico(ICO.escudo, 20)} Pets protegidos</span>
+          <strong>${petsProtegidos}</strong>
+          <small>${ativos.length} plano${ativos.length > 1 ? 's' : ''} ativo${ativos.length > 1 ? 's' : ''}</small>
+        </div>
+        <div class="sg-resumo__item"><span>Total por mês</span><strong>${brl(totalMes)}</strong><small>somando os planos ativos</small></div>
+        <div class="sg-resumo__item${pendencias ? ' sg-resumo__item--alerta' : ''}">
+          <span>Mensalidades</span>
+          <strong>${pendencias ? `${pendencias} em aberto` : 'Em dia'}</strong>
+          <small>${proximas.length ? `próxima em ${dataCurta(proximas[0])}` : 'nenhuma prevista'}</small>
+        </div>
+      </div>` : '';
+
+    const meus = ativos.length
+      ? `<h2 class="sg-titulo">Meus seguros</h2><div class="sg-contratos">${ativos.map(cardContrato).join('')}</div>`
+      : `<div class="sg-vazio">${ico(ICO.escudo, 34)}<div><strong>Nenhum pet protegido ainda</strong><span>Escolha um plano abaixo — a contratação leva poucos minutos e é finalizada com a equipe LanePets.</span></div></div>`;
+
+    const historico = encerrados.length
+      ? `<details class="sg-hist"><summary>Planos encerrados <span>${encerrados.length}</span></summary>${encerrados.map(linhaEncerrado).join('')}</details>`
       : '';
 
-    caixa.innerHTML = meus + semPet + (planosSeguro.length ? planosSeguro.map((plano, i) => `
-      <article class="cc-plano${i === 1 ? ' cc-plano--destaque' : ''}">
-        <h3>${esc(plano.nome)}</h3>
-        <p>${esc(plano.descricao)}</p>
-        <ul>${listaDe(plano.coberturas).map(c => `<li>${esc(c)}</li>`).join('')}</ul>
-        ${plano.beneficios ? `<p class="cc-nota">${esc(plano.beneficios)}</p>` : ''}
-        ${plano.condicoes ? `<p class="cc-nota"><strong>Condições:</strong> ${esc(plano.condicoes)}</p>` : ''}
-        <div class="cc-plano__preco">${brl(plano.valorMensal)}<small>/mês</small></div>
-        <button type="button" class="botao ${i === 1 ? 'primario' : 'claro'}" data-contratar="${esc(plano.id)}">Contratar este plano</button>
-      </article>`).join('')
-      : vazio('Nenhum plano disponível', 'Fale com a equipe LanePets para conhecer as opções de proteção para o seu pet.'));
+    const semPet = !conta.pets.length
+      ? `<p class="cc-nota">Você pode cadastrar o pet durante a contratação ou em <a href="#meus-pets" data-ir="meus-pets">Meus pets</a>.</p>`
+      : '';
+
+    const planos = planosSeguro.length ? `
+      <div class="sg-planos__topo">
+        <h2 class="sg-titulo">${ativos.length ? 'Proteja mais um pet' : 'Escolha um plano'}</h2>
+        <p>Coberturas, benefícios e condições de cada plano aparecem no próprio cartão.</p>
+      </div>
+      <div class="sg-planos">${planosSeguro.map((plano, i) => {
+        const destaque = planosSeguro.length >= 3 && i === 1;
+        return `<article class="sg-plano${destaque ? ' sg-plano--destaque' : ''}">
+          <span class="sg-plano__ico">${ico(ICO.escudo, 24)}</span>
+          <h3>${esc(plano.nome)}</h3>
+          <p class="sg-plano__desc">${esc(plano.descricao)}</p>
+          <div class="sg-plano__preco">${brl(plano.valorMensal)}<small>/mês</small></div>
+          <ul class="sg-coberturas">${listaDe(plano.coberturas).map(c => `<li>${esc(c)}</li>`).join('')}</ul>
+          ${plano.beneficios ? `<p class="sg-plano__nota">${esc(plano.beneficios)}</p>` : ''}
+          ${plano.condicoes ? `<p class="sg-plano__nota"><strong>Condições:</strong> ${esc(plano.condicoes)}</p>` : ''}
+          <button type="button" class="botao ${destaque ? 'primario' : 'claro'} sg-plano__cta" data-contratar="${esc(plano.id)}">Contratar ${esc(plano.nome)}</button>
+        </article>`; }).join('')}</div>`
+      : vazio('Nenhum plano disponível', 'Fale com a equipe LanePets para conhecer as opções de proteção para o seu pet.');
+
+    caixa.innerHTML = `<div class="sg">${resumo}${meus}${historico}${semPet}${planos}</div>`;
 
     /* Os contratos acabaram de ser lidos: o extrato de Pagamentos e repintado
        para incluir as mensalidades do seguro. */
@@ -2969,23 +3442,111 @@
     }
   });
 
+  /* 29/09: Avaliacoes com cara nova — resumo, lista em cartoes. Os dados sao os mesmos de GET /avaliacoes. */
+  const estrelasTexto = n => '★'.repeat(n) + '☆'.repeat(5 - n);
+  const primeiroNome = nome => String(nome || '').trim().split(/\s+/)[0] || 'Você';
   async function renderAvaliacoes() {
     const caixa = $('#cc-avaliacoes');
     caixa.innerHTML = '<div class="cc-esqueleto" style="height:60px"></div>';
     try {
       const lista = await api('avaliacoes');
+      renderResumoAvaliacoes(lista);
       caixa.innerHTML = lista.length
-        ? '<div class="cc-lista">' + lista.map(a => linha({
-            icone: ICO.balao,
-            titulo: `<span style="color:var(--laranja);letter-spacing:2px">${'★'.repeat(a.avaliacao)}${'☆'.repeat(5 - a.avaliacao)}</span>`,
-            meta: `“${esc(a.comentario)}”<br>Enviada em ${dataCurta(a.criadoEm)}${a.nomePet ? ' · ' + esc(a.nomePet) : ''}`,
-            fim: selo(a.status)
-          })).join('') + '</div>'
+        ? '<div class="av-lista">' + lista.map(a => {
+            const status = String(a.status || '').toLowerCase();
+            return `<article class="av-card av-card--${status === 'aprovado' ? 'ok' : status === 'pendente' ? 'aguarda' : 'outro'}">
+              <div class="av-card__topo">
+                <span class="av-card__estrelas" aria-label="${a.avaliacao} de 5 estrelas">${estrelasTexto(a.avaliacao)}</span>
+                ${selo(a.status)}
+              </div>
+              <blockquote>“${esc(a.comentario)}”</blockquote>
+              <div class="av-card__rodape">
+                ${a.nomePet ? `<span class="av-card__pet">${ico(ICO.pata, 13)} ${esc(a.nomePet)}</span>` : ''}
+                <span>Enviada em ${dataCurta(a.criadoEm)}</span>
+              </div>
+            </article>`;
+          }).join('') + '</div>'
         : vazio('Você ainda não avaliou', 'Conte como foi a experiência do seu pet — o comentário vai para a moderação da equipe.');
     } catch (erro) {
-      caixa.innerHTML = vazio('Não foi possível carregar', erro.message);
+      console.error('[LanePets] Falha ao carregar as avaliações:', erro);
+      caixa.innerHTML = vazio('Não foi possível carregar', esc(erro.message));
     }
   }
+
+  function renderResumoAvaliacoes(lista) {
+    const caixa = $('#av-resumo');
+    if (!caixa) return;
+    if (!lista.length) { caixa.hidden = true; caixa.innerHTML = ''; return; }
+    const media = lista.reduce((s, a) => s + Number(a.avaliacao || 0), 0) / lista.length;
+    const aprovadas = lista.filter(a => String(a.status).toLowerCase() === 'aprovado').length;
+    const pendentes = lista.filter(a => String(a.status).toLowerCase() === 'pendente').length;
+    const tile = (rotulo, valor, nota) => `<div class="av-resumo__item"><span>${rotulo}</span><strong>${valor}</strong><small>${nota}</small></div>`;
+    caixa.innerHTML =
+      tile('Avaliações enviadas', lista.length, lista.length === 1 ? '1 comentário seu' : `${lista.length} comentários seus`) +
+      tile('Sua nota média', `${media.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} <em>★</em>`, 'de 5 estrelas') +
+      tile('Publicadas no site', aprovadas, pendentes ? `${pendentes} aguardando a equipe` : 'nenhuma aguardando');
+    caixa.hidden = false;
+  }
+
+  /* Pets como cartoes clicaveis (o <select id="av-pet"> escondido continua sendo o valor enviado). */
+  function montarAvaliacaoPets() {
+    const alvo = $('#av-pets'), select = $('#av-pet');
+    const pets = conta.pets || [];
+    $('#av-bloco-pet').hidden = !pets.length;
+    alvo.innerHTML = pets.map((p, i) => `
+      <button type="button" class="av-pet${i === 0 ? ' is-on' : ''}" role="radio" aria-checked="${i === 0}" data-pet="${esc(p.id)}">
+        ${p.fotoUrl
+          ? `<img src="${esc(p.fotoUrl)}" alt="" loading="lazy">`
+          : `<span class="av-pet__letra">${esc((p.petNome || '?')[0].toUpperCase())}</span>`}
+        <span>${esc(p.petNome)}</span>
+      </button>`).join('');
+    if (pets.length) select.value = pets[0].id;
+    atualizarPrevia();
+  }
+  $('#av-pets').addEventListener('click', event => {
+    const b = event.target.closest('[data-pet]');
+    if (!b) return;
+    document.querySelectorAll('#av-pets .av-pet').forEach(x => { x.classList.toggle('is-on', x === b); x.setAttribute('aria-checked', String(x === b)); });
+    $('#av-pet').value = b.dataset.pet;
+    atualizarPrevia();
+  });
+
+  const TEXTO_NOTA = ['', 'Ruim', 'Pode melhorar', 'Bom', 'Muito bom', 'Excelente!'];
+  function atualizarPrevia() {
+    const nota = Number($('#av-nota').value) || 5;
+    const texto = $('#av-comentario').value.trim();
+    $('#av-nota-texto').textContent = TEXTO_NOTA[nota];
+    $('#av-previa-estrelas').textContent = estrelasTexto(nota);
+    const q = $('#av-previa-texto');
+    q.textContent = texto ? `“${texto}”` : 'Seu comentário aparece aqui enquanto você escreve.';
+    q.classList.toggle('is-vazio', !texto);
+    const nome = primeiroNome(conta && conta.nome);
+    $('#av-previa-nome').textContent = nome;
+    $('#av-previa-avatar').textContent = nome.slice(0, 1).toUpperCase();
+    const pet = (conta && conta.pets || []).find(p => p.id === $('#av-pet').value);
+    $('#av-previa-pet').textContent = pet ? ` · tutor(a) de ${pet.petNome}` : '';
+    const n = $('#av-comentario').value.length;
+    $('#av-contagem').textContent = `${n}/500`;
+    const faltam = 10 - texto.length;
+    $('#av-ajuda').textContent = faltam > 0 ? `Faltam ${faltam} caractere${faltam > 1 ? 's' : ''} (mínimo 10).` : '✓ Pronto para enviar.';
+    $('#av-ajuda').classList.toggle('is-ok', faltam <= 0);
+  }
+  $('#av-comentario').addEventListener('input', atualizarPrevia);
+  $('#av-sugestoes').addEventListener('click', event => {
+    const b = event.target.closest('button');
+    if (!b) return;
+    const campo = $('#av-comentario');
+    const atual = campo.value.trim();
+    const frase = b.textContent.trim();
+    if (atual.toLowerCase().includes(frase.toLowerCase())) return;
+    const novo = atual ? `${atual.replace(/[.!]?$/, '.')} ${frase}.` : `${frase}.`;
+    if (novo.length > 500) return;
+    campo.value = novo;
+    b.classList.add('is-usada');
+    atualizarPrevia();
+    campo.focus();
+  });
+
   /* ---------------------------------------------------------------------
      Entrar
      --------------------------------------------------------------------- */
@@ -3109,12 +3670,14 @@
       catalogo = await api('catalogo');
       renderProdutosDestaque();
       options($('#av-pet'), conta.pets, p => p.petNome);
+      montarAvaliacaoPets();   /* 29/09: pets como cartoes + previa */
       montarVitrinePedido();
       /* Os cards de agendamento mostram o endereco da unidade, que so existe
          no catalogo. Com ele em maos a lista e repintada — a primeira pintura
          acima ja deixou a tela util antes da segunda chamada terminar. */
       renderAgendamentos();
       renderHistorico();
+      renderPedidos();   /* 29/09: o nome da unidade de retirada tambem vem do catalogo */
 
       irPara(rotaDoHash(), false);
       renderAvaliacoes();
@@ -3193,6 +3756,8 @@
   let vitrineCategoria = '';
   let vitrineBusca = '';
   let vitrineOrdem = 'nome';
+  /* 29/09: sacola — id do produto -> quantidade. Fica so na memoria da pagina (nada no localStorage, §6.36). */
+  const sacola = new Map();
 
   const ICO_PRODUTO = {
     'Brinquedo': '<circle cx="12" cy="12" r="8.4"/><path d="M6.1 6.4c2.9 1.5 4.4 4.3 4.4 8.6"/><path d="M17.9 6.4c-2.9 1.5-4.4 4.3-4.4 8.6"/>',
@@ -3209,57 +3774,52 @@
     if (!produto.controlaEstoque) return { chave: 'ok', texto: 'Disponível', fora: false };
     const saldo = Number(produto.estoque) || 0;
     if (saldo <= 0) return { chave: 'fora', texto: 'Indisponível', fora: true };
-    if (saldo <= 3) return { chave: 'pouco', texto: `Últimas ${saldo}`, fora: false };
+    if (saldo <= 3) return { chave: 'pouco', texto: saldo === 1 ? 'Última unidade' : `Últimas ${saldo} unidades`, fora: false };
     return { chave: 'ok', texto: `${saldo} em estoque`, fora: false };
   }
 
   const produtosDoCatalogo = () => (catalogo && catalogo.produtos) || [];
 
-  /** Limita a quantidade ao saldo real e explica o limite embaixo do campo. */
-  function ajustarQuantidade() {
-    const escolhido = produtosDoCatalogo().find(p => String(p.id) === $('#produto').value);
-    const campo = $('#quantidade');
-    const ajuda = $('#pedidoEstoqueAjuda');
-    if (!escolhido) { campo.max = 99; ajuda.textContent = ''; return; }
 
-    if (escolhido.controlaEstoque) {
-      const saldo = Math.max(0, Number(escolhido.estoque) || 0);
-      campo.max = saldo || 1;
-      if (Number(campo.value) > saldo) campo.value = saldo || 1;
-      ajuda.textContent = saldo ? `Disponível: ${saldo} unidade${saldo === 1 ? '' : 's'}.` : 'Sem estoque no momento.';
-    } else {
-      campo.max = 99;
-      ajuda.textContent = '';
-    }
-  }
+  /** Quanto cabe na sacola deste produto: o saldo real (se controla estoque) ou 99. */
+  const limiteDe = produto => produto.controlaEstoque ? Math.max(0, Number(produto.estoque) || 0) : 99;
+  const produtoPorId = id => produtosDoCatalogo().find(p => String(p.id) === String(id));
 
-  function escolherProduto(id) {
-    $('#produto').value = String(id);
-    $('#pedidoVitrine').querySelectorAll('.pedido-card').forEach(card =>
-      card.classList.toggle('escolhido', card.dataset.id === String(id)));
-    ajustarQuantidade();
+  function stepper(produto, qtd, classe = '') {
+    const limite = limiteDe(produto);
+    return `<div class="sl-stepper ${classe}" role="group" aria-label="Quantidade de ${esc(produto.nome)}">
+      <button type="button" data-sacola-menos="${esc(produto.id)}" aria-label="Diminuir">${qtd === 1 ? svgP('<path d="M4 7h16"/><path d="M9 7V4h6v3"/><path d="M6 7l1 13h10l1-13"/>') : '−'}</button>
+      <span>${qtd}</span>
+      <button type="button" data-sacola-mais="${esc(produto.id)}" aria-label="Aumentar"${qtd >= limite ? ' disabled' : ''}>+</button>
+    </div>`;
   }
 
   function cardPedido(produto) {
     const estoque = estoqueDoProduto(produto);
-    const selecionado = $('#produto').value === String(produto.id);
-    return `<button type="button" class="card loja-card pedido-card${selecionado ? ' escolhido' : ''}"
-                    data-id="${esc(produto.id)}" ${estoque.fora ? 'disabled' : ''}
-                    aria-pressed="${selecionado}">
-      <div class="loja-media">
-        <span class="loja-selo loja-selo--${estoque.chave}">${estoque.texto}</span>
-        <span class="pedido-card__marca">${svgP('<path d="m5 12.5 4.5 4.5L19 7.5"/>')}</span>
+    const qtd = sacola.get(String(produto.id)) || 0;
+    const categoria = String(produto.categoria || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+    return `<article class="sl-card${qtd ? ' na-sacola' : ''}${estoque.fora ? ' esgotado' : ''}" data-cat="${esc(categoria)}">
+      <div class="sl-card__media">
+        ${estoque.chave !== 'ok' ? `<span class="sl-selo sl-selo--${estoque.chave}">${estoque.fora ? 'Esgotado' : estoque.texto}</span>` : ''}
+        ${qtd ? `<span class="sl-card__na-sacola">${svgP('<path d="m5 12.5 4.5 4.5L19 7.5"/>')} ${qtd} na sacola</span>` : ''}
         ${produto.fotoUrl && /^data:image\//.test(produto.fotoUrl)
           ? `<img src="${esc(produto.fotoUrl)}" alt="" loading="lazy">`
-          : `<span class="loja-simbolo">${svgP(ICO_PRODUTO[produto.categoria] || ICO_PADRAO)}</span>`}
+          : `<span class="sl-card__simbolo">${svgP(ICO_PRODUTO[produto.categoria] || ICO_PADRAO)}</span>`}
       </div>
-      <div class="loja-corpo">
-        <span class="tag">${esc(produto.categoria || 'LanePets')}</span>
+      <div class="sl-card__corpo">
+        <span class="sl-card__cat">${esc(produto.categoria || 'LanePets')}</span>
         <h3>${esc(produto.nome)}</h3>
-        ${produto.descricao ? `<p class="loja-desc">${esc(produto.descricao)}</p>` : ''}
-        <div class="loja-preco"><strong>${brl(produto.valorVenda)}</strong></div>
+        ${produto.descricao ? `<p class="sl-card__desc">${esc(produto.descricao)}</p>` : ''}
+        <div class="sl-card__pe">
+          <strong class="sl-card__preco">${brl(produto.valorVenda)}</strong>
+          ${estoque.fora
+            ? '<span class="sl-card__indisp">Indisponível</span>'
+            : qtd
+              ? stepper(produto, qtd)
+              : `<button type="button" class="sl-add" data-sacola-add="${esc(produto.id)}" aria-label="Adicionar ${esc(produto.nome)} à sacola">${svgP('<path d="M12 5v14M5 12h14"/>')}<span>Adicionar</span></button>`}
+        </div>
       </div>
-    </button>`;
+    </article>`;
   }
 
   function montarCategoriasPedido() {
@@ -3267,27 +3827,34 @@
     if (!caixa) return;
     const categorias = [...new Set(produtosDoCatalogo().map(p => p.categoria).filter(Boolean))]
       .sort((a, b) => a.localeCompare(b, 'pt-BR'));
+    const todos = produtosDoCatalogo();
     caixa.innerHTML = [['', 'Todos'], ...categorias.map(c => [c, c])]
-      .map(([valor, rotulo]) => `<button type="button" class="loja-chip" data-categoria="${esc(valor)}"
-             aria-pressed="${valor === vitrineCategoria}">${esc(rotulo)}</button>`).join('');
+      .map(([valor, rotulo]) => {
+        const n = valor ? todos.filter(p => p.categoria === valor).length : todos.length;
+        const icone = valor ? (ICO_PRODUTO[valor] || ICO_PADRAO) : '<rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/>';
+        return `<button type="button" class="loja-chip sl-chip" data-categoria="${esc(valor)}"
+             aria-pressed="${valor === vitrineCategoria}">${svgP(icone)}${esc(rotulo)}<span>${n}</span></button>`;
+      }).join('');
   }
 
   function desenharVitrine() {
     const alvo = $('#pedidoVitrine');
     if (!alvo) return;
     const termo = vitrineBusca.trim().toLowerCase();
-
     let lista = produtosDoCatalogo().filter(produto => {
       if (vitrineCategoria && produto.categoria !== vitrineCategoria) return false;
-      if (termo && !(produto.nome + ' ' + (produto.categoria || '')).toLowerCase().includes(termo)) return false;
+      if (termo && !(produto.nome + ' ' + (produto.categoria || '') + ' ' + (produto.descricao || '')).toLowerCase().includes(termo)) return false;
       return true;
     });
-
     lista = lista.slice().sort((a, b) => {
+      const fa = estoqueDoProduto(a).fora, fb = estoqueDoProduto(b).fora;
+      if (fa !== fb) return fa ? 1 : -1;   /* esgotados vao para o fim */
       if (vitrineOrdem === 'menor') return Number(a.valorVenda) - Number(b.valorVenda);
       if (vitrineOrdem === 'maior') return Number(b.valorVenda) - Number(a.valorVenda);
       return String(a.nome).localeCompare(String(b.nome), 'pt-BR');
     });
+    const cont = $('#pedidoContagem');
+    if (cont) cont.textContent = `${lista.length} produto${lista.length === 1 ? '' : 's'}${vitrineCategoria ? ` em ${vitrineCategoria}` : ''}${termo ? ` para “${vitrineBusca.trim()}”` : ''}`;
 
     if (!lista.length) {
       alvo.innerHTML = `<div class="loja-estado pedido-vazio-alerta">
@@ -3305,32 +3872,68 @@
       };
       return;
     }
-
     alvo.innerHTML = lista.map(cardPedido).join('');
   }
 
-  /**
-   * Preenche o <select> (como sempre fez) e monta a vitrine em cima dele.
-   * Chamada depois que o catalogo chega.
-   */
+  function desenharSacola() {
+    /* O catalogo pode ter mudado (produto oculto / saldo menor): a sacola se ajusta ao que existe. */
+    for (const [id, qtd] of [...sacola]) {
+      const p = produtoPorId(id);
+      if (!p || estoqueDoProduto(p).fora) sacola.delete(id);
+      else if (qtd > limiteDe(p)) sacola.set(id, limiteDe(p));
+    }
+    const itens = [...sacola].map(([id, qtd]) => ({ p: produtoPorId(id), qtd }));
+    const unidades = itens.reduce((t, i) => t + i.qtd, 0);
+    const total = itens.reduce((t, i) => t + i.qtd * Number(i.p.valorVenda || 0), 0);
+    const rotuloQtd = `${unidades} ${unidades === 1 ? 'item' : 'itens'}`;
+
+    $('#sacola-qtd').textContent = rotuloQtd;
+    $('#sacola-total').textContent = brl(total);
+    $('#sacola-form').hidden = !itens.length;
+    $('#sacola-itens').innerHTML = itens.length
+      ? itens.map(({ p, qtd }) => `
+        <div class="sl-item">
+          <span class="sl-item__ico">${p.fotoUrl && /^data:image\//.test(p.fotoUrl) ? `<img src="${esc(p.fotoUrl)}" alt="">` : svgP(ICO_PRODUTO[p.categoria] || ICO_PADRAO)}</span>
+          <div class="sl-item__info">
+            <strong>${esc(p.nome)}</strong>
+            <span>${brl(p.valorVenda)} cada</span>
+          </div>
+          <div class="sl-item__fim">
+            ${stepper(p, qtd, 'sl-stepper--mini')}
+            <strong>${brl(qtd * Number(p.valorVenda || 0))}</strong>
+          </div>
+        </div>`).join('')
+      : `<div class="sl-vazia">
+          <span class="sl-vazia__ico">${svgP('<path d="M6 7h12l-1 13H7L6 7Z"/><path d="M9 7a3 3 0 0 1 6 0"/><path d="M12 11v5M9.5 13.5h5"/>')}</span>
+          <div><strong>Sua sacola está vazia</strong>
+          <span>Toque em <b>+ Adicionar</b> nos produtos para montar o pedido.</span></div>
+        </div>`;
+
+    const flu = $('#sacola-flutuante');
+    if (flu) {
+      flu.hidden = !itens.length;
+      $('#sacola-flu-qtd').textContent = rotuloQtd;
+      $('#sacola-flu-total').textContent = brl(total);
+    }
+  }
+
+  function mexerNaSacola(id, delta) {
+    const p = produtoPorId(id);
+    if (!p) return;
+    const atual = sacola.get(String(id)) || 0;
+    const limite = limiteDe(p);
+    let novo = Math.min(limite, Math.max(0, atual + delta));
+    if (delta > 0 && atual >= limite) toast(limite ? `Temos só ${limite} unidade${limite === 1 ? '' : 's'} de ${p.nome}.` : `${p.nome} está esgotado.`);
+    if (novo === 0) sacola.delete(String(id)); else sacola.set(String(id), novo);
+    desenharVitrine();
+    desenharSacola();
+  }
+
+  /** Chamada depois que o catalogo chega (e depois de cada pedido, com o estoque novo). */
   function montarVitrinePedido() {
-    /* Estoque unico: o rotulo mostra o saldo real do banco, o mesmo numero
-       que o painel administrativo exibe. */
-    options($('#produto'), produtosDoCatalogo(), p => `${p.nome} — ${brl(p.valorVenda)}`
-      + (p.controlaEstoque ? (p.estoque > 0 ? ` (${p.estoque} em estoque)` : ' (sem estoque)') : ''));
-
-    /* A escolha inicial cai no primeiro card COMO ELE APARECE na vitrine (ordem
-       alfabetica), pulando o que estiver sem estoque. Sem isto, o card marcado
-       poderia estar la embaixo, fora da vista, e o cliente confirmaria um
-       pedido de um produto que nem viu. */
-    const primeiroDisponivel = produtosDoCatalogo()
-      .filter(p => !estoqueDoProduto(p).fora)
-      .sort((a, b) => String(a.nome).localeCompare(String(b.nome), 'pt-BR'))[0];
-    if (primeiroDisponivel) $('#produto').value = String(primeiroDisponivel.id);
-
     montarCategoriasPedido();
     desenharVitrine();
-    ajustarQuantidade();
+    desenharSacola();
     montarRetirada();
   }
 
@@ -3342,7 +3945,7 @@
     const unidades = (catalogo && catalogo.unidades) || [];
     const atual = sel.value;
     sel.innerHTML = (unidades.length > 1 ? '<option value="">Escolha a unidade</option>' : '')
-      + unidades.map(u => `<option value="${esc(u.id)}">${esc(u.nome)}${u.endereco ? ' — ' + esc(u.endereco) : ''}</option>`).join('');
+      + unidades.map(u => `<option value="${esc(u.id)}">${esc(u.nome)}</option>`).join('');
     if (atual && unidades.some(u => u.id === atual)) sel.value = atual;
     sel.closest('.cc-campo').hidden = unidades.length < 2;
   }
@@ -3362,10 +3965,8 @@
       campo.parentElement.classList.remove('tem-texto');
       campo.focus(); desenharVitrine();
     };
-
     const ordem = $('#pedidoOrdem');
     if (ordem) ordem.onchange = () => { vitrineOrdem = ordem.value; desenharVitrine(); };
-
     const chips = $('#pedidoCategorias');
     if (chips) chips.onclick = evento => {
       const chip = evento.target.closest('.loja-chip');
@@ -3374,19 +3975,17 @@
       chips.querySelectorAll('.loja-chip').forEach(b => b.setAttribute('aria-pressed', String(b === chip)));
       desenharVitrine();
     };
-
-    const vitrine = $('#pedidoVitrine');
-    if (vitrine) vitrine.onclick = evento => {
-      const card = evento.target.closest('.pedido-card');
-      if (!card || card.disabled) return;
-      escolherProduto(card.dataset.id);
-      vitrine.querySelectorAll('.pedido-card').forEach(c =>
-        c.setAttribute('aria-pressed', String(c === card)));
-    };
-
-    /* Quem usa o select por teclado continua mandando na escolha. */
-    const select = $('#produto');
-    if (select) select.onchange = () => escolherProduto(select.value);
+    /* Adicionar / + / − valem na vitrine e na sacola (delegado: as duas sao redesenhadas). */
+    $('#sec-produtos').addEventListener('click', evento => {
+      const add = evento.target.closest('[data-sacola-add]');
+      const mais = evento.target.closest('[data-sacola-mais]');
+      const menos = evento.target.closest('[data-sacola-menos]');
+      if (add) mexerNaSacola(add.dataset.sacolaAdd, 1);
+      else if (mais) mexerNaSacola(mais.dataset.sacolaMais, 1);
+      else if (menos) mexerNaSacola(menos.dataset.sacolaMenos, -1);
+    });
+    const flu = $('#sacola-flutuante');
+    if (flu) flu.onclick = () => $('#sacola').scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
   ligarVitrinePedido();
@@ -3418,20 +4017,27 @@
 
   $('#criar-pedido').onclick = event => comBotao(event.currentTarget, 'Enviando…', async () => {
     aviso('#pedido-msg', '');
+    if (!sacola.size) { aviso('#pedido-msg', 'Adicione pelo menos um produto à sacola.', true); return; }
     const retirada = $('#pedido-unidade') ? $('#pedido-unidade').value : '';
     if (((catalogo && catalogo.unidades) || []).length > 1 && !retirada) {
       aviso('#pedido-msg', 'Escolha a unidade onde você vai retirar o pedido.', true);
+      $('#pedido-unidade').focus();
       return;
     }
     try {
-      await api('pedidos', { method: 'POST', body: JSON.stringify({
-        produtoId: $('#produto').value, quantidade: Number($('#quantidade').value), formaPagamento: $('#pedido-pagamento').value,
+      const r = await api('pedidos/lote', { method: 'POST', body: JSON.stringify({
+        itens: [...sacola].map(([produtoId, quantidade]) => ({ produtoId, quantidade })),
+        formaPagamento: $('#pedido-pagamento').value,
         unidade: retirada || null
       }) });
-      aviso('#pedido-msg', 'Pedido recebido!');
-      await abrir();
+      sacola.clear();
+      await abrir();                          /* conta + catalogo com o estoque novo */
       irPara('meus-pedidos');
-    } catch (e) { aviso('#pedido-msg', e.message, true); }
+      toast(`✓ Pedido recebido! ${brl(r.total)} · retirada em ${r.unidadeNome}.`);
+    } catch (e) {
+      console.error('[LanePets] Falha ao finalizar a sacola:', e);
+      aviso('#pedido-msg', e.status === 401 ? 'Sua sessão expirou. Entre novamente.' : e.message, true);
+    }
   });
 
   /* =====================================================================
@@ -3454,6 +4060,54 @@
     return u ? u.nome : v;
   }
 
+  let histBusca = '';
+
+  /* Quantas vezes cada servico aparece (um agendamento pode ter varios). */
+  function servicoMaisFeito(itens) {
+    const cont = {};
+    itens.forEach(a => listaServicos(a).forEach(n => { const k = String(n).trim(); if (k) cont[k] = (cont[k] || 0) + 1; }));
+    return Object.entries(cont).sort((x, y) => y[1] - x[1] || x[0].localeCompare(y[0], 'pt-BR'))[0] || null;
+  }
+  const haQuanto = a => {
+    const n = diasAte(a);
+    if (n === null) return '';
+    const d = -n;
+    if (d <= 0) return 'hoje';
+    if (d === 1) return 'ontem';
+    if (d < 31) return `há ${d} dias`;
+    const m = Math.round(d / 30);
+    return m < 12 ? `há ${m} ${m === 1 ? 'mês' : 'meses'}` : `há mais de ${Math.floor(d / 365) || 1} ano(s)`;
+  };
+
+  function itemHistorico(a) {
+    const pet = (conta.pets || []).find(p => p.id === a.petId) || null;
+    return `
+      <li class="hsx-item">
+        <span class="hsx-ponto" aria-hidden="true"></span>
+        <article class="hsx-card">
+          ${blocoData(a)}
+          <div class="hsx-card__corpo">
+            <div class="agx-card__topo">
+              ${retratoAgendamento(a, pet)}
+              <h3>${esc(a.pet || (pet ? pet.petNome : 'Pet'))}</h3>
+              <span class="hsx-ha">${esc(haQuanto(a))}</span>
+            </div>
+            ${chipsServicos(a)}
+            <div class="agx-meta">
+              <span>${ico(ICO_AG.local, 15)} ${esc(rotuloUnidade(a.unidade))}</span>
+              <span>${ico(ICO_AG.carro, 15)} ${esc(a.transporte || 'Cliente leva')}</span>
+              ${responsavelDe(a) ? `<span>${ico(ICO.pessoa, 15)} Atendido por ${esc(responsavelDe(a))}</span>` : ''}
+            </div>
+          </div>
+          <div class="hsx-card__fim">
+            <strong>${brl(a.total)}</strong>
+            ${selo(statusAg(a))}
+            <button class="botao claro" type="button" data-ag-ver="${esc(a.id)}">Detalhes</button>
+          </div>
+        </article>
+      </li>`;
+  }
+
   function renderHistorico() {
     const lista = $('#hist-lista');
     if (!lista || !conta) return;
@@ -3461,45 +4115,89 @@
     const todos = (conta.agendamentos || []).filter(ehRealizado)
       .slice().sort((a, b) => quandoMs(b) - quandoMs(a));
 
-    /* Filtro por pet: so os pets que tem atendimento aparecem. */
-    const sel = $('#hist-pet');
+    /* Cartoes de pet: so os pets que tem atendimento concluido. */
     const petsComHistorico = (conta.pets || []).filter(p => todos.some(a => a.petId === p.id));
     if (histPet && !petsComHistorico.some(p => p.id === histPet)) histPet = '';
-    sel.innerHTML = '<option value="">Todos os pets</option>' +
-      petsComHistorico.map(p => `<option value="${esc(p.id)}"${p.id === histPet ? ' selected' : ''}>${esc(p.petNome)}</option>`).join('');
+    const caixaPets = $('#hist-pets');
+    if (caixaPets) {
+      const cartao = (id, nome, retrato, qtd, ultimo) => `
+        <button type="button" role="tab" class="hsx-pet${histPet === id ? ' is-ativo' : ''}" aria-selected="${histPet === id}" data-hist-filtro-pet="${esc(id)}">
+          <span class="hsx-pet__foto">${retrato}</span>
+          <span class="hsx-pet__txt"><strong>${esc(nome)}</strong><small>${qtd} ${qtd === 1 ? 'atendimento' : 'atendimentos'}${ultimo ? ' · último ' + dataCurta(ultimo.dataHora).slice(0, 5) : ''}</small></span>
+        </button>`;
+      caixaPets.hidden = petsComHistorico.length < 2;
+      caixaPets.innerHTML = cartao('', 'Todos os pets', ico(ICO.pata, 20), todos.length, todos[0])
+        + petsComHistorico.map(p => {
+          const dele = todos.filter(a => a.petId === p.id);
+          const retrato = p.fotoUrl ? `<img src="${esc(p.fotoUrl)}" alt="" loading="lazy">` : ico(iconePet(p.tipo), 20);
+          return cartao(p.id, p.petNome, retrato, dele.length, dele[0]);
+        }).join('');
+    }
 
-    const itens = todos.filter(a => !histPet || a.petId === histPet);
+    const doPet = todos.filter(a => !histPet || a.petId === histPet);
+    const termo = histBusca.trim().toLowerCase();
+    const itens = doPet.filter(a => !termo || [servicosDo(a), rotuloUnidade(a.unidade), a.pet, a.transporte].join(' ').toLowerCase().includes(termo));
 
-    const total = itens.reduce((s, a) => s + Number(a.total || 0), 0);
-    const ultimo = itens[0];
-    const porPet = {};
-    itens.forEach(a => { porPet[a.pet || '—'] = (porPet[a.pet || '—'] || 0) + 1; });
-    const [petTop, qtdTop] = Object.entries(porPet).sort((a, b) => b[1] - a[1])[0] || ['—', 0];
+    const total = doPet.reduce((s, a) => s + Number(a.total || 0), 0);
+    const ultimo = doPet[0];
+    const top = servicoMaisFeito(doPet);
+    const petNome = histPet ? ((conta.pets || []).find(p => p.id === histPet) || {}).petNome : '';
+    const tile = (rotulo, valor, nota, destaque) => `
+      <div class="pdx-resumo__item${destaque ? ' pdx-resumo__item--destaque' : ''}">
+        <span>${rotulo}</span><strong>${valor}</strong><small>${nota}</small>
+      </div>`;
+    $('#hist-resumo').innerHTML = todos.length ? [
+      tile('Atendimentos', doPet.length, petNome ? `de ${esc(petNome)}` : 'em todos os pets', true),
+      tile('Último cuidado', ultimo ? dataCurta(ultimo.dataHora) : '—', ultimo ? esc(haQuanto(ultimo)) : 'nenhum ainda'),
+      tile('Serviço mais feito', top ? esc(top[0]) : '—', top ? `${top[1]} ${top[1] === 1 ? 'vez' : 'vezes'}` : '—'),
+      tile('Total em cuidados', brl(total), 'soma dos concluídos')
+    ].join('') : '';
+    const titulo = $('#hist-titulo');
+    if (titulo) titulo.textContent = petNome ? `Linha do tempo de ${petNome}` : 'Linha do tempo de cuidados';
 
-    $('#hist-resumo').innerHTML = [
-      metrica({ icone: ICO.agenda, rotulo: 'Serviços realizados', valor: String(itens.length), nota: histPet ? 'deste pet' : 'em todos os pets' }),
-      metrica({ icone: ICO.relogio, rotulo: 'Último atendimento', valor: ultimo ? dataCurta(ultimo.dataHora) : '—', nota: ultimo ? esc(servicosDo(ultimo)) : 'Nenhum ainda' }),
-      metrica({ icone: ICO.cartao, rotulo: 'Total dos serviços', valor: brl(total), nota: 'valor registrado nos atendimentos' }),
-      metrica({ icone: ICO.pata, rotulo: 'Pet mais atendido', valor: esc(petTop), nota: qtdTop ? `${qtdTop} atendimento(s)` : '—', acento: true })
-    ].join('');
-
+    if (!todos.length) {
+      lista.innerHTML = `
+        <div class="pdx-vazio">
+          <div class="pdx-vazio__ico">${ico(ICO.relogio, 30)}</div>
+          <h3>Nenhum serviço realizado ainda</h3>
+          <p>Quando a equipe concluir um atendimento, ele aparece aqui com a data, os serviços e o valor.</p>
+          <button class="botao primario" type="button" data-ag-novo>Agendar um serviço</button>
+        </div>`;
+      return;
+    }
     if (!itens.length) {
-      lista.innerHTML = vazio('Nenhum serviço realizado ainda',
-        'Quando a equipe concluir um atendimento, ele aparece aqui com a data, o serviço e o valor.',
-        '<button class="botao primario" type="button" data-ir="agendar">Agendar um serviço</button>');
+      lista.innerHTML = vazio('Nada encontrado', 'Nenhum atendimento combina com a busca.',
+        '<button class="botao claro" type="button" data-hist-limpar>Limpar busca</button>');
       return;
     }
 
-    lista.innerHTML = `<div class="cc-lista">${itens.map(a => linha({
-      icone: iconePet((conta.pets || []).find(p => p.id === a.petId)?.tipo),
-      titulo: `${esc(a.pet)} · ${esc(servicosDo(a))}`,
-      meta: `${dataHora(a.dataHora)} · ${esc(rotuloUnidade(a.unidade))}${a.transporte && a.transporte !== 'Cliente leva' ? ' · ' + esc(a.transporte) : ''}`,
-      fim: `<strong>${brl(a.total)}</strong>${selo(a.status)}`
-    })).join('')}</div>`;
+    const grupos = [];
+    for (const a of itens) {
+      const d = new Date(a.dataHora);
+      const chave = isNaN(d) ? 'sem-data' : `${d.getFullYear()}-${d.getMonth()}`;
+      let g = grupos.find(x => x.chave === chave);
+      if (!g) grupos.push(g = { chave, titulo: isNaN(d) ? 'Sem data' : `${MESES_LONGOS[d.getMonth()]} de ${d.getFullYear()}`, itens: [] });
+      g.itens.push(a);
+    }
+    lista.innerHTML = grupos.map(g => {
+      const soma = g.itens.reduce((s, a) => s + Number(a.total || 0), 0);
+      return `
+        <div class="agx-mes hsx-mes">
+          <h4 class="agx-mes__titulo">${g.titulo}<span>${g.itens.length} ${g.itens.length === 1 ? 'atendimento' : 'atendimentos'} · ${brl(soma)}</span></h4>
+          <ol class="hsx-trilha">${g.itens.map(itemHistorico).join('')}</ol>
+        </div>`;
+    }).join('');
   }
 
-  document.addEventListener('change', event => {
-    if (event.target && event.target.id === 'hist-pet') { histPet = event.target.value; renderHistorico(); }
+  document.addEventListener('click', event => {
+    const pet = event.target.closest('[data-hist-filtro-pet]');
+    if (pet) { histPet = pet.dataset.histFiltroPet; renderHistorico(); return; }
+    if (event.target.closest('[data-hist-limpar]')) {
+      histBusca = ''; if ($('#hist-busca')) $('#hist-busca').value = ''; renderHistorico();
+    }
+  });
+  document.addEventListener('input', event => {
+    if (event.target && event.target.id === 'hist-busca') { histBusca = event.target.value; renderHistorico(); }
   });
 
   /* Alterar e-mail / senha (item 2 do roadmap) ---------------------------
@@ -3626,13 +4324,17 @@
   });
 
   /* Avaliação ------------------------------------------------------------ */
-  function pintarEstrelas(nota) {
+  function pintarEstrelas(nota, soVisual = false) {
     document.querySelectorAll('#av-estrelas button').forEach(b => b.classList.toggle('is-on', Number(b.dataset.nota) <= nota));
+    if (soVisual) { $('#av-nota-texto').textContent = TEXTO_NOTA[nota]; return; }
     $('#av-nota').value = String(nota);
+    if (conta) atualizarPrevia();
   }
   document.querySelectorAll('#av-estrelas button').forEach(botao => {
     botao.onclick = () => pintarEstrelas(Number(botao.dataset.nota));
+    botao.onmouseenter = () => pintarEstrelas(Number(botao.dataset.nota), true);   /* passar o mouse mostra a nota */
   });
+  $('#av-estrelas').onmouseleave = () => pintarEstrelas(Number($('#av-nota').value) || 5, true);
   pintarEstrelas(5);
 
   $('#av-enviar').onclick = event => comBotao(event.currentTarget, 'Enviando…', async () => {
@@ -3645,6 +4347,7 @@
       }) });
       aviso('#av-msg', dados.message || 'Avaliação enviada!');
       $('#av-comentario').value = '';
+      document.querySelectorAll('#av-sugestoes .is-usada').forEach(b => b.classList.remove('is-usada'));
       pintarEstrelas(5);
       renderAvaliacoes();
     } catch (e) { aviso('#av-msg', e.message, true); }

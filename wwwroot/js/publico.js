@@ -89,6 +89,111 @@
     </article>`;
   }
 
+  /* ---------- Serviços agrupados (28/09) ---------------------------------
+     O cadastro tem um registro por porte ("Banho" P, M e G). Na home isso
+     virava tres cards iguais. Agora: um card por servico com o preco de cada
+     porte, e abas por categoria. Os valores sao os da API, sem arredondar. */
+  const CATEGORIAS_SERVICO = [
+    { chave: 'banho',  nome: 'Banho',           regra: n => /banho/i.test(n) && !/tosa/i.test(n) && !/pacote/i.test(n) },
+    { chave: 'tosa',   nome: 'Banho e tosa',    regra: n => /tosa/i.test(n) && !/pacote/i.test(n) },
+    { chave: 'trat',   nome: 'Tratamentos',     regra: n => /hidrat|oz[oô]nio|subpelo|desembol|shampoo|parasit/i.test(n) },
+    { chave: 'extra',  nome: 'Cuidados extras', regra: n => /unha|dente|bucal/i.test(n) },
+    { chave: 'pacote', nome: 'Pacotes',         regra: n => /pacote/i.test(n) },
+    { chave: 'outros', nome: 'Outros',          regra: () => true }
+  ];
+  const ORDEM_PORTE = ['pequeno', 'médio', 'medio', 'grande', 'gato', 'adicional', ''];
+  const semAcento = t => String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s+/g, ' ').trim();
+  const maiuscula = t => { const x = String(t || '').trim(); return x.charAt(0).toUpperCase() + x.slice(1); };
+
+  let gruposServico = [];
+  let abaServico = '';
+
+  function agruparServicos(lista) {
+    const mapa = new Map();
+    for (const s of lista) {
+      const chave = semAcento(s.nome);
+      if (!chave) continue;
+      if (!mapa.has(chave)) mapa.set(chave, { nome: maiuscula(s.nome), precos: [] });
+      const g = mapa.get(chave);
+      const porte = String(s.porte || '').trim();
+      const preco = Number(s.preco) || 0;
+      if (!g.precos.some(x => semAcento(x.porte) === semAcento(porte) && x.preco === preco)) g.precos.push({ porte, preco });
+    }
+    const grupos = [...mapa.values()];
+    for (const g of grupos) {
+      g.precos.sort((a, b) => ORDEM_PORTE.indexOf(semAcento(a.porte)) - ORDEM_PORTE.indexOf(semAcento(b.porte)) || a.preco - b.preco);
+      /* "Adicional" + sem porte com o mesmo valor = a mesma coisa; fica uma linha so. */
+      g.precos = g.precos.filter((x, i, arr) => !(x.porte === '' && arr.some(y => y !== x && /adicional/i.test(y.porte) && y.preco === x.preco)));
+      g.categoria = CATEGORIAS_SERVICO.find(c => c.regra(g.nome)).chave;
+    }
+    return grupos.sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
+  }
+
+  const rotuloPorte = porte => {
+    const p = semAcento(porte);
+    if (!p) return 'Valor';
+    if (p === 'gato') return 'Gatos';
+    if (p === 'adicional') return 'Adicional';
+    return 'Porte ' + String(porte).trim().toLowerCase();
+  };
+  const valorServico = preco => (preco >= 1 ? money(preco) : 'Sob consulta');
+
+  function cardServicoGrupo(g) {
+    const linhas = g.precos.map(x => `<li><span>${esc(rotuloPorte(x.porte))}</span><b>${valorServico(x.preco)}</b></li>`).join('');
+    return `<article class="card srv-card">
+      <div class="srv-topo">
+        <span class="servico-icone">${icone(g.nome)}</span>
+        <div><h3>${esc(g.nome)}</h3><p>${descricao(g.nome)}</p></div>
+      </div>
+      <ul class="srv-precos">${linhas}</ul>
+      <a class="srv-agendar" href="minha-conta.html#agendar">Agendar este serviço <b>→</b></a>
+    </article>`;
+  }
+
+  function desenharServicos() {
+    const abas = $('#servicos-abas');
+    const alvo = $('#lista-servicos');
+    const usadas = CATEGORIAS_SERVICO.filter(c => gruposServico.some(g => g.categoria === c.chave));
+    if (!usadas.some(c => c.chave === abaServico)) abaServico = usadas.length ? usadas[0].chave : '';
+    if (abas) {
+      abas.hidden = usadas.length < 2;
+      abas.innerHTML = usadas.map(c => {
+        const n = gruposServico.filter(g => g.categoria === c.chave).length;
+        return `<button type="button" role="tab" class="srv-aba" data-aba="${c.chave}" aria-selected="${c.chave === abaServico}">${esc(c.nome)}<span>${n}</span></button>`;
+      }).join('');
+    }
+    const lista = gruposServico.filter(g => g.categoria === abaServico);
+    alvo.innerHTML = lista.length
+      ? lista.map(cardServicoGrupo).join('')
+      : vazio('Serviços LanePets', 'Em breve, novos serviços. Fale com a nossa equipe para conhecer as opções.');
+  }
+
+  async function carregarServicos() {
+    try {
+      gruposServico = agruparServicos(await api('/api/public/servicos'));
+      desenharServicos();
+      numeroHome('servicos', gruposServico.length);
+    } catch (erro) {
+      console.error(erro);
+      $('#lista-servicos').innerHTML = vazio('Conteúdo indisponível agora', 'Não conseguimos carregar os serviços. Atualize a página ou fale com a nossa equipe.');
+    }
+  }
+
+  document.addEventListener('click', evento => {
+    const aba = evento.target.closest('.srv-aba');
+    if (!aba) return;
+    abaServico = aba.dataset.aba;
+    desenharServicos();
+  });
+
+  /* Mostra um card da faixa de numeros so quando ha um numero de verdade. */
+  function numeroHome(chave, valor) {
+    const card = document.querySelector(`[data-numero="${chave}"]`);
+    if (!card || !(Number(valor) > 0)) return;
+    card.querySelector('strong').textContent = Number(valor).toLocaleString('pt-BR');
+    card.hidden = false;
+  }
+
   /* =======================================================================
      LOJINHA
 
@@ -123,6 +228,10 @@
 
   const ICONE_CARRINHO = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="20" r="1.4"/><circle cx="18" cy="20" r="1.4"/><path d="M2.5 3h2.2l2.3 11.2a1.6 1.6 0 0 0 1.6 1.3h8.7a1.6 1.6 0 0 0 1.6-1.25L21 7H6"/></svg>';
 
+  const tomCategoria = c => [...String(c || '')].reduce((n, ch) => n + ch.charCodeAt(0), 0) % 5;
+  const LOJA_PASSO = 8;
+  let lojaLimite = LOJA_PASSO;
+
   function cardProduto(produto) {
     /* A disponibilidade vem do mesmo estoque do painel: o produto e o mesmo
        registro do banco, nao uma copia do site. */
@@ -134,7 +243,7 @@
        vazio, a area de midia traz o simbolo da categoria, na mesma proporcao
        em todos os cards — sem foto deformada e sem buraco na grade. */
     return `<article class="card loja-card${fora ? ' fora' : ''}">
-      <div class="loja-media">
+      <div class="loja-media loja-media--t${tomCategoria(produto.categoria)}">
         <span class="loja-selo loja-selo--${estado.chave}">${estado.texto}</span>
         ${produto.fotoUrl && /^data:image\//.test(produto.fotoUrl)
           ? `<img src="${esc(produto.fotoUrl)}" alt="${esc(produto.nome)}" loading="lazy">`
@@ -173,10 +282,19 @@
     });
 
     const contagem = $('#lojaContagem');
+    const mostrando = Math.min(lista.length, lojaLimite);
     if (contagem) {
-      contagem.textContent = lojaProdutos.length
-        ? `${lista.length} ${lista.length === 1 ? 'produto' : 'produtos'}`
-        : '';
+      contagem.textContent = !lojaProdutos.length ? ''
+        : lista.length > mostrando
+          ? `Mostrando ${mostrando} de ${lista.length} produtos`
+          : `${lista.length} ${lista.length === 1 ? 'produto' : 'produtos'}`;
+    }
+    const mais = $('#loja-mais');
+    if (mais) {
+      const resta = lista.length - mostrando;
+      mais.hidden = resta <= 0;
+      const b = $('#loja-mais-botao');
+      if (b && resta > 0) b.textContent = `Ver mais ${Math.min(resta, LOJA_PASSO)} ${Math.min(resta, LOJA_PASSO) === 1 ? 'produto' : 'produtos'}`;
     }
 
     if (!lista.length) {
@@ -190,10 +308,11 @@
       return;
     }
 
-    alvo.innerHTML = lista.map(cardProduto).join('');
+    alvo.innerHTML = lista.slice(0, lojaLimite).map(cardProduto).join('');
   }
 
   function limparFiltrosLoja() {
+    lojaLimite = LOJA_PASSO;
     lojaBusca = '';
     lojaCategoria = '';
     const campo = $('#lojaBusca');
@@ -220,6 +339,7 @@
     if (campo) {
       campo.addEventListener('input', () => {
         lojaBusca = campo.value;
+        lojaLimite = LOJA_PASSO;
         campo.parentElement.classList.toggle('tem-texto', campo.value.length > 0);
         desenharLoja();
       });
@@ -237,7 +357,10 @@
     }
 
     const ordem = $('#lojaOrdem');
-    if (ordem) ordem.addEventListener('change', () => { lojaOrdem = ordem.value; desenharLoja(); });
+    if (ordem) ordem.addEventListener('change', () => { lojaOrdem = ordem.value; lojaLimite = LOJA_PASSO; desenharLoja(); });
+
+    const mais = $('#loja-mais-botao');
+    if (mais) mais.addEventListener('click', () => { lojaLimite += LOJA_PASSO; desenharLoja(); });
 
     const caixa = $('#lojaCategorias');
     if (caixa) {
@@ -245,6 +368,7 @@
         const chip = evento.target.closest('.loja-chip');
         if (!chip) return;
         lojaCategoria = chip.dataset.categoria || '';
+        lojaLimite = LOJA_PASSO;
         caixa.querySelectorAll('.loja-chip').forEach(b =>
           b.setAttribute('aria-pressed', String(b === chip)));
         desenharLoja();
@@ -256,6 +380,7 @@
   async function carregarLoja() {
     try {
       lojaProdutos = await api('/api/public/produtos');
+      numeroHome('produtos', lojaProdutos.length);
       montarCategorias();
       desenharLoja();
     } catch (erro) {
@@ -288,11 +413,19 @@
     </article>`;
   }
 
+  const iniciais = nome => String(nome || '?').trim().split(/\s+/).filter(Boolean).slice(0, 2).map(p => p[0].toUpperCase()).join('') || '?';
   function cardDepoimento(depoimento) {
+    const nota = Math.max(0, Math.min(5, Number(depoimento.avaliacao) || 0));
     return `<article class="card depoimento">
-      <span class="estrelas" aria-label="${depoimento.avaliacao} de 5 estrelas">${'★'.repeat(depoimento.avaliacao)}${'☆'.repeat(5 - depoimento.avaliacao)}</span>
-      <blockquote>“${esc(depoimento.comentario)}”</blockquote>
-      <cite>${esc(depoimento.nomeCliente)} · tutor(a) de ${esc(depoimento.nomePet)}</cite>
+      <div class="dep-topo">
+        <span class="estrelas" aria-label="${nota} de 5 estrelas">${'★'.repeat(nota)}<span class="apagada">${'★'.repeat(5 - nota)}</span></span>
+        <svg class="dep-aspas" viewBox="0 0 32 24" aria-hidden="true"><path d="M0 24V13.7C0 5.9 4.4 1.3 12.3 0l1.2 3.6C9 4.8 7 7.4 6.8 11.2H12V24Zm18 0V13.7C18 5.9 22.4 1.3 30.3 0l1.2 3.6c-4.5 1.2-6.5 3.8-6.7 7.6H30V24Z"/></svg>
+      </div>
+      <blockquote>${esc(depoimento.comentario)}</blockquote>
+      <div class="dep-autor">
+        <span class="dep-avatar" aria-hidden="true">${esc(iniciais(depoimento.nomeCliente))}</span>
+        <div><strong>${esc(depoimento.nomeCliente)}</strong><span>tutor(a) de ${esc(depoimento.nomePet)}</span></div>
+      </div>
     </article>`;
   }
 
@@ -306,32 +439,45 @@
   const ICONE_TEL = svg('<path d="M4.5 4h3.6l1.6 4.4-2.1 1.8a13 13 0 0 0 6.2 6.2l1.8-2.1 4.4 1.6v3.6c0 1-.9 1.8-1.9 1.7A17 17 0 0 1 3 5.9 1.8 1.8 0 0 1 4.5 4Z"/>');
   const ICONE_RELOGIO = svg('<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>');
 
+  /* 29/09: telefone clicavel (tel:) e mostrado com mascara; "Como chegar" so quando ha endereco de verdade
+     (o texto "Consulte a equipe..." que algumas unidades tem cadastrado nao vira link de mapa). */
+  function telefoneBonito(digitos) {
+    const d = digitos.replace(/^55(?=\d{10,11}$)/, '');
+    if (d.length === 11) return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`;
+    if (d.length === 10) return `(${d.slice(0, 2)}) ${d.slice(2, 6)}-${d.slice(6)}`;
+    return null;
+  }
+  function linhaTelefone(texto) {
+    const digitos = texto.replace(/\D/g, '');
+    const bonito = telefoneBonito(digitos);
+    if (!bonito) return `<div class="unidade-linha"><span>${ICONE_TEL}</span><span>${esc(texto)}</span></div>`;
+    const tel = digitos.startsWith('55') && digitos.length > 11 ? digitos : '55' + digitos;
+    return `<div class="unidade-linha"><span>${ICONE_TEL}</span><a class="unidade-tel" href="tel:+${tel}">${esc(bonito)}</a></div>`;
+  }
+  function enderecoReal(endereco) {
+    const e = String(endereco || '').trim();
+    return e.length >= 8 && !/consulte|a confirmar/i.test(e) ? e : '';
+  }
+
   function cardUnidade(unidade) {
     const telefone = String(unidade.telefone || '').trim();
+    const endereco = enderecoReal(unidade.endereco);
+    const mapa = endereco
+      ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${endereco}, ${unidade.nome}`)}`
+      : '';
     return `<article class="card unidade-card">
       <span class="servico-icone">${ICONE_PIN}</span>
       <h3>${esc(unidade.nome)}</h3>
       <div class="unidade-linha"><span>${ICONE_PIN}</span><span>${esc(unidade.endereco || 'Endereço a confirmar com a equipe LanePets.')}</span></div>
-      ${telefone ? `<div class="unidade-linha"><span>${ICONE_TEL}</span><span>${esc(telefone)}</span></div>` : ''}
+      ${telefone ? linhaTelefone(telefone) : ''}
       ${unidade.horarioFuncionamento ? `<div class="unidade-linha discreta"><span>${ICONE_RELOGIO}</span><span>${esc(unidade.horarioFuncionamento)}</span></div>` : ''}
+      ${mapa ? `<a class="botao claro unidade-mapa" href="${mapa}" target="_blank" rel="noopener">Como chegar <b>→</b></a>` : ''}
     </article>`;
-  }
-
-  function itemContato(unidade) {
-    const telefone = String(unidade.telefone || '').trim();
-    return `<div class="contato-item">
-      <span class="servico-icone">${ICONE_PIN}</span>
-      <div>
-        <h3>${esc(unidade.nome)}</h3>
-        <p>${esc(unidade.endereco || 'Endereço a confirmar com a equipe LanePets.')}${telefone ? ' · ' + esc(telefone) : ''}</p>
-        ${unidade.horarioFuncionamento ? `<p>${esc(unidade.horarioFuncionamento)}</p>` : ''}
-      </div>
-    </div>`;
   }
 
   async function carregarUnidades() {
     const alvoUnidades = $('#lista-unidades');
-    const alvoContato = $('#lista-contato');
+    const sub = $('#unidades-sub');
     try {
       const unidades = await api('/api/public/unidades');
       if (alvoUnidades) {
@@ -339,25 +485,26 @@
           ? unidades.map(cardUnidade).join('')
           : vazio('Novas unidades em breve', 'Estamos organizando as próximas unidades LanePets.');
       }
-      if (alvoContato) {
-        alvoContato.innerHTML = unidades.length
-          ? unidades.map(itemContato).join('')
-          : '<p class="contato-estado">Fale com a equipe LanePets pelo agendamento na sua conta.</p>';
+      // O numero sai da lista de verdade (antes estava "Duas unidades" escrito a mao).
+      if (sub && unidades.length) {
+        const n = unidades.length;
+        const extenso = ['', 'Uma', 'Duas', 'Três', 'Quatro', 'Cinco', 'Seis', 'Sete', 'Oito', 'Nove', 'Dez'][n] || String(n);
+        sub.textContent = n === 1
+          ? 'Uma unidade preparada para receber você e o seu pet.'
+          : `${extenso} unidades preparadas para receber você e o seu pet.`;
       }
     } catch (erro) {
       console.error(erro);
       if (alvoUnidades) alvoUnidades.innerHTML = vazio('Não foi possível carregar as unidades', 'Atualize a página em instantes.');
-      if (alvoContato) alvoContato.innerHTML = '<p class="contato-estado">Não foi possível carregar os contatos agora. Atualize a página em instantes.</p>';
     }
   }
 
   /* ---------- Carregamento ----------------------------------------------- */
-  $('#lista-servicos').innerHTML = esqueleto(6);
+  $('#lista-servicos').innerHTML = esqueleto(3);
   $('#lista-produtos').innerHTML = esqueleto(4);
   $('#lista-depoimentos').innerHTML = esqueleto(3);
   $('#lista-seguros').innerHTML = '<p style="opacity:.7">Carregando planos…</p>';
-  if ($('#lista-unidades')) $('#lista-unidades').innerHTML = esqueleto(2);
-  if ($('#lista-contato')) $('#lista-contato').innerHTML = '<p class="contato-estado">Carregando contatos…</p>';
+  if ($('#lista-unidades')) $('#lista-unidades').innerHTML = esqueleto(3);
 
   async function carregarSecao(seletor, url, montar, tituloVazio, textoVazio, limite) {
     try {
@@ -389,7 +536,14 @@
       if (n.avaliacaoMedia != null && Number(n.avaliacoes) > 0) {
         mostrar('avaliacao', Number(n.avaliacaoMedia).toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + '/5');
         const rotulo = document.querySelector('[data-numero="avaliacao"] span');
-        if (rotulo) rotulo.textContent = `avaliação média · ${n.avaliacoes} ${Number(n.avaliacoes) === 1 ? 'avaliação' : 'avaliações'}`;
+        const qtdTexto = `${n.avaliacoes} ${Number(n.avaliacoes) === 1 ? 'avaliação' : 'avaliações'}`;
+        if (rotulo) rotulo.textContent = `avaliação média · ${qtdTexto}`;
+        const chip = document.querySelector('#hero-nota');
+        if (chip) {
+          chip.querySelector('strong').textContent = Number(n.avaliacaoMedia).toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + ' de 5';
+          chip.querySelector('small').textContent = `média de ${qtdTexto}`;
+          chip.hidden = false;
+        }
       }
     } catch (erro) {
       console.error('[LanePets] Não foi possível carregar os números da home.', erro);
@@ -397,8 +551,7 @@
   }
 
   async function carregar() {
-    await carregarSecao('#lista-servicos', '/api/public/servicos',
-      cardServico, 'Serviços LanePets', 'Em breve, novos serviços. Fale com a nossa equipe para conhecer as opções.', 6);
+    await carregarServicos();
 
     /* A lojinha nao passa mais pelo carregarSecao generico: ela guarda a lista
        inteira para a busca e os filtros trabalharem, e mostra o catalogo todo
@@ -410,6 +563,13 @@
       $('#lista-seguros').innerHTML = planos.length
         ? planos.map(cardPlano).join('')
         : '<p style="opacity:.75">Nenhum plano disponível no momento. Fale com a nossa equipe.</p>';
+      /* Cartao "Seguro pet" do hero: menor mensalidade real dos planos ativos. */
+      const valores = planos.map(p => Number(p.valorMensal)).filter(v => v > 0);
+      const chipSeguro = $('#hero-seguro');
+      if (chipSeguro && valores.length) {
+        chipSeguro.querySelector('small').textContent = `planos a partir de ${money(Math.min(...valores))}/mês`;
+        chipSeguro.hidden = false;
+      }
       document.querySelectorAll('.contratar').forEach(botao => botao.addEventListener('click', () => {
         $('#plano-id').value = botao.dataset.id;
         $('#seguro-titulo').textContent = 'Plano ' + botao.dataset.nome;
@@ -420,8 +580,10 @@
       $('#lista-seguros').innerHTML = '<p style="opacity:.75">Não foi possível carregar os planos agora.</p>';
     }
 
-    await carregarSecao('#lista-depoimentos', '/api/public/depoimentos',
+    const deps = await carregarSecao('#lista-depoimentos', '/api/public/depoimentos',
       cardDepoimento, 'Seja a primeira família a avaliar', 'Clientes LanePets podem enviar um depoimento para a nossa moderação.', 6);
+    const caixaDeps = $('#lista-depoimentos');
+    if (caixaDeps) caixaDeps.classList.toggle('dep-vazio', !deps.length);
 
     await carregarUnidades();
   }

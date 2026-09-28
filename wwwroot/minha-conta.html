@@ -4,9 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>LanePets | Minha conta</title>
-  <link rel="stylesheet" href="publico.css?v=11">
+  <link rel="stylesheet" href="publico.css?v=13">
   <link rel="stylesheet" href="auth.css?v=6">
-  <link rel="stylesheet" href="conta.css?v=17">
+  <link rel="stylesheet" href="conta.css?v=27">
   <style>
     /* A área do cliente vive em conta.css e as telas de acesso em auth.css.
        Aqui fica apenas o que depende da alternância entre as duas. */
@@ -492,12 +492,17 @@
             </button>
           </div>
 
-          <!-- Indicadores: contados a partir dos agendamentos reais da conta -->
-          <div class="cc-resumo ag-resumo" id="ag-resumo"></div>
+          <!-- 28/09: destaque do proximo atendimento + indicadores, tudo contado sobre os agendamentos reais da conta -->
+          <div class="agx-destaque" id="agx-destaque"></div>
+          <div class="pdx-resumo agx-resumo" id="ag-resumo"></div>
 
           <section class="cc-painel">
-            <div class="cc-painel__topo">
-              <div><h2>Seus atendimentos</h2><p>Do mais recente ao mais antigo. Use os filtros para encontrar mais rápido.</p></div>
+            <div class="cc-painel__topo agx-painel-topo">
+              <div><h2>Seus atendimentos</h2><p>Organizados por mês, do mais recente ao mais antigo.</p></div>
+              <label class="pgx-busca pdx-busca agx-busca">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
+                <input type="search" id="ag-busca" placeholder="Buscar pet, serviço ou unidade…" aria-label="Buscar agendamentos">
+              </label>
             </div>
 
             <!-- Filtros: no desktop viram pílulas, no celular um seletor -->
@@ -548,11 +553,16 @@
             <h1>Histórico de serviços</h1>
             <p>Tudo o que a LanePets já fez pelos seus pets, do mais recente para o mais antigo.</p>
           </div>
-          <div class="cc-resumo" id="hist-resumo"></div>
+          <!-- 28/09: resumo + escolha do pet em cartoes + linha do tempo por mes. So atendimentos Concluídos. -->
+          <div class="pdx-resumo hsx-resumo" id="hist-resumo"></div>
+          <div class="hsx-pets" id="hist-pets" role="tablist" aria-label="Escolher pet"></div>
           <section class="cc-painel">
-            <div class="cc-painel__topo">
-              <div><h2>Atendimentos realizados</h2><p>Atendimentos concluídos. Agendamentos futuros e cancelados ficam em Agendamentos.</p></div>
-              <div class="cc-campo" style="min-width:200px"><label for="hist-pet">Pet</label><select id="hist-pet"><option value="">Todos os pets</option></select></div>
+            <div class="cc-painel__topo hsx-topo">
+              <div><h2 id="hist-titulo">Linha do tempo de cuidados</h2><p>Só atendimentos concluídos. Os futuros e os cancelados ficam em Agendamentos.</p></div>
+              <label class="pgx-busca pdx-busca hsx-busca">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
+                <input type="search" id="hist-busca" placeholder="Buscar serviço ou unidade…" aria-label="Buscar no histórico">
+              </label>
             </div>
             <div id="hist-lista"></div>
           </section>
@@ -568,20 +578,28 @@
             <p>Encontre produtos para cuidar melhor do seu pet.</p>
           </div>
 
-          <section class="cc-painel">
-            <div class="cc-painel__topo"><div><h2>Novo pedido</h2><p>Escolha a unidade onde você vai retirar o pedido.</p></div></div>
-            <!-- ESCOLHA DO PRODUTO
-                 O <select id="produto"> continua existindo e continua sendo a
-                 fonte da verdade do envio: "Confirmar pedido" le o value dele,
-                 exatamente como antes. A vitrine abaixo apenas ESCREVE nesse
-                 select. Quem navega por teclado ou leitor de tela usa o select
-                 normalmente; quem esta no mouse/toque usa os cards. -->
-            <div class="pedido-escolha">
-              <div class="pedido-escolha__topo">
-                <label for="produto">Produto</label>
+          <!-- 29/09: loja com SACOLA — varios produtos numa confirmacao so (POST /api/cliente/pedidos/lote).
+               Um pedido por produto no servidor, gravados juntos ou nenhum. -->
+          <!-- 29/09: faixa de abertura da loja (so fatos do sistema: retirada na unidade, pagamento na retirada, estoque real) -->
+          <div class="sl-hero">
+            <div class="sl-hero__txt">
+              <span class="sl-hero__eyebrow">Loja LanePets</span>
+              <h2>Tudo para o dia a dia do seu pet</h2>
+              <p>Monte a sacola, escolha a unidade e retire quando for à LanePets.</p>
+            </div>
+            <ul class="sl-hero__lista">
+              <li><span><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21.5s7.5-6.6 7.5-12.4A7.5 7.5 0 0 0 4.5 9.1c0 5.8 7.5 12.4 7.5 12.4Z"/><circle cx="12" cy="9" r="2.6"/></svg></span>Retirada na unidade que você escolher</li>
+              <li><span><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2.8" y="5.5" width="18.4" height="13" rx="2.4"/><path d="M2.8 10h18.4"/></svg></span>Pagamento só na retirada</li>
+              <li><span><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 8 9-5 9 5-9 5-9-5Z"/><path d="M3 8v8l9 5 9-5V8"/></svg></span>Estoque real, atualizado pela equipe</li>
+            </ul>
+          </div>
+
+          <div class="sl-layout">
+            <section class="sl-vitrine">
+              <div class="sl-barra sl-barra--cartao">
                 <div class="loja-busca" id="pedidoBuscaCampo">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
-                  <input type="search" id="pedidoBusca" placeholder="Buscar produtos..." aria-label="Buscar produtos" autocomplete="off">
+                  <input type="search" id="pedidoBusca" placeholder="Buscar ração, brinquedo, shampoo…" aria-label="Buscar produtos" autocomplete="off">
                   <button type="button" class="loja-limpar" id="pedidoLimparBusca" aria-label="Limpar busca">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
                   </button>
@@ -595,27 +613,33 @@
                   </select>
                 </div>
               </div>
+              <div class="loja-chips sl-chips" id="pedidoCategorias" role="group" aria-label="Filtrar por categoria"></div>
+              <p class="sl-contagem" id="pedidoContagem" aria-live="polite"></p>
+              <div class="sl-grade" id="pedidoVitrine"></div>
+            </section>
 
-              <div class="loja-chips" id="pedidoCategorias" role="group" aria-label="Filtrar por categoria"></div>
-
-              <!-- O select real: fica acessivel por teclado, mas sai do fluxo
-                   visual porque a vitrine faz o mesmo trabalho com mais clareza. -->
-              <div class="pedido-select-acessivel">
-                <label for="produto">Produto selecionado</label>
-                <select id="produto"></select>
+            <aside class="cc-painel sl-sacola" id="sacola" aria-labelledby="sacola-titulo">
+              <div class="sl-sacola__topo">
+                <h2 id="sacola-titulo"><span class="sl-sacola__ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M6 7h12l-1 13H7L6 7Z"/><path d="M9 7a3 3 0 0 1 6 0"/></svg></span>Sua sacola</h2>
+                <span class="sl-sacola__qtd" id="sacola-qtd">0 itens</span>
               </div>
+              <div id="sacola-itens" class="sl-itens"></div>
+              <div class="sl-sacola__form" id="sacola-form">
+                <div class="cc-campo"><label for="pedido-unidade">Retirar em</label><select id="pedido-unidade"></select></div>
+                <div class="cc-campo"><label for="pedido-pagamento">Pagamento</label><select id="pedido-pagamento"><option>Pix</option><option>Cartão</option><option>Dinheiro</option><option>A combinar</option></select></div>
+                <div class="sl-total"><span>Total</span><strong id="sacola-total">R$ 0,00</strong></div>
+                <p class="sl-nota">Pagamento na retirada. Você acompanha tudo em Meus pedidos.</p>
+                <p class="cc-msg" id="pedido-msg"></p>
+                <button class="botao primario sl-finalizar" type="button" id="criar-pedido">Finalizar pedido</button>
+              </div>
+            </aside>
+          </div>
 
-              <div class="grade loja loja--compacta" id="pedidoVitrine"></div>
-            </div>
-
-            <div class="cc-form">
-              <div class="cc-campo"><label for="quantidade">Quantidade</label><input id="quantidade" type="number" min="1" max="99" value="1"><span class="cc-ajuda" id="pedidoEstoqueAjuda"></span></div>
-              <div class="cc-campo"><label for="pedido-unidade">Unidade de retirada</label><select id="pedido-unidade"></select></div>
-              <div class="cc-campo"><label for="pedido-pagamento">Pagamento</label><select id="pedido-pagamento"><option>Pix</option><option>Cartão</option><option>Dinheiro</option><option>A combinar</option></select></div>
-              <p class="cc-msg" id="pedido-msg"></p>
-              <div class="cc-form__acoes"><button class="botao primario" type="button" id="criar-pedido">Confirmar pedido</button></div>
-            </div>
-          </section>
+          <!-- Celular: barra fixa com o resumo da sacola -->
+          <button type="button" class="sl-flutuante" id="sacola-flutuante" hidden>
+            <span><strong id="sacola-flu-qtd">0 itens</strong><small id="sacola-flu-total">R$ 0,00</small></span>
+            <span class="sl-flutuante__acao">Ver sacola →</span>
+          </button>
         </section>
 
         <!-- ---------- MEUS PEDIDOS ---------- -->
@@ -626,44 +650,40 @@
               Minha conta
             </a>
             <h1>Meus Pedidos</h1>
-            <p>Acompanhe seus pedidos e consulte seu histórico de compras.</p>
+            <p>Acompanhe cada pedido da loja, da confirmação até a retirada na unidade.</p>
           </div>
 
+          <!-- 29/09: Meus Pedidos com cara nova — resumo, filtros, pedidos da mesma sacola juntos e linha do tempo. -->
+          <div class="pdx-resumo" id="ped-resumo-topo"></div>
+          <div class="pdx-barra" id="ped-barra" hidden>
+            <div class="pdx-pilulas" id="ped-pilulas" role="group" aria-label="Filtrar pedidos"></div>
+            <div class="pgx-busca pdx-busca">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
+              <input type="search" id="ped-busca" placeholder="Buscar produto ou nº do pedido…" aria-label="Buscar pedidos">
+            </div>
+          </div>
           <div id="lista-pedidos"></div>
         </section>
 
         <section class="cc-secao" id="sec-pagamentos">
           <div class="cc-cabecalho">
             <h1>Pagamentos</h1>
-            <p>Extrato dos valores dos seus agendamentos e pedidos, com a forma de pagamento combinada.</p>
+            <p>Tudo o que você tem a pagar ou já pagou na LanePets: agendamentos, pedidos da loja e mensalidades do Seguro Pet.</p>
           </div>
-          <div class="cc-resumo" id="cc-resumo-pagamentos"></div>
-          <section class="cc-painel">
-            <div class="cc-painel__topo"><div><h2>Lançamentos</h2><p>Os pagamentos são confirmados pela equipe no atendimento.</p></div></div>
-
-            <!-- Item 16: busca + filtros, mesmo padrao de Agendamentos. -->
-            <div class="ag-filtros__extra" style="margin-bottom:16px">
-              <div class="cc-campo" style="min-width:220px;flex:1 1 220px">
-                <label for="pg-busca">Buscar</label>
-                <input type="search" id="pg-busca" placeholder="Buscar por pet, produto, serviço ou plano...">
+          <!-- 29/09: Pagamentos com cara nova — painel de resumo, filtros em pilulas, extrato agrupado por mes. -->
+          <div class="pgx-resumo" id="cc-resumo-pagamentos"></div>
+          <section class="cc-painel pgx-extrato">
+            <div class="pgx-extrato__topo">
+              <div><h2>Extrato</h2><p>Os pagamentos são confirmados pela equipe no atendimento.</p></div>
+              <div class="pgx-busca">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
+                <input type="search" id="pg-busca" placeholder="Buscar por pet, produto, serviço ou plano…" aria-label="Buscar no extrato">
               </div>
-              <label class="ag-select">
-                <span>Tipo</span>
-                <select id="pg-filtro-tipo"><option value="">Todos os tipos</option></select>
-              </label>
-              <label class="ag-select">
-                <span>Situação</span>
-                <select id="pg-filtro-situacao">
-                  <option value="">Todas</option>
-                  <option value="Aprovado">Aprovado</option>
-                  <option value="Pendente">Pendente</option>
-                  <option value="Recusado">Recusado</option>
-                  <option value="Cancelado">Cancelado</option>
-                  <option value="Reembolsado">Reembolsado</option>
-                </select>
-              </label>
             </div>
-
+            <div class="pgx-filtros">
+              <div class="pgx-pilulas" id="pg-pilulas-tipo" role="group" aria-label="Filtrar por tipo"></div>
+              <div class="pgx-pilulas" id="pg-pilulas-situacao" role="group" aria-label="Filtrar por situação"></div>
+            </div>
             <div id="cc-pagamentos"></div>
           </section>
         </section>
@@ -672,9 +692,9 @@
         <section class="cc-secao" id="sec-seguro">
           <div class="cc-cabecalho">
             <h1>Seguro Pet</h1>
-            <p>Planos de proteção disponíveis. A contratação é finalizada com a equipe LanePets.</p>
+            <p>Acompanhe a proteção dos seus pets e contrate novos planos. A contratação é finalizada com a equipe LanePets.</p>
           </div>
-          <div class="cc-planos" id="cc-planos"></div>
+          <div class="cc-planos sg-caixa" id="cc-planos"></div>
         </section>
 
         <!-- ---------- AVALIAÇÕES ---------- -->
@@ -684,25 +704,66 @@
             <p>Conte como foi a sua experiência. Após a aprovação da equipe, o comentário aparece no site.</p>
           </div>
 
-          <section class="cc-painel">
-            <div class="cc-painel__topo"><div><h2>Nova avaliação</h2><p>Enviada com o nome e o telefone da sua conta.</p></div></div>
-            <div class="cc-form">
-              <div class="cc-campo"><label for="av-pet">Sobre qual pet?</label><select id="av-pet"></select></div>
-              <div class="cc-campo">
-                <label for="av-nota">Sua nota</label>
-                <div class="cc-estrelas" id="av-estrelas" role="group" aria-label="Escolha de 1 a 5 estrelas">
-                  <button type="button" data-nota="1" aria-label="1 estrela">★</button>
-                  <button type="button" data-nota="2" aria-label="2 estrelas">★</button>
-                  <button type="button" data-nota="3" aria-label="3 estrelas">★</button>
-                  <button type="button" data-nota="4" aria-label="4 estrelas">★</button>
-                  <button type="button" data-nota="5" aria-label="5 estrelas">★</button>
+          <!-- 29/09: resumo das avaliacoes da conta (numeros reais de GET /api/cliente/avaliacoes; sem dado = some) -->
+          <div class="av-resumo" id="av-resumo" hidden></div>
+
+          <section class="cc-painel av-nova">
+            <div class="av-nova__form">
+              <div class="cc-painel__topo"><div><h2>Nova avaliação</h2><p>Enviada com o nome da sua conta e revisada pela equipe antes de ir para o site.</p></div></div>
+
+              <div class="av-bloco" id="av-bloco-pet">
+                <span class="av-rotulo">Sobre qual pet?</span>
+                <div class="av-pets" id="av-pets" role="radiogroup" aria-label="Pet avaliado"></div>
+                <select id="av-pet" hidden aria-hidden="true" tabindex="-1"></select>
+              </div>
+
+              <div class="av-bloco">
+                <span class="av-rotulo" id="av-nota-rotulo">Sua nota</span>
+                <div class="av-nota">
+                  <div class="cc-estrelas av-estrelas" id="av-estrelas" role="group" aria-labelledby="av-nota-rotulo">
+                    <button type="button" data-nota="1" aria-label="1 estrela">★</button>
+                    <button type="button" data-nota="2" aria-label="2 estrelas">★</button>
+                    <button type="button" data-nota="3" aria-label="3 estrelas">★</button>
+                    <button type="button" data-nota="4" aria-label="4 estrelas">★</button>
+                    <button type="button" data-nota="5" aria-label="5 estrelas">★</button>
+                  </div>
+                  <span class="av-nota__texto" id="av-nota-texto" aria-live="polite">Excelente!</span>
                 </div>
                 <input type="hidden" id="av-nota" value="5">
               </div>
-              <div class="cc-campo cc-campo--largo"><label for="av-comentario">Seu comentário</label><textarea id="av-comentario" rows="4" maxlength="500" placeholder="O que a sua família achou do atendimento?"></textarea><span class="cc-ajuda">Mínimo de 10 caracteres.</span></div>
+
+              <div class="av-bloco">
+                <span class="av-rotulo">O que mais marcou? <small>(opcional — toque para incluir no texto)</small></span>
+                <div class="av-sugestoes" id="av-sugestoes">
+                  <button type="button">Atendimento carinhoso</button>
+                  <button type="button">Equipe atenciosa</button>
+                  <button type="button">Pontualidade</button>
+                  <button type="button">Voltou cheiroso</button>
+                  <button type="button">Ambiente limpo</button>
+                  <button type="button">Ótimo custo-benefício</button>
+                </div>
+              </div>
+
+              <div class="av-bloco cc-campo">
+                <label class="av-rotulo" for="av-comentario">Seu comentário</label>
+                <textarea id="av-comentario" rows="4" maxlength="500" placeholder="Conte como foi o atendimento: o que seu pet e sua família acharam?"></textarea>
+                <div class="av-contador"><span class="cc-ajuda" id="av-ajuda">Mínimo de 10 caracteres.</span><span id="av-contagem">0/500</span></div>
+              </div>
+
               <p class="cc-msg" id="av-msg"></p>
               <div class="cc-form__acoes"><button class="botao primario" type="button" id="av-enviar">Enviar avaliação</button></div>
             </div>
+
+            <!-- Previa ao vivo: como o comentario aparece no site depois de aprovado -->
+            <aside class="av-previa" aria-label="Prévia da avaliação">
+              <span class="av-previa__rotulo">Prévia no site</span>
+              <figure class="av-previa__card">
+                <div class="av-previa__estrelas" id="av-previa-estrelas">★★★★★</div>
+                <blockquote id="av-previa-texto" class="is-vazio">Seu comentário aparece aqui enquanto você escreve.</blockquote>
+                <figcaption><span class="av-previa__avatar" id="av-previa-avatar">··</span><span><strong id="av-previa-nome">Você</strong><span id="av-previa-pet"></span></span></figcaption>
+              </figure>
+              <p class="av-previa__nota">Só aparece no site depois da aprovação da equipe LanePets.</p>
+            </aside>
           </section>
 
           <section class="cc-painel">
@@ -920,7 +981,9 @@
       <ol class="cc-etapas cc-etapas--pet" id="aw-etapas" aria-label="Etapas do agendamento"></ol>
       <div class="cc-etapa__corpo" id="aw-corpo"></div>
       <p class="cc-msg" id="aw-msg" role="alert"></p>
-      <div class="cc-form__acoes">
+      <!-- 29/09: barra de acoes presa no rodape do modal (Continuar sempre visivel) + resumo dos servicos -->
+      <div class="cc-form__acoes aw-barra">
+        <div class="aw-resumo" id="aw-resumo" hidden aria-live="polite"></div>
         <button class="botao claro" type="button" data-ag-sair>Cancelar</button>
         <button class="botao claro" type="button" id="aw-voltar">← Voltar</button>
         <button class="botao primario" type="button" id="aw-avancar">Continuar</button>
@@ -981,7 +1044,7 @@
   <script src="js/config.js"></script>
   <script src="js/http.js?v=5"></script>
   <script src="js/auth-ui.js?v=5"></script>
-  <script src="js/minha-conta.js?v=28"></script>
+  <script src="js/minha-conta.js?v=38"></script>
 <!-- ---------- Modal: detalhes do pedido ----------
        Somente leitura, montado com o pedido que a tela ja recebeu em
        GET /api/cliente/conta. Nenhuma chamada nova. -->

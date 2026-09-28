@@ -67,6 +67,47 @@ public static class PedidosService
         string? produtoId, int quantidade, string? formaPagamento, string? unidade)
     {
         ContaClienteService.ExigirTelefone(cliente, "fazer pedidos");   // Tarefa 2: conta do Google sem telefone
+        var criado = await PrepararAsync(db, cliente, produtoId, quantidade, formaPagamento, unidade);
+        await db.SaveChangesAsync();
+        await PagamentosService.ReconciliarAsync(db);
+        return criado;
+    }
+
+    /// <summary>Um item da sacola da loja (29/09).</summary>
+    public sealed record ItemSacola(string? ProdutoId, int Quantidade);
+
+    /// <summary>Quantos produtos diferentes cabem numa sacola.</summary>
+    public const int MaximoItensSacola = 20;
+
+    /// <summary>
+    /// 29/09 (sacola da loja): varios produtos de uma vez, com a mesma retirada e o mesmo pagamento. Vira UM pedido
+    /// por produto (como sempre), mas tudo num SaveChanges so: se qualquer item falhar (sem estoque, oculto,
+    /// quantidade invalida), NENHUM pedido e nenhuma baixa de estoque sao gravados. Produto repetido soma a quantidade.
+    /// </summary>
+    public static async Task<IReadOnlyList<PedidoCriado>> CriarVariosDoClienteAsync(LanePetsDbContext db, Cliente cliente,
+        IReadOnlyList<ItemSacola>? itens, string? formaPagamento, string? unidade)
+    {
+        ContaClienteService.ExigirTelefone(cliente, "fazer pedidos");
+        var agrupados = (itens ?? [])
+            .Where(i => !string.IsNullOrWhiteSpace(i.ProdutoId))
+            .GroupBy(i => i.ProdutoId!.Trim())
+            .Select(g => (ProdutoId: g.Key, Quantidade: g.Sum(i => i.Quantidade)))
+            .ToList();
+        if (agrupados.Count == 0) throw new Exception("Sua sacola está vazia.");
+        if (agrupados.Count > MaximoItensSacola) throw new Exception($"A sacola aceita até {MaximoItensSacola} produtos diferentes por pedido.");
+
+        var criados = new List<PedidoCriado>();
+        foreach (var (produtoId, quantidade) in agrupados)
+            criados.Add(await PrepararAsync(db, cliente, produtoId, quantidade, formaPagamento, unidade));
+        await db.SaveChangesAsync();                 // tudo ou nada
+        await PagamentosService.ReconciliarAsync(db);
+        return criados;
+    }
+
+    /// <summary>Valida e poe no contexto (pedido + baixa no livro de estoque) SEM gravar. Quem chama faz o SaveChanges.</summary>
+    private static async Task<PedidoCriado> PrepararAsync(LanePetsDbContext db, Cliente cliente,
+        string? produtoId, int quantidade, string? formaPagamento, string? unidade)
+    {
         var produto = await db.Produtos.FindAsync(produtoId) ?? throw new Exception("Produto não localizado.");
         if (quantidade is < 1 or > 99) throw new Exception("Informe uma quantidade entre 1 e 99.");
         if (!produto.VisivelLoja) throw new Exception($"{produto.Nome} não está disponível na loja no momento.");
@@ -104,8 +145,6 @@ public static class PedidosService
         var alerta = EstoqueService.Movimentar(db, produto, -quantidade, EstoqueService.Venda,
             $"Pedido {pedido.Id}", cliente.Id, cliente.Nome, "cliente", pedido.Id);
         db.Pedidos.Add(pedido);
-        await db.SaveChangesAsync();
-        await PagamentosService.ReconciliarAsync(db);
         return new PedidoCriado(pedido, produto, retirada, alerta);
     }
 

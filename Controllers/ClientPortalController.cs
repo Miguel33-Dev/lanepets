@@ -628,12 +628,12 @@ public class ClientPortalController(LanePetsDbContext db, SessionService session
         {
             var cliente = await Cliente();
             // Item 11.4: validacao (pet da conta, unidade, servico, capacidade) e gravacao em AgendamentosClienteService.
-            var (appointment, service) = await AgendamentosClienteService.CriarAsync(db, cliente, new(
+            var (appointment, servicos) = await AgendamentosClienteService.CriarAsync(db, cliente, new(
                 request.PetId, request.ServicoId, request.Unidade, request.Data, request.Horario,
-                request.Transporte, request.FormaPagamento, request.Observacao));
+                request.Transporte, request.FormaPagamento, request.Observacao, request.ServicoIds));
             await realtime.NotificarAsync("agendamentos", "criado", new { appointment.Id, appointment.Dono, appointment.DataHora });
             var automatico = appointment.Status == StatusAgendamento.Confirmado;
-            await Evento("agendamento", automatico ? "Agendamento criado e confirmado automaticamente" : "Agendamento criado pelo cliente", cliente, appointment.Id, $"{appointment.Pet} · {service.Nome} · {appointment.DataHora} · {Normalizador.NomeUnidade(appointment.Unidade)}");
+            await Evento("agendamento", automatico ? "Agendamento criado e confirmado automaticamente" : "Agendamento criado pelo cliente", cliente, appointment.Id, $"{appointment.Pet} · {string.Join(" + ", servicos.Select(s => s.Nome))} · {appointment.DataHora} · {Normalizador.NomeUnidade(appointment.Unidade)}");
             await AvisosClienteService.AgendamentoRecebidoAsync(db, email, config, appointment);   // 28/09: comprovante por e-mail
             // Gravado com o id da unidade; a tela do cliente recebe o nome (ParaExibir). Solto do
             // rastreamento antes, para a troca de exibicao nunca voltar para o banco.
@@ -663,6 +663,35 @@ public class ClientPortalController(LanePetsDbContext db, SessionService session
         }
         catch (Exception ex) { return ErrorApi(ex); }
     }
+    /// <summary>
+    /// 29/09: sacola da loja — varios produtos numa confirmacao so (um pedido por produto, gravados juntos ou nenhum).
+    /// Corpo: <c>{ itens: [{ produtoId, quantidade }], formaPagamento, unidade }</c>.
+    /// </summary>
+    [HttpPost("pedidos/lote")]
+    public async Task<IActionResult> CriarPedidosEmLote([FromBody] PedidoLoteRequest request)
+    {
+        try
+        {
+            var cliente = await Cliente();
+            var criados = await PedidosService.CriarVariosDoClienteAsync(db, cliente,
+                (request.Itens ?? []).Select(i => new PedidosService.ItemSacola(i.ProdutoId, i.Quantidade)).ToList(),
+                request.FormaPagamento, request.Unidade);
+            foreach (var (pedido, produto, retirada, alerta) in criados)
+            {
+                if (alerta is not null) await AlertarEstoqueAsync(alerta);
+                await realtime.NotificarAsync("pedidos", "criado", new { pedido.Id, pedido.ProdutoNome, pedido.Quantidade, estoqueRestante = produto.ControlaEstoque ? produto.Estoque : (int?)null });
+                await Evento("pedido", "Pedido criado", cliente, pedido.Id, $"{pedido.Quantidade}× {pedido.ProdutoNome} · {pedido.Total:C} · {pedido.FormaPagamento} · retirada em {retirada.Nome} · sacola com {criados.Count} produto(s)");
+            }
+            return OkApi(new
+            {
+                total = criados.Sum(c => c.Pedido.Total),
+                unidadeNome = criados[0].Retirada.Nome,
+                pedidos = criados.Select(c => new { c.Pedido.Id, c.Pedido.ProdutoId, c.Pedido.ProdutoNome, c.Pedido.Quantidade, c.Pedido.Total, c.Pedido.Status })
+            });
+        }
+        catch (Exception ex) { return ErrorApi(ex); }
+    }
+
     private string Token() => Request.Headers["X-LanePets-Client"].FirstOrDefault() ?? "";
     private async Task<Cliente> Cliente() { var session = sessions.RequireClient(Token()); return await db.Clientes.FindAsync(session.AdminToken) ?? throw new UnauthorizedAccessException("Cliente não localizado."); }
     public record CadastroRequest(string? Nome, string? Email, string? Senha, string? Telefone, string? Endereco, string? Pet, string? Tipo, string? Raca);
@@ -671,7 +700,7 @@ public class ClientPortalController(LanePetsDbContext db, SessionService session
     public record EsqueciSenhaRequest(string? Email);
     public record AvisosRequest(bool Receber);
     public record RedefinirSenhaRequest(string? Email, string? Codigo, string? NovaSenha, string? ConfirmarSenha);
-    public record AgendamentoRequest(string PetId, string ServicoId, string Unidade, string Data, string Horario, string? Transporte, string? FormaPagamento, string? Observacao);
+    public record AgendamentoRequest(string PetId, string? ServicoId, string Unidade, string Data, string Horario, string? Transporte, string? FormaPagamento, string? Observacao, string[]? ServicoIds = null);   // 29/09: ServicoIds = varios servicos
     /// <summary>
     /// Itens 6/7: o cliente cancela o proprio pedido enquanto ele esta
     /// Pendente. O estoque baixado volta pelo livro de estoque.
@@ -697,6 +726,8 @@ public class ClientPortalController(LanePetsDbContext db, SessionService session
             a.ProdutoId, $"{a.ProdutoNome}: saldo {a.Saldo} (mínimo {a.Minimo})."), HttpContext);
 
     public record PedidoRequest(string ProdutoId, int Quantidade, string? FormaPagamento, string? Unidade = null);
+    public record ItemPedidoRequest(string? ProdutoId, int Quantidade);
+    public record PedidoLoteRequest(ItemPedidoRequest[]? Itens, string? FormaPagamento, string? Unidade);   // 29/09: sacola
     public record PerfilRequest(string? Nome, string? Telefone, string? Endereco);
     public record AlterarEmailRequest(string? NovoEmail, string? SenhaAtual);
     public record AlterarSenhaRequest(string? SenhaAtual, string? NovaSenha, string? ConfirmarSenha);
