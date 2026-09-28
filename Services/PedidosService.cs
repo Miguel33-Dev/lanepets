@@ -66,6 +66,7 @@ public static class PedidosService
     public static async Task<PedidoCriado> CriarDoClienteAsync(LanePetsDbContext db, Cliente cliente,
         string? produtoId, int quantidade, string? formaPagamento, string? unidade)
     {
+        ContaClienteService.ExigirTelefone(cliente, "fazer pedidos");   // Tarefa 2: conta do Google sem telefone
         var produto = await db.Produtos.FindAsync(produtoId) ?? throw new Exception("Produto não localizado.");
         if (quantidade is < 1 or > 99) throw new Exception("Informe uma quantidade entre 1 e 99.");
         if (!produto.VisivelLoja) throw new Exception($"{produto.Nome} não está disponível na loja no momento.");

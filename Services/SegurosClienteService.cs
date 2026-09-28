@@ -66,6 +66,7 @@ public static class SegurosClienteService
     public static async Task<SolicitacaoSeguro> ContratarAsync(LanePetsDbContext db, Cliente cliente,
         string? planoId, string? petId, string? metodoPagamento, string? cartaoFinalInformado, string? observacao)
     {
+        ContaClienteService.ExigirTelefone(cliente, "contratar o seguro");   // Tarefa 2: conta do Google sem telefone
         var plano = await db.PlanosSeguro.FirstOrDefaultAsync(p => p.Id == planoId && p.Ativo)
                     ?? throw new Exception("Plano indisponivel.");
 

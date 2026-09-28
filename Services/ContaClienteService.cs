@@ -27,6 +27,17 @@ public static class ContaClienteService
     public sealed record DadosCadastro(string? Nome, string? Email, string? Senha, string? Telefone, string? Endereco,
         string? Pet, string? Tipo, string? Raca);
 
+    /// <summary>
+    /// Tarefa 2 (28/09, decisao do Fabricio): agendar, pedir na loja e contratar seguro exigem telefone na conta — a
+    /// equipe precisa falar com o tutor. So barra conta SEM telefone (a criada pelo Google, ate ele completar); o
+    /// cadastro normal ja exige telefone, e telefone antigo em outro formato continua valendo.
+    /// </summary>
+    public static void ExigirTelefone(Cliente cliente, string paraQue)
+    {
+        if (string.IsNullOrWhiteSpace(cliente.Telefone))
+            throw new Exception($"Informe seu telefone em Minha Conta para {paraQue}.");
+    }
+
     private static string NovoId(string prefixo) => prefixo + "-" + Guid.NewGuid().ToString("N")[..12].ToUpperInvariant();
 
     /// <summary>

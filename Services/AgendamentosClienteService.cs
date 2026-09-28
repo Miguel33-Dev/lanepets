@@ -78,6 +78,7 @@ public static class AgendamentosClienteService
     /// </summary>
     public static async Task<(Agendamento Agendamento, Servico Servico)> CriarAsync(LanePetsDbContext db, Cliente cliente, NovoAgendamento dados)
     {
+        ContaClienteService.ExigirTelefone(cliente, "agendar");   // Tarefa 2: conta do Google sem telefone
         var pet = await db.Pets.FirstOrDefaultAsync(p => p.Id == dados.PetId && p.ClienteId == cliente.Id) ?? throw new Exception("Pet não localizado.");
         var servico = await db.Servicos.FindAsync(dados.ServicoId) ?? throw new Exception("Serviço não localizado.");
         if (!DateOnly.TryParse(dados.Data, out _) || !TimeOnly.TryParse(dados.Horario, out _) || string.IsNullOrWhiteSpace(dados.Unidade)) throw new Exception("Escolha unidade, data e horário válidos.");

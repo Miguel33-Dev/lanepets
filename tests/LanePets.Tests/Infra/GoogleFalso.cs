@@ -30,18 +30,24 @@ public static class GoogleFalso
     private static WebApplicationFactory<Program>? fabrica;
 
     /// <summary>Aplicacao com Google ligado; criada uma vez (a LanePetsApp descarta junto no fim da rodada).</summary>
-    public static Api Api(LanePetsApp app)
+    public static WebApplicationFactory<Program> Fabrica(LanePetsApp app)
     {
         lock (Trava)
         {
-            fabrica ??= app.WithWebHostBuilder(b =>
+            return fabrica ??= app.WithWebHostBuilder(b =>
             {
                 b.ConfigureAppConfiguration((_, c) => c.AddInMemoryCollection(new Dictionary<string, string?> { [GoogleLogin.Chave] = ClientId }));
                 b.ConfigureTestServices(s => s.AddSingleton<IChavesGoogle, Chaves>());
             });
-            return new Api(fabrica.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false }));
         }
     }
+
+    /// <summary>Cliente HTTP da aplicacao com Google ligado. Sessoes (cliente e painel) valem SO nela.</summary>
+    public static Api Api(LanePetsApp app)
+        => new(Fabrica(app).CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false }));
+
+    /// <summary>Servicos da aplicacao com Google ligado (ex.: o EmailService dela, para ler o codigo de recuperacao).</summary>
+    public static IServiceProvider Servicos(LanePetsApp app) => Fabrica(app).Services;
 
     /// <summary>ID token assinado como o Google assinaria. `ajuste` mexe no corpo (ex.: trocar aud).</summary>
     public static string Token(string email, string sub, string nome = "Tutor Google", Action<Dictionary<string, object?>>? ajuste = null)
