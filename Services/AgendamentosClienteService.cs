@@ -35,10 +35,22 @@ public static class AgendamentosClienteService
         var nomes = lista.Any(a => a.ResponsavelId.Length > 0) ? await ResponsaveisAgendamento.NomesAsync(db) : new Dictionary<string, string>();
         foreach (var a in lista)
         {
-            a.Status = StatusAgendamento.Exibir(a.Status);
+            ParaExibir(a);
             a.ResponsavelNome = a.ResponsavelId.Length > 0 && nomes.TryGetValue(a.ResponsavelId, out var n) ? ResponsaveisAgendamento.PrimeiroNome(n) : "";
         }
         return lista;
+    }
+
+    /// <summary>
+    /// Como a area do cliente mostra o agendamento: status com o nome novo e a unidade pelo
+    /// NOME ("Franco da Rocha"), porque a tela do cliente exibe e compara pelo nome do
+    /// catalogo. No banco a unidade e o id (26/09). So em objeto fora do rastreamento.
+    /// </summary>
+    public static Agendamento ParaExibir(Agendamento a)
+    {
+        a.Status = StatusAgendamento.Exibir(a.Status);
+        if (Normalizador.NomeUnidade(a.Unidade) is { Length: > 0 } nome) a.Unidade = nome;
+        return a;
     }
 
     /// <summary>
@@ -60,7 +72,7 @@ public static class AgendamentosClienteService
     }
 
     /// <summary>
-    /// Marca o atendimento (nasce Solicitado, pagamento Pendente) e grava. Valida pet da conta,
+    /// Marca o atendimento (nasce Solicitado — ou Confirmado se a unidade tem confirmacao automatica —, pagamento Pendente) e grava. Valida pet da conta,
     /// servico, unidade ativa, servico oferecido na unidade e capacidade do horario.
     /// Devolve o agendamento gravado e o servico (para o texto do evento).
     /// </summary>
@@ -95,10 +107,11 @@ public static class AgendamentosClienteService
             Total = total,
             Transporte = dados.Transporte ?? "Cliente leva",
             ValorTransporte = total - servico.Preco,
-            Status = StatusAgendamento.Solicitado,
+            // 29/09: unidade com confirmacao automatica -> ja nasce Confirmado (a capacidade acabou de ser conferida).
+            Status = unidadeReg.ConfirmacaoAutomatica ? StatusAgendamento.Confirmado : StatusAgendamento.Solicitado,
             PagamentoStatus = "Pendente",
             FormaPagamento = dados.FormaPagamento ?? "A combinar",
-            Unidade = dados.Unidade!,
+            Unidade = unidadeReg.Id,   // 26/09: sempre o id (antes gravava o nome que o site mandou)
             Obs = (dados.Observacao ?? "").Trim()
         };
         db.Agendamentos.Add(agendamento);

@@ -8,7 +8,8 @@ namespace LanePets.Services;
 /// Item 11.4c (26/09): avaliacoes (depoimentos) enviadas pela AREA DO CLIENTE. Estava no
 /// ClientPortalController; veio para ca sem mudar regra nem mensagem. Toda avaliacao nasce
 /// "Pendente" e so aparece no site depois da moderacao no painel.
-/// (O formulario publico e a moderacao continuam no PublicController.)
+/// Desde 26/09 e o unico caminho para avaliar (o formulario anonimo do site, que aceitava
+/// nome + telefone, foi removido). A moderacao continua no PublicController.
 /// </summary>
 public static class AvaliacoesService
 {
@@ -23,8 +24,8 @@ public static class AvaliacoesService
             .ToListAsync();
 
     /// <summary>
-    /// Grava uma avaliacao ja vinculada a conta. O pet informado precisa ser da conta; se nao
-    /// for (ou nao vier), usa o primeiro pet da conta, como antes.
+    /// Grava uma avaliacao ja vinculada a conta. O pet informado precisa ser da conta (26/09:
+    /// pet de outra conta e recusado); sem pet informado, usa o primeiro pet da conta, como antes.
     /// </summary>
     public static async Task<Depoimento> CriarDoClienteAsync(LanePetsDbContext db, Cliente cliente, string? petId, int avaliacao, string? comentarioInformado)
     {
@@ -32,8 +33,10 @@ public static class AvaliacoesService
         if (comentario.Length < ComentarioMinimo) throw new Exception("Escreva um comentario com pelo menos 10 caracteres.");
         if (avaliacao is < 1 or > 5) throw new Exception("Escolha uma nota de 1 a 5 estrelas.");
 
-        var pet = await db.Pets.AsNoTracking().FirstOrDefaultAsync(p => p.Id == petId && p.ClienteId == cliente.Id)
-                  ?? await db.Pets.AsNoTracking().FirstOrDefaultAsync(p => p.ClienteId == cliente.Id);
+        var pet = string.IsNullOrWhiteSpace(petId)
+            ? await db.Pets.AsNoTracking().FirstOrDefaultAsync(p => p.ClienteId == cliente.Id)
+            : await db.Pets.AsNoTracking().FirstOrDefaultAsync(p => p.Id == petId && p.ClienteId == cliente.Id)
+              ?? throw new Exception("Pet nao localizado na sua conta.");
 
         var depoimento = new Depoimento
         {

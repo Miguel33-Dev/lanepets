@@ -18,7 +18,7 @@ public class PagamentosController(LanePetsDbContext db, PermissaoService permiss
     [HttpGet]
     public async Task<IActionResult> Listar([FromQuery] string token = "", [FromQuery] string? status = null, [FromQuery] string? origem = null,
         [FromQuery] string? unidade = null, [FromQuery] string? de = null, [FromQuery] string? ate = null, [FromQuery] string? busca = null,
-        [FromQuery] bool reembolso = false)
+        [FromQuery] bool reembolso = false, [FromQuery] int limite = 50, [FromQuery] int offset = 0)
     {
         try
         {
@@ -30,23 +30,33 @@ public class PagamentosController(LanePetsDbContext db, PermissaoService permiss
             var st = PagamentosService.Normalizar(status);
             var org = Normalizador.Texto(origem);
             var uni = Normalizador.Texto(unidade);
-            // Item 16: varias palavras = todas precisam aparecer (mesmo padrao da tela).
-            var palavras = Normalizador.Texto(busca).Split(' ', StringSplitOptions.RemoveEmptyEntries);
             var lista = todos.Where(p =>
                     (string.IsNullOrWhiteSpace(status) || p.Status == st) &&
                     (org.Length == 0 || p.Origem == org) &&
                     (uni.Length == 0 || uni == "todas" || (uni == "sem-unidade" ? p.Unidade == "" : p.Unidade == uni)) &&
                     ((string.IsNullOrEmpty(de) && string.IsNullOrEmpty(ate)) || Normalizador.Dentro(Normalizador.Data(p.DataReferencia), de, ate)) &&
                     (!reembolso || p.ReembolsoPendente) &&
-                    (palavras.Length == 0 || palavras.All(Normalizador.Texto($"{p.Id} {p.OrigemId} {p.Cliente} {p.Descricao} {p.Forma}").Contains)))
-                .OrderByDescending(p => p.DataReferencia).ToList();
+                    // 27/09: mesma regra das outras listas (ListaPaginada.Combina): varias palavras, sem acento e
+                    // numero comparado pelos digitos ("AG 1234" acha "AG-1234").
+                    ListaPaginada.Combina(busca, p.Id, p.OrigemId, p.Cliente, p.Descricao, p.Forma))
+                // ThenBy(Id): ordem estavel, para "Carregar mais" nunca repetir nem pular item.
+                .OrderByDescending(p => p.DataReferencia).ThenBy(p => p.Id, StringComparer.Ordinal).ToList();
+
+            // 26/09: paginacao no servidor. A lista cresce todo mes (mensalidade do Seguro), entao
+            // a tela recebe uma pagina (padrao 50, maximo 500); resumo e total continuam do filtro inteiro.
+            var corte = ListaPaginada.Cortar(lista, limite, offset);
+            var pagina = corte.Itens;
 
             decimal Soma(string s) => lista.Where(p => p.Status == s).Sum(p => p.Valor);
             return OkApi(new
             {
-                itens = lista.Select(p => new
+                total = corte.Total,
+                offset = corte.Offset,
+                limite = corte.Limite,
+                temMais = corte.TemMais,
+                itens = pagina.Select(p => new
                 {
-                    p.Id, p.Origem, p.OrigemId, p.ClienteId, p.Cliente, p.Descricao, p.Valor, p.Forma, p.Status, p.ReembolsoPendente,
+                    p.Id, p.Origem, p.OrigemId, p.Competencia, p.ClienteId, p.Cliente, p.Descricao, p.Valor, p.Forma, p.Status, p.ReembolsoPendente,
                     unidade = p.Unidade, unidadeNome = Normalizador.NomeUnidade(p.Unidade) is { Length: > 0 } n ? n : (p.Origem == PagamentosService.OrigemSeguro ? "—" : "Sem unidade"),
                     p.DataReferencia, atualizadoEm = DateTime.SpecifyKind(p.AtualizadoEm, DateTimeKind.Utc).ToString("O"), p.AtualizadoPor, p.Observacao
                 }),

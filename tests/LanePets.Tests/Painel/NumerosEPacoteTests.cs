@@ -41,7 +41,7 @@ public class NumerosEPacoteTests(LanePetsApp app)
 
         // Avaliacao so entra depois de aprovada.
         var comentario = "Nota da home " + Guid.NewGuid().ToString("N");
-        var enviada = await site.Post("/api/public/depoimentos", new { nome = "Cliente Numeros", telefone = "(11) 98765-4321", pet = "Bolinha", avaliacao = 4, comentario });
+        var enviada = await cliente.Post("/api/cliente/avaliacoes", new { petId, avaliacao = 4, comentario });   // 26/09: so pela conta
         Assert.True(enviada.Codigo == 200, enviada.ToString());
         Assert.Equal(antes.GetProperty("avaliacoes").GetInt32(), (await Numeros(site)).GetProperty("avaliacoes").GetInt32());
 

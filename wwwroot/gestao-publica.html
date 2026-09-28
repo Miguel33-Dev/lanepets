@@ -4,10 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Área pública &middot; LanePets</title>
-<link rel="stylesheet" href="design-system.css?v=6">
+<link rel="stylesheet" href="design-system.css?v=9">
 <link rel="stylesheet" href="css/admin-acoes.css?v=1">
 <script src="js/config.js"></script>
-<script src="js/admin-permissoes.js?v=5"></script>
+<script src="js/admin-permissoes.js?v=7"></script>
 <style>
   /* ------------------------------------------------------------------
      Área Pública — só o que é específico desta tela. Cards de módulo e KPI
@@ -46,7 +46,6 @@
   .module-card-badge { font-size: .68rem; font-weight: 800; padding: 2px 8px; border-radius: var(--r-full); background: var(--warning-100); color: #9c7415; }
   .module-card-external { font-size: .68rem; font-weight: 700; color: var(--ink-400); }
 
-  .kpi .value.skeleton { display: inline-block; width: 54px; height: 1.6rem; border-radius: var(--r-sm); margin-top: 8px; }
   #buscaPublicaVazio, #erroGeralPublica { display: none; }
 
   /* ---------- Avaliações: cartões (não tabela) — mesma linguagem visual do site ---------- */
@@ -300,6 +299,7 @@
               <option value="Em contato">Em contato</option>
               <option value="Concluída">Concluída</option>
               <option value="Cancelada">Cancelada</option>
+              <option value="inadimplente">Inadimplentes</option>
             </select>
             <button class="btn btn-outline btn-sm" type="button" id="limparFiltrosSolicitacoes">Limpar filtros</button>
           </div>
@@ -345,6 +345,6 @@
 </div>
 <script src="ui-kit.js"></script>
 <script src="js/admin-acoes.js"></script>
-<script src="js/gestao-publica.js?v=6"></script>
+<script src="js/gestao-publica.js?v=8"></script>
 </body>
 </html>

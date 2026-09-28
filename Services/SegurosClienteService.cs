@@ -108,7 +108,7 @@ public static class SegurosClienteService
         };
         db.SolicitacoesSeguro.Add(solicitacao);
         await db.SaveChangesAsync();
-        await PagamentosService.ReconciliarAsync(db);   // item 8: um pagamento por contratacao
+        await PagamentosService.ReconciliarAsync(db);   // item 8 + 26/09: primeira mensalidade (as seguintes vem sozinhas)
         return solicitacao;
     }
 

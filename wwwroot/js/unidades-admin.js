@@ -76,6 +76,7 @@
         <dl class="un-linhas">
           <div><dt>Telefone</dt><dd>${esc(u.telefone || '—')}</dd></div>
           <div><dt>Por horário</dt><dd>${u.capacidade} atendimento(s)</dd></div>
+          <div><dt>Confirmação</dt><dd>${u.confirmacaoAutomatica ? 'Automática' : 'Pela equipe'}</dd></div>
           <div><dt>Horário</dt><dd>${esc(u.horarioFuncionamento || '—')}</dd></div>
           <div><dt>Agenda futura</dt><dd>${u.agendamentosFuturos} agendamento(s)</dd></div>
         </dl>
@@ -112,6 +113,7 @@
     $('uTelefone').value = u ? (u.telefone || '') : '';
     $('uHorario').value = u ? (u.horarioFuncionamento || '') : '';
     $('uCapacidade').value = u ? u.capacidade : 1;
+    $('uAuto').checked = !!(u && u.confirmacaoAutomatica);
     preencherCidades(u ? u.nome : '');
     const marcados = new Set(u ? (u.servicos || []) : []);
     $('uServicos').innerHTML = servicos.length ? servicos.map(s => {
@@ -133,6 +135,7 @@
       telefone: $('uTelefone').value.trim(),
       horarioFuncionamento: $('uHorario').value.trim(),
       capacidade: Number($('uCapacidade').value),
+      confirmacaoAutomatica: $('uAuto').checked,
       servicos: [...$('uServicos').querySelectorAll('input:checked')].map(c => c.value)
     };
     if (dados.nome.length < 3) return erro('erroForm', 'Informe o nome da unidade (mínimo 3 letras).');

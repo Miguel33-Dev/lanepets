@@ -22,12 +22,13 @@ namespace LanePets.Services;
 /// e os CSVs correspondentes ficaram em Data/seed/historico/, fora do caminho do
 /// seed, apenas como arquivo morto.
 /// </summary>
-public class SeedService(LanePetsDbContext db, IWebHostEnvironment env, ILogger<SeedService> log)
+public class SeedService(LanePetsDbContext db, IWebHostEnvironment env, ILogger<SeedService> log, IConfiguration config)
 {
     public async Task SeedAsync()
     {
         await GarantirEstruturaAsync();
         await GarantirCatalogoAsync();
+        await Visitante.GarantirAsync(db, config, log);   // 29/09: acesso so leitura para a vitrine
     }
 
     // -----------------------------------------------------------------------
@@ -123,12 +124,17 @@ public class SeedService(LanePetsDbContext db, IWebHostEnvironment env, ILogger<
         // pedido antigo "sem unidade").
         await GarantirColunaAsync("Unidades", "Capacidade", "INTEGER NOT NULL DEFAULT 1");
         await GarantirColunaAsync("Unidades", "ServicosJson", "TEXT NOT NULL DEFAULT '[]'");
+        // 29/09: confirmacao automatica por unidade (padrao desligada = comportamento de antes).
+        await GarantirColunaAsync("Unidades", "ConfirmacaoAutomatica", "INTEGER NOT NULL DEFAULT 0");
         await GarantirColunaAsync("Pedidos", "Unidade", "TEXT NOT NULL DEFAULT ''");
 
         // Item 4 do roadmap (24/09): funcionario responsavel + status novos.
         // A conversao roda a cada subida, mas so toca linha com nome antigo —
         // depois da primeira vez nao encontra mais nada (idempotente).
         await GarantirColunaAsync("Agendamentos", "ResponsavelId", "TEXT NOT NULL DEFAULT ''");
+        // 28/09: avisos por e-mail. Lembrete da vespera (nulo = nao enviado) e a escolha do cliente (padrao: recebe).
+        await GarantirColunaAsync("Agendamentos", "LembreteEnviadoEm", "TEXT NULL");
+        await GarantirColunaAsync("Clientes", "ReceberAvisos", "INTEGER NOT NULL DEFAULT 1");
         await db.Database.ExecuteSqlRawAsync(@"UPDATE Agendamentos SET Status = CASE lower(trim(Status))
                 WHEN 'pendente' THEN 'Solicitado' WHEN 'aguardando' THEN 'Solicitado' WHEN 'agendado' THEN 'Solicitado' WHEN '' THEN 'Solicitado'
                 WHEN 'em processo' THEN 'Em andamento' WHEN 'em_andamento' THEN 'Em andamento' WHEN 'iniciado' THEN 'Em andamento'
@@ -151,7 +157,23 @@ public class SeedService(LanePetsDbContext db, IWebHostEnvironment env, ILogger<
         // partir dos agendamentos, pedidos e seguros existentes e feito pelo
         // PagamentosService.ReconciliarAsync na subida (Program.cs).
         await db.Database.ExecuteSqlRawAsync("CREATE TABLE IF NOT EXISTS Pagamentos (Id TEXT NOT NULL PRIMARY KEY, Origem TEXT NOT NULL DEFAULT '', OrigemId TEXT NOT NULL DEFAULT '', ClienteId TEXT NOT NULL DEFAULT '', Cliente TEXT NOT NULL DEFAULT '', Descricao TEXT NOT NULL DEFAULT '', Valor TEXT NOT NULL DEFAULT '0', Forma TEXT NOT NULL DEFAULT '', Status TEXT NOT NULL DEFAULT 'Pendente', ReembolsoPendente INTEGER NOT NULL DEFAULT 0, Unidade TEXT NOT NULL DEFAULT '', DataReferencia TEXT NOT NULL DEFAULT '', CriadoEm TEXT NOT NULL DEFAULT '', AtualizadoEm TEXT NOT NULL DEFAULT '', AtualizadoPor TEXT NOT NULL DEFAULT '', Observacao TEXT NOT NULL DEFAULT '')");
-        await db.Database.ExecuteSqlRawAsync("CREATE UNIQUE INDEX IF NOT EXISTS IX_Pagamentos_Origem ON Pagamentos (Origem, OrigemId)");
+        // Cobranca mensal do Seguro Pet (26/09): uma mensalidade por mes. A chave unica
+        // passa a incluir a competencia (vazia em agendamento/pedido, entao nada muda para eles).
+        // O backup da subida (item 19) ja foi feito antes deste ajuste.
+        await GarantirColunaAsync("Pagamentos", "Competencia", "TEXT NOT NULL DEFAULT ''");
+        await db.Database.ExecuteSqlRawAsync("DROP INDEX IF EXISTS IX_Pagamentos_Origem");
+        await db.Database.ExecuteSqlRawAsync("CREATE UNIQUE INDEX IF NOT EXISTS IX_Pagamentos_Origem_Competencia ON Pagamentos (Origem, OrigemId, Competencia)");
+
+        // 28/09: recuperacao de senha do cliente. Tabela nova (nada existente muda); o codigo
+        // fica so como hash. UsadoEm nulo = ainda nao usado.
+        await db.Database.ExecuteSqlRawAsync("CREATE TABLE IF NOT EXISTS RecuperacoesSenha (Id TEXT NOT NULL PRIMARY KEY, UsuarioClienteId TEXT NOT NULL DEFAULT '', ClienteId TEXT NOT NULL DEFAULT '', CodigoHash TEXT NOT NULL DEFAULT '', CriadoEm TEXT NOT NULL DEFAULT '', ExpiraEm TEXT NOT NULL DEFAULT '', UsadoEm TEXT NULL, Tentativas INTEGER NOT NULL DEFAULT 0)");
+        await db.Database.ExecuteSqlRawAsync("CREATE INDEX IF NOT EXISTS IX_RecuperacoesSenha_Usuario ON RecuperacoesSenha (UsuarioClienteId, CriadoEm)");
+        // 29/09: recuperacao de senha do painel na mesma tabela (coluna nova, opcional).
+        await GarantirColunaAsync("RecuperacoesSenha", "UsuarioAdminId", "TEXT NOT NULL DEFAULT ''");
+        await db.Database.ExecuteSqlRawAsync("CREATE INDEX IF NOT EXISTS IX_RecuperacoesSenha_Admin ON RecuperacoesSenha (UsuarioAdminId, CriadoEm)");
+        // 29/09: cartao fidelidade — so os resgates sao gravados (os selos vem dos atendimentos concluidos).
+        await db.Database.ExecuteSqlRawAsync("CREATE TABLE IF NOT EXISTS ResgatesFidelidade (Id TEXT NOT NULL PRIMARY KEY, ClienteId TEXT NOT NULL DEFAULT '', CriadoEm TEXT NOT NULL DEFAULT '', Selos INTEGER NOT NULL DEFAULT 0, Premio TEXT NOT NULL DEFAULT '', AutorId TEXT NOT NULL DEFAULT '', Autor TEXT NOT NULL DEFAULT '')");
+        await db.Database.ExecuteSqlRawAsync("CREATE INDEX IF NOT EXISTS IX_ResgatesFidelidade_Cliente ON ResgatesFidelidade (ClienteId, CriadoEm)");
     }
 
     /// <summary>Acrescenta uma coluna se ela ainda nao existir (SQLite nao tem IF NOT EXISTS para colunas).</summary>
@@ -199,7 +221,8 @@ public class SeedService(LanePetsDbContext db, IWebHostEnvironment env, ILogger<
         var administradorGeral = await db.UsuariosAdministradores.FirstOrDefaultAsync(u => u.Email == "admin@gmail.com");
         if (administradorGeral is null)
         {
-            var (hash, salt) = SessionService.HashPassword("123456");
+            // 29/09: em producao a senha vem de LanePets:AdminSenhaInicial (Hospedagem); local continua 123456.
+            var (hash, salt) = SessionService.HashPassword(Hospedagem.SenhaAdminInicial(config));
             db.UsuariosAdministradores.Add(new UsuarioAdministrador { Id = "ADM-INICIAL", Email = "admin@gmail.com", Nome = "Administrador Geral", SenhaHash = hash, SenhaSalt = salt, Ativo = true, Perfil = PerfilAdmin.Geral, AcessoTotal = true });
             await db.SaveChangesAsync();
             log.LogInformation("LanePets: administrador inicial admin@gmail.com criado como Administrador Geral.");

@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Entradas e Saídas &middot; LanePets</title><link rel="stylesheet" href="design-system.css?v=6"><link rel="stylesheet" href="css/admin-acoes.css?v=1"><style>
+<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Entradas e Saídas &middot; LanePets</title><link rel="stylesheet" href="design-system.css?v=9"><link rel="stylesheet" href="css/admin-acoes.css?v=1"><style>
   /* =================================================================
      ENTRADAS E SAÍDAS — apresentação
 
@@ -56,9 +56,10 @@
 </style>  <script src="js/config.js"></script>
   <script src="js/api.js"></script>
   <script src="lib/signalr/signalr.min.js"></script>
-  <script src="js/admin-dados.js?v=2"></script>
-  <script src="js/admin-store.js?v=2"></script>
-<script src="js/admin-permissoes.js?v=5"></script>
+  <script src="js/admin-dados.js?v=5"></script>
+  <script>window.LANE_COLECOES = ['entradasESaidas'];   /* 27/09: agendamentos nao vem mais para esta tela */</script>
+  <script src="js/admin-store.js?v=3"></script>
+<script src="js/admin-permissoes.js?v=7"></script>
 <script src="js/unidades.js?v=3"></script>
 <script src="js/admin-acoes.js?v=1"></script>
 <script src="js/marca-unidades.js?v=1" defer></script>
@@ -253,27 +254,24 @@ function isoLocal(d) {
 function dataBr(iso) { return iso ? iso.split("-").reverse().join("/") : "—"; }
 
 /* Entradas automáticas vindas dos agendamentos (regra 24): o pagamento de um
-   agendamento não grava uma segunda EntradaSaida — ele é somado aqui, na
-   hora, a partir da mesma coleção "agendamentos" que a tela de Agendamentos
-   usa. Isso é o que garante que este número bate com o Dashboard (regra 25). */
-function getEntradasAgendamentosRange(inicio, fim) {
-  const ags = LaneStore.obter("agendamentos");
-  const agrupados = {};
-  ags.forEach(a => {
-    if (!a.dataHora) return;
-    const data = a.dataHora.slice(0, 10);
-    if (data < inicio || data > fim) return;
-    const unidade = unidadeDoLancamento(a);
-    const chave = data + "||" + unidade;
-    if (!agrupados[chave]) agrupados[chave] = { data, unidade, valor: 0, descricoes: [] };
-    agrupados[chave].valor += Number(a.total || 0);
-    agrupados[chave].descricoes.push(a.servicos && a.servicos.length ? a.servicos.map(s => s.nome).join(", ") : "Agendamento");
-  });
-  return Object.values(agrupados).map(info => ({
-    data: info.data, unidade: info.unidade,
-    descricao: "Serviços: " + [...new Set(info.descricoes)].join("; "),
-    tipo: "Entrada", valor: info.valor, origem: "agendamento"
-  }));
+   agendamento não grava uma segunda EntradaSaida — ele é somado na hora.
+   27/09: a soma é feita no servidor (GET /api/admin/entradas-saidas/automaticas)
+   com o MESMO critério do Dashboard: agendamento cancelado não entra (antes esta
+   tela somava também os cancelados e divergia do Dashboard). */
+let automaticas = { chave: "", itens: [], totalTransporte: 0 };
+let automaticasPendente = "";
+function getEntradasAgendamentosRange() { return automaticas.itens.map(i => ({ ...i })); }
+async function carregarAutomaticas(inicio, fim) {
+  const chave = inicio + "|" + fim;
+  automaticasPendente = chave;
+  const q = {};
+  if (inicio !== "0000-01-01") q.de = inicio;
+  if (fim !== "9999-12-31") q.ate = fim;
+  const d = await LaneAdmin.get("admin/entradas-saidas/automaticas", q);
+  if (automaticasPendente !== chave) return false;   /* periodo mudou enquanto buscava */
+  automaticasPendente = "";
+  automaticas = { chave, itens: d.itens || [], totalTransporte: Number(d.totalTransporte || 0) };
+  return true;
 }
 
 /* =============================================================================
@@ -398,9 +396,20 @@ function atualizarRelatorio() {
     const inicio = dataInicio || "0000-01-01";
     const fim = dataFim || "9999-12-31";
 
+    /* Entradas dos agendamentos do periodo: vem do servidor; ate chegar, a tela espera (sem numero parcial). */
+    if (automaticas.chave !== inicio + "|" + fim) {
+      corpo.innerHTML = SKELETON_ES;
+      if (automaticasPendente === inicio + "|" + fim) return;   /* ja esta a caminho */
+      carregarAutomaticas(inicio, fim).then(ok => { if (ok) atualizarRelatorio(); }).catch(erro => {
+        console.error("[LanePets] entradas dos agendamentos:", erro);
+        automaticasPendente = "";
+        esEstado = "erro";
+        atualizarRelatorio();
+      });
+      return;
+    }
     let manuais = getEntradasESaidas().filter(e => e.data && e.data >= inicio && e.data <= fim);
-    const automaticas = getEntradasAgendamentosRange(inicio, fim);
-    let todos = [...manuais, ...automaticas];
+    let todos = [...manuais, ...getEntradasAgendamentosRange()];
 
     if (unidadeFiltro !== "todas") todos = todos.filter(e => unidadeDoLancamento(e) === unidadeFiltro);
     if (tipoFiltro !== "todos") todos = todos.filter(e => e.tipo === tipoFiltro);
@@ -437,12 +446,7 @@ function atualizarRelatorio() {
     const totalSaidas = todos.filter(e => e.tipo === "Saída").reduce((s, e) => s + Number(e.valor || 0), 0);
     const saldo = totalEntradas - totalSaidas;
 
-    let totalTransporte = 0;
-    LaneStore.obter("agendamentos").forEach(a => {
-      if (!a.dataHora || !a.transporte) return;
-      const data = a.dataHora.slice(0, 10);
-      if (data >= inicio && data <= fim) totalTransporte += Number(a.valorTransporte || 0);
-    });
+    const totalTransporte = automaticas.totalTransporte;
     const totalCombustivel = todos.filter(e => e.tipo === "Saída" && /combust/i.test(e.descricao || "")).reduce((s, e) => s + Number(e.valor || 0), 0);
 
     document.getElementById("kpiEntradas").textContent = formatarValor(totalEntradas);
@@ -669,6 +673,7 @@ document.getElementById("corpoTabelaES").addEventListener("click", function (e) 
    ============================================================================= */
 function recarregarES() {
   esEstado = "carregando";
+  automaticas.chave = "";
   atualizarRelatorio();
   const promessa = (window.LaneStore && window.LaneStore.recarregar) ? window.LaneStore.recarregar() : Promise.resolve(true);
   return promessa.then(ok => {
@@ -691,6 +696,12 @@ window.addEventListener("load", function () {
 window.addEventListener("lanepets:dados", function () {
   try {
     if (esEstado !== "erro") esEstado = "pronto";
+    /* Um agendamento pode ter mudado: refaz a soma do periodo em segundo plano (sem piscar). */
+    if (automaticas.chave) {
+      const [ini, fim] = automaticas.chave.split("|");
+      carregarAutomaticas(ini, fim).then(ok => { if (ok) atualizarRelatorio(); })
+        .catch(erro => { automaticasPendente = ""; console.error("[LanePets] entradas dos agendamentos:", erro); });
+    }
     atualizarRelatorio();
   } catch (e) { console.error("[LanePets] falha ao redesenhar a tela:", e); }
 });

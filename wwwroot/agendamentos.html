@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Agendamentos &middot; LanePets</title>
-<link rel="stylesheet" href="design-system.css?v=6">
+<link rel="stylesheet" href="design-system.css?v=9">
 <link rel="stylesheet" href="css/admin-acoes.css?v=2">
 <link rel="stylesheet" href="css/admin-agendamentos.css?v=3">
 <style>
@@ -22,9 +22,8 @@
   <script src="js/config.js"></script>
   <script src="js/api.js"></script>
   <script src="lib/signalr/signalr.min.js"></script>
-  <script src="js/admin-dados.js?v=2"></script>
-  <script src="js/admin-store.js?v=2"></script>
-  <script src="js/admin-permissoes.js?v=5"></script>
+  <script src="js/admin-dados.js?v=5"></script>
+  <script src="js/admin-permissoes.js?v=7"></script>
   <script src="js/unidades.js?v=3"></script>
 <script src="js/marca-unidades.js?v=1" defer></script>
 </head>
@@ -167,7 +166,7 @@
      MODAL: novo agendamento em etapas
      Nada é gravado enquanto o administrador percorre as etapas: o agendamento
      só vai para o banco no "Confirmar agendamento" da revisão, pela mesma
-     gravação de sempre (LaneStore.salvar -> POST /api/admin/sync/agendamentos).
+     gravação de sempre (POST /api/admin/sync/agendamentos).
      ========================================================================= -->
 <div id="modalNovo" class="modal-overlay">
   <div class="modal-box modal-xl" role="dialog" aria-modal="true" aria-labelledby="novoTitulo">
@@ -313,17 +312,18 @@
 
    DE ONDE VEM O DADO
    ------------------
-   Nada aqui inventa registro. A ponte js/admin-store.js le e grava no banco
-   com uma API explicita (sem mexer no localStorage desde 25/09):
+   Nada aqui inventa registro. Desde 27/09 a tela nao usa mais o LaneStore
+   (que baixava o painel inteiro pelo /api/admin/estado). Ela pede ao servidor
+   so o que esta na tela:
 
-       lanepets.db  -> GET  /api/admin/estado        -> esta tela
-       esta tela    -> POST /api/admin/sync/agendamentos -> lanepets.db
+       lanepets.db  -> GET  /api/admin/agenda (aba, filtros, ordem, pagina ou janela do calendario) -> esta tela
+       lanepets.db  -> GET  /api/admin/agenda/{id} (detalhe: ficha do pet e cliente)
+       esta tela    -> POST /api/admin/sync/agendamentos (o mesmo de sempre)                          -> lanepets.db
 
-   Ou seja: `LaneStore.obter("agendamentos")` le o banco e
-   `LaneStore.salvar("agendamentos", lista)` grava no banco. E a MESMA
-   tabela que a area do cliente usa — um agendamento criado pelo cliente
-   aparece aqui, e um status mudado aqui aparece la. Nenhuma API nova foi
-   criada para esta tela.
+   Indicadores, contagem das abas, opcoes de servico e de responsavel vem
+   calculados no servidor sobre a base inteira da unidade. E a MESMA tabela que
+   a area do cliente usa — um agendamento criado pelo cliente aparece aqui, e um
+   status mudado aqui aparece la.
 
    QUEM AUTORIZA
    -------------
@@ -342,19 +342,34 @@ function safeJsonParse(value, fallback) {
   } catch (error) { return fallback; }
 }
 
-let pets = LaneStore.obter("pets");
-let servicos = LaneStore.obter("servicos");
-let agendamentos = LaneStore.obter("agendamentos");
+let servicos = [];          /* catalogo (GET /api/admin/agenda/servicos), carregado quando o wizard/edicao precisa */
+let agendamentos = [];      /* SO o que esta na tela: a pagina da lista ou a janela do calendario (formato do sync) */
+let extras = new Map();     /* id -> { petTipo, petRaca, petFotoUrl, clienteTelefone } calculado no servidor */
+let agMeta = { total: 0, totalUnidade: 0, temMais: false, kpis: {}, unidades: {}, servicosUsados: [], responsaveis: [] };
 let unidadeSelecionada = localStorage.getItem("unidadeAgendamentoSelecionada") || "franco";
 
-function carregarDadosAgenda() {
-  pets = LaneStore.obter("pets");
-  servicos = LaneStore.obter("servicos");
-  agendamentos = LaneStore.obter("agendamentos");
-  if (!Array.isArray(agendamentos)) agendamentos = [];
-  /* Item 4: so em memoria — o servidor ja devolve o nome novo. */
-  agendamentos.forEach(a => { if (a && typeof a === "object") a.status = statusNovo(a.status); });
-  return { pets, servicos, agendamentos };
+async function garantirServicos() {
+  if (servicos.length) return servicos;
+  servicos = await LaneAdmin.get("admin/agenda/servicos");
+  return servicos;
+}
+
+/* "Atualizar regrava o registro inteiro": vai o objeto do servidor, sem os campos da tela. */
+function paraSync(a) {
+  const copia = { ...a };
+  delete copia._idx;
+  return copia;
+}
+
+async function salvarAgendamento(objeto, mensagem) {
+  try {
+    await LaneAdmin.sincronizar("agendamentos", { atualizados: [paraSync(objeto)] });
+    if (mensagem) toast(mensagem, "success");
+  } catch (erro) {
+    console.error("[LanePets] gravar agendamento:", erro);
+    toast(erro.message, "error");
+  }
+  await recarregar();
 }
 
 const $ = id => document.getElementById(id);
@@ -395,7 +410,7 @@ function unidadeDoAgendamento(a) {
 function renderAbasUnidades() {
   const alvo = $("unitSwitcher");
   if (!alvo) return;
-  const usadas = new Set(agendamentos.map(unidadeDoAgendamento));
+  const usadas = new Set(Object.keys(agMeta.unidades || {}));
   const abas = LaneUnidades.lista()
     .filter(u => u.ativa || usadas.has(u.id))
     .map(u => ({ id: u.id, titulo: u.nome + (u.ativa ? "" : " (inativa)"), sub: u.capacidade > 1 ? `Até ${u.capacidade} atendimentos por horário` : "Agenda e indicadores da unidade" }));
@@ -417,17 +432,15 @@ function selecionarUnidade(unidade) {
   localStorage.setItem("unidadeAgendamentoSelecionada", unidade);
   /* Funcionario e da unidade: trocar de aba refaz a lista e solta o filtro de outra unidade. */
   if (agFiltros.responsavel !== RESP_SEM) agFiltros.responsavel = "";
-  preencherFiltroResponsavel();
+  agPagina = 1;
   salvarFiltros();
-  renderTudo();
+  recarregar();
 }
 window.selecionarUnidade = selecionarUnidade;
 
 function atualizarResumoUnidades() {
-  const counts = {};
-  agendamentos.forEach(a => { const id = unidadeDoAgendamento(a); counts[id] = (counts[id] || 0) + 1; });
   document.querySelectorAll("#unitSwitcher [data-contagem]").forEach(el => {
-    const n = counts[el.dataset.contagem] || 0;
+    const n = ((agMeta.unidades || {})[el.dataset.contagem] || {}).total || 0;
     el.textContent = `${n} ${n === 1 ? "agendamento" : "agendamentos"}`;
   });
   document.querySelectorAll("#unitSwitcher .unit-tab").forEach(tab => {
@@ -489,30 +502,21 @@ const svg = (caminho, tam = 18) =>
 const iconePet = tipo => /gat/i.test(String(tipo || "")) ? ICO.gato : ICO.pata;
 
 /* ------------------------------------------------- CRUZAMENTOS DE CADASTRO */
+/* Pet e cliente da linha: o servidor ja cruzou (pelo id e, em registro antigo,
+   por pet + dono) e manda so o que a linha mostra. O detalhe busca a ficha inteira. */
 function petDoAgendamento(a) {
-  if (!a) return null;
-  if (a.petId) {
-    const porId = pets.find(p => p.id === a.petId);
-    if (porId) return porId;
-  }
-  return pets.find(p =>
-    String(p.pet || "").toLowerCase() === String(a.pet || "").toLowerCase() &&
-    String(p.dono || "").toLowerCase() === String(a.dono || "").toLowerCase()) || null;
+  const x = a && extras.get(a.id);
+  return x && (x.petTipo || x.petRaca || x.petFotoUrl) ? { tipo: x.petTipo, raca: x.petRaca, fotoUrl: x.petFotoUrl } : null;
 }
 function clienteDoAgendamento(a) {
-  const lista = (window.LaneStore && window.LaneStore.lista("clientes")) || [];
-  if (!a) return null;
-  if (a.clienteId) {
-    const porId = lista.find(c => c.id === a.clienteId);
-    if (porId) return porId;
-  }
-  return lista.find(c => String(c.nome || "").toLowerCase() === String(a.dono || "").toLowerCase()) || null;
+  const x = a && extras.get(a.id);
+  return x && x.clienteTelefone ? { telefone: x.clienteTelefone } : null;
 }
 function servicosResumo(a) {
   return (a && a.servicos || []).map(s => s && s.nome).filter(Boolean).join(" + ") || "Serviço não informado";
 }
-function retratoPet(a, tam = 34) {
-  const pet = petDoAgendamento(a);
+function retratoPet(a, tam = 34, fichaPet) {
+  const pet = fichaPet || petDoAgendamento(a);
   if (pet && pet.fotoUrl) return `<span class="ag-avatar"><img src="${escapeHtml(pet.fotoUrl)}" alt="" loading="lazy"></span>`;
   return `<span class="ag-avatar">${svg(iconePet(pet && pet.tipo), 19)}</span>`;
 }
@@ -553,82 +557,24 @@ let agOrdem = { campo: "dataHora", dir: "asc" };
 let agFiltros = { busca: "", servico: "", status: "", pagamento: "", responsavel: "", inicio: "", fim: "" };
 
 /* ------------------------------------------------------------- FILTRAGEM
-   Um unico lugar decide o que esta na tela. Calendario, tabela, cards e
-   indicadores leem daqui — nao existe segunda logica de agendamento. */
-function daUnidade() {
-  return agendamentos
-    .map((a, index) => ({ ...a, _idx: index }))
-    .filter(a => unidadeDoAgendamento(a) === unidadeSelecionada);
-}
-
-function aplicarFiltros(lista) {
-  const busca = agFiltros.busca.trim().toLowerCase();
-  const inicio = agFiltros.inicio ? new Date(agFiltros.inicio + "T00:00:00") : null;
-  const fim = agFiltros.fim ? new Date(agFiltros.fim + "T23:59:59") : null;
-
-  return lista.filter(a => {
-    if (busca) {
-      const alvo = [a.pet, a.dono, a.telefone, servicosResumo(a), a.obs].join(" ").toLowerCase();
-      if (!alvo.includes(busca)) return false;
-    }
-    if (agFiltros.servico && !(a.servicos || []).some(s => s && s.nome === agFiltros.servico)) return false;
-    if (agFiltros.status && statusNovo(a.status) !== agFiltros.status) return false;
-    if (agFiltros.pagamento && String(a.pagamentoStatus || "A pagar") !== agFiltros.pagamento) return false;
-    if (agFiltros.responsavel) {
-      const resp = String(a.responsavelId || "");
-      if (agFiltros.responsavel === RESP_SEM ? resp !== "" : resp !== agFiltros.responsavel) return false;
-    }
-    if (inicio || fim) {
-      if (!a.dataHora) return false;
-      const d = new Date(a.dataHora);
-      if (Number.isNaN(d.getTime())) return false;
-      if (inicio && d < inicio) return false;
-      if (fim && d > fim) return false;
-    }
-    return true;
-  });
-}
-
-function ordenar(lista) {
-  const sinal = agOrdem.dir === "desc" ? -1 : 1;
-  const valor = a => {
-    switch (agOrdem.campo) {
-      case "cliente": return String(a.dono || "").toLowerCase();
-      case "pet": return String(a.pet || "").toLowerCase();
-      case "servico": return servicosResumo(a).toLowerCase();
-      case "total": return Number(a.total || 0);
-      case "status": return String(a.status || "").toLowerCase();
-      default: {
-        const d = a.dataHora ? new Date(a.dataHora).getTime() : NaN;
-        return Number.isNaN(d) ? Number.POSITIVE_INFINITY : d;
-      }
-    }
-  };
-  return [...lista].sort((a, b) => {
-    const va = valor(a), vb = valor(b);
-    if (va < vb) return -1 * sinal;
-    if (va > vb) return 1 * sinal;
-    return 0;
-  });
-}
-
-const listaVisivel = () => ordenar(aplicarFiltros(daUnidade()));
+   27/09: filtro, ordem e pagina rodam no servidor (GET /api/admin/agenda).
+   A lista abaixo ja e o resultado — calendario, tabela e cards leem daqui. */
+const listaVisivel = () => agendamentos.map((a, index) => ({ ...a, _idx: index }));
 const temFiltroAtivo = () => Object.values(agFiltros).some(v => String(v).length > 0);
 
 /* ------------------------------------------------------------ INDICADORES
    Contados sobre os agendamentos reais da unidade. Sem registro, mostram 0. */
 function renderKpis() {
-  const base = daUnidade();
   const hoje = hojeISO();
-  const conta = f => base.filter(f).length;
+  const n = chave => Number((agMeta.kpis || {})[chave] || 0);
 
   const kpis = [
-    { id: "hoje", rotulo: "Hoje", tom: "hoje", ico: ICO.relogio, valor: conta(a => soData(a.dataHora) === hoje && !ehCancelado(a)) },
-    { id: "Solicitado", rotulo: "Solicitados", tom: "aguarda", ico: ICO.alerta, valor: conta(a => statusNovo(a.status) === "Solicitado") },
-    { id: "Confirmado", rotulo: "Confirmados", tom: "ok", ico: ICO.check, valor: conta(a => statusNovo(a.status) === "Confirmado") },
-    { id: "Em andamento", rotulo: "Em andamento", tom: "info", ico: ICO.giro, valor: conta(a => statusNovo(a.status) === "Em andamento") },
-    { id: "Concluído", rotulo: "Concluídos", tom: "feito", ico: ICO.entregue, valor: conta(ehConcluido) },
-    { id: "Cancelado", rotulo: "Cancelados", tom: "erro", ico: ICO.banido, valor: conta(ehCancelado) }
+    { id: "hoje", rotulo: "Hoje", tom: "hoje", ico: ICO.relogio, valor: n("hoje") },
+    { id: "Solicitado", rotulo: "Solicitados", tom: "aguarda", ico: ICO.alerta, valor: n("Solicitado") },
+    { id: "Confirmado", rotulo: "Confirmados", tom: "ok", ico: ICO.check, valor: n("Confirmado") },
+    { id: "Em andamento", rotulo: "Em andamento", tom: "info", ico: ICO.giro, valor: n("Em andamento") },
+    { id: "Concluído", rotulo: "Concluídos", tom: "feito", ico: ICO.entregue, valor: n("Concluído") },
+    { id: "Cancelado", rotulo: "Cancelados", tom: "erro", ico: ICO.banido, valor: n("Cancelado") }
   ];
 
   const ativoHoje = agFiltros.inicio === hoje && agFiltros.fim === hoje;
@@ -660,13 +606,14 @@ function aplicarFiltroKpi(id) {
   agPagina = 1;
   sincronizarCamposFiltro();
   salvarFiltros();
-  renderTudo();
+  recarregar();
 }
 
 /* ------------------------------------------------------------- FILTROS UI */
 function preencherOpcoesFiltro() {
   const selServico = $("filtroServico");
-  const nomes = [...new Set(agendamentos.flatMap(a => (a.servicos || []).map(s => s && s.nome)).filter(Boolean))].sort();
+  const nomes = [...(agMeta.servicosUsados || [])];
+  if (agFiltros.servico && !nomes.includes(agFiltros.servico)) nomes.push(agFiltros.servico);
   selServico.innerHTML = '<option value="">Todos os serviços</option>'
     + nomes.map(n => `<option value="${escapeHtml(n)}">${escapeHtml(n)}</option>`).join("");
   selServico.value = agFiltros.servico;
@@ -685,7 +632,7 @@ const RESP_SEM = "__sem";
 function opcoesResponsavel() {
   const mapa = new Map();
   LaneUnidades.funcionarios(unidadeSelecionada).forEach(f => mapa.set(f.id, f.nome));
-  daUnidade().forEach(a => { if (a.responsavelId && !mapa.has(a.responsavelId)) mapa.set(a.responsavelId, nomeResponsavel(a) || "Funcionário removido"); });
+  (agMeta.responsaveis || []).forEach(r => { if (r.id && !mapa.has(r.id)) mapa.set(r.id, r.nome || "Funcionário removido"); });
   return [...mapa].sort((x, y) => x[1].localeCompare(y[1], "pt-BR"));
 }
 function preencherFiltroResponsavel() {
@@ -735,7 +682,7 @@ function limparFiltros() {
   agPagina = 1;
   sincronizarCamposFiltro();
   salvarFiltros();
-  renderTudo();
+  recarregar();
 }
 
 /* ===========================================================================
@@ -832,18 +779,19 @@ const COLUNAS = [
 ];
 
 function renderLista(lista) {
-  const paginas = Math.max(1, Math.ceil(lista.length / AG_POR_PAGINA));
-  if (agPagina > paginas) agPagina = paginas;
+  /* A pagina ja veio do servidor; o total e o do filtro inteiro. */
+  const total = agMeta.total || lista.length;
+  const paginas = Math.max(1, Math.ceil(total / AG_POR_PAGINA));
   const inicio = (agPagina - 1) * AG_POR_PAGINA;
-  const pagina = lista.slice(inicio, inicio + AG_POR_PAGINA);
+  const pagina = lista;
 
   const cabecalho = COLUNAS.map(c => c.campo
     ? `<th class="ag-ordenavel" data-ordenar="${c.campo}" ${agOrdem.campo === c.campo ? `data-dir="${agOrdem.dir}"` : ""}>${c.rotulo}</th>`
     : `<th>${c.rotulo}</th>`).join("");
 
-  const paginacao = lista.length > AG_POR_PAGINA ? `
+  const paginacao = total > AG_POR_PAGINA ? `
     <div class="ag-paginacao">
-      <span class="ag-paginacao__info">Mostrando ${inicio + 1}–${Math.min(inicio + AG_POR_PAGINA, lista.length)} de ${lista.length} agendamentos</span>
+      <span class="ag-paginacao__info">Mostrando ${inicio + 1}–${inicio + pagina.length} de ${total} agendamentos</span>
       <div class="ag-paginacao__botoes">
         <button type="button" class="ag-pag-num" data-pagina="${agPagina - 1}" ${agPagina === 1 ? "disabled" : ""} aria-label="Página anterior">‹</button>
         ${Array.from({ length: paginas }, (_, i) => i + 1)
@@ -999,6 +947,7 @@ function renderTudo() {
   $("agProximo").disabled = agView === "list";
 
   if (agEstado === "carregando") { conteudo.innerHTML = SKELETON; return; }
+  preencherOpcoesFiltro();
   if (agEstado === "erro") { conteudo.innerHTML = ESTADO_ERRO; return; }
 
   renderKpis();
@@ -1013,6 +962,9 @@ function renderTudo() {
     conteudo.innerHTML = renderSemana(lista);
   } else {
     conteudo.innerHTML = renderMes(lista);
+  }
+  if (agView !== "list" && agMeta.temMais) {
+    conteudo.insertAdjacentHTML("afterbegin", `<p class="small-note" style="margin:0 0 var(--sp-3)">Mostrando ${lista.length} de ${agMeta.total} atendimentos deste período. Use os filtros ou a visão de lista para ver todos.</p>`);
   }
 
   /* As ações recém-desenhadas passam pelo filtro de permissão outra vez:
@@ -1039,27 +991,15 @@ document.addEventListener("keydown", e => {
 });
 
 const porId = id => agendamentos.find(a => a.id === id) || null;
-/* Registros antigos importados do navegador podem não ter id; nesse caso o
-   índice na lista é o que identifica a linha. */
-/* Posicao ATUAL de um agendamento guardado quando o modal abriu. A lista e
-   recarregada do banco a cada aviso em tempo real ("lanepets:dados"), entao o
-   objeto guardado deixa de ser o mesmo da lista — procurar so pela referencia
-   dava "Agendamento não encontrado". Procura pela referencia, depois pelo id
-   e, para registro ainda sem id, por pet + dono + data. */
-function indiceAtual(alvo) {
-  if (!alvo) return -1;
-  let i = agendamentos.indexOf(alvo);
-  if (i !== -1) return i;
-  if (alvo.id) {
-    i = agendamentos.findIndex(a => a && a.id === alvo.id);
-    if (i !== -1) return i;
-  }
-  return agendamentos.findIndex(a => a && !a.id && a.pet === alvo.pet && a.dono === alvo.dono && a.dataHora === alvo.dataHora);
-}
+/* A lista e recarregada do servidor a cada aviso em tempo real, entao o objeto
+   guardado quando o modal abriu deixa de ser o da lista: grava-se sempre uma
+   COPIA dele (o registro inteiro, localizado por id no servidor). */
 
 function resolver(id, idx) {
   const achado = id ? porId(id) : null;
   if (achado) return { ag: achado, index: agendamentos.indexOf(achado) };
+  /* O detalhe pode ter sido aberto antes de uma recarga: o objeto guardado vale. */
+  if (id && detAtual && detAtual.id === id) return { ag: detAtual, index: -1 };
   const i = Number(idx);
   return Number.isInteger(i) && agendamentos[i] ? { ag: agendamentos[i], index: i } : { ag: null, index: -1 };
 }
@@ -1079,13 +1019,33 @@ function idade(nascimento) {
 /* ---------------------------------------------------------------- DETALHES */
 let detAtual = null;
 
-function abrirDetalhes(id, idx) {
-  const { ag } = resolver(id, idx);
-  if (!ag) { toast("Agendamento não encontrado. Atualize a página.", "error"); return; }
+/* Ficha do pet e cliente do agendamento (GET /api/admin/agenda/{id}): so o que
+   o usuario pode ver — sem o modulo Pets a ficha vem vazia, como antes. */
+async function buscarDetalhe(id) {
+  return LaneAdmin.get("admin/agenda/" + encodeURIComponent(id));
+}
+
+async function abrirDetalhes(id, idx) {
+  const { ag: daLista } = resolver(id, idx);
+  if (!daLista) { toast("Agendamento não encontrado. Atualize a página.", "error"); return; }
+  detAtual = daLista;
+  $("detTitulo").textContent = `${daLista.pet || "Pet"} · ${servicosResumo(daLista)}`;
+  $("detSub").textContent = "Carregando…";
+  $("detCorpo").innerHTML = '<p class="small-note">Carregando a ficha do agendamento…</p>';
+  abrirModal("modalDetalhes");
+  let d;
+  try { d = await buscarDetalhe(daLista.id); }
+  catch (erro) {
+    console.error("[LanePets] detalhe do agendamento:", erro);
+    if (detAtual === daLista) { $("detSub").textContent = ""; $("detCorpo").innerHTML = `<p class="small-note">${escapeHtml(erro.message)}</p>`; }
+    return;
+  }
+  if (detAtual !== daLista) return;   /* outro detalhe foi aberto enquanto carregava */
+  const ag = d.agendamento;
   detAtual = ag;
 
-  const pet = petDoAgendamento(ag);
-  const cliente = clienteDoAgendamento(ag);
+  const pet = d.pet;
+  const cliente = d.cliente;
   const pacote = obterInfoPacote(ag, pet);
   const servico = Number(ag.total || 0) - Number(ag.valorTransporte || 0);
   const pago = String(ag.pagamentoStatus || "A pagar") === "Pago";
@@ -1095,7 +1055,7 @@ function abrirDetalhes(id, idx) {
 
   $("detCorpo").innerHTML = `
     <section class="ag-bloco ag-bloco--destaque">
-      ${retratoPet(ag, 46)}
+      ${retratoPet(ag, 46, pet)}
       <div><strong>${escapeHtml(ag.pet || "Pet")}</strong>
         <span>${escapeHtml([pet && pet.tipo, pet && pet.raca, pet && pet.porte].filter(Boolean).join(" · ") || "Ficha do pet não localizada")}</span></div>
       <div style="margin-left:auto">${statusBadge(ag.status)}</div>
@@ -1161,24 +1121,18 @@ function abrirDetalhes(id, idx) {
 
   const podeCancelar = !ehCancelado(ag) && !ehEntregue(ag);
   $("detCancelar").style.display = podeCancelar ? "" : "none";
-  abrirModal("modalDetalhes");
   if (window.LanePermissoes && window.LanePermissoes.estadoAtual) window.LanePermissoes.ajustarElementos($("modalDetalhes"));
 }
 
-$("detEditar").addEventListener("click", () => { fecharModal("modalDetalhes"); abrirEdicao(detAtual && detAtual.id, agendamentos.indexOf(detAtual)); });
-$("detStatus").addEventListener("click", () => { fecharModal("modalDetalhes"); abrirStatus(detAtual && detAtual.id, agendamentos.indexOf(detAtual)); });
-$("detCancelar").addEventListener("click", () => { fecharModal("modalDetalhes"); abrirCancelar(detAtual && detAtual.id, agendamentos.indexOf(detAtual)); });
+$("detEditar").addEventListener("click", () => { fecharModal("modalDetalhes"); abrirEdicao(detAtual && detAtual.id); });
+$("detStatus").addEventListener("click", () => { fecharModal("modalDetalhes"); abrirStatus(detAtual && detAtual.id); });
+$("detCancelar").addEventListener("click", () => { fecharModal("modalDetalhes"); abrirCancelar(detAtual && detAtual.id); });
 
 /* ------------------------------------------------------- GRAVAÇÃO NO BANCO
-   Um só caminho de escrita: mexe na lista e entrega ao LaneStore.salvar, que manda
-   o delta para POST /api/admin/sync/agendamentos. Se o servidor recusar (403
-   por permissão, por exemplo), a própria ponte recarrega o estado real e a
-   tela volta a mostrar o que o banco tem. */
-function gravarAgendamentos(mensagem) {
-  LaneStore.salvar("agendamentos", agendamentos);
-  renderTudo();
-  if (mensagem) toast(mensagem, "success");
-}
+   Um só caminho de escrita: salvarAgendamento (acima) manda o registro inteiro
+   para POST /api/admin/sync/agendamentos e recarrega do servidor. Se o servidor
+   recusar (403 por permissão, capacidade...), a mensagem dele aparece e a tela
+   volta a mostrar o que o banco tem. */
 
 /* ------------------------------------------------------------ ALTERAR STATUS */
 let stAlvo = null, stEscolhido = "";
@@ -1232,11 +1186,8 @@ $("stConfirmar").addEventListener("click", async e => {
   });
   if (!ok) return;
   comLoading(botao, "Salvando...", () => {
-    const i = indiceAtual(stAlvo);
-    if (i === -1) { toast("Agendamento não encontrado.", "error"); return; }
-    agendamentos[i] = { ...agendamentos[i], status: stEscolhido };
     fecharModal("modalStatus");
-    gravarAgendamentos(`Status atualizado para "${stEscolhido}".`);
+    return salvarAgendamento({ ...stAlvo, status: stEscolhido }, `Status atualizado para "${stEscolhido}".`);
   });
 });
 
@@ -1262,13 +1213,10 @@ function abrirCancelar(id, idx) {
 $("cnConfirmar").addEventListener("click", e => {
   if (!cnAlvo) return;
   comLoading(e.currentTarget, "Cancelando...", () => {
-    const i = indiceAtual(cnAlvo);
-    if (i === -1) { toast("Agendamento não encontrado.", "error"); return; }
     /* Status vira "Cancelado". O registro continua no banco — é o mesmo que a
        área do cliente faz, e é o que mantém o histórico e o dashboard certos. */
-    agendamentos[i] = { ...agendamentos[i], status: "Cancelado" };
     fecharModal("modalCancelar");
-    gravarAgendamentos("Agendamento cancelado.");
+    return salvarAgendamento({ ...cnAlvo, status: "Cancelado" }, "Agendamento cancelado.");
   });
 });
 
@@ -1285,24 +1233,37 @@ async function excluirAgendamento(id, idx) {
   });
   if (!ok) return;
 
-  const removido = agendamentos[index];
-  agendamentos.splice(index, 1);
-  LaneStore.salvar("agendamentos", agendamentos);
+  /* A ficha do pet vem antes: sem ela nao da para devolver o banho ao pacote. */
+  let pet = null;
+  try { pet = (await buscarDetalhe(ag.id)).pet; }
+  catch (erro) { console.error("[LanePets] ficha do pet antes de excluir:", erro); }
 
-  const petsLS = LaneStore.obter("pets");
-  const idxPet = petsLS.findIndex(p =>
-    String(p.pet || "").toLowerCase() === String(removido.pet || "").toLowerCase() &&
-    String(p.dono || "").toLowerCase() === String(removido.dono || "").toLowerCase() &&
-    p.pacote && p.pacote.ativo);
-  if (idxPet !== -1 && petsLS[idxPet].pacote && Array.isArray(petsLS[idxPet].pacote.historico)) {
-    const h = petsLS[idxPet].pacote.historico.indexOf(removido.dataHora);
-    if (h !== -1) petsLS[idxPet].pacote.historico.splice(h, 1);
-    petsLS[idxPet].pacote.feitos = petsLS[idxPet].pacote.historico.length;
-    LaneStore.salvar("pets", petsLS);
-    pets = petsLS;
+  try {
+    await LaneAdmin.sincronizar("agendamentos", { removidos: [ag.id] });
+  } catch (erro) {
+    console.error("[LanePets] excluir agendamento:", erro);
+    toast(erro.message, "error");
+    await recarregar();
+    return;
   }
-  renderTudo();
+
+  /* Devolve o banho ao pacote do pet, como antes. */
+  const pacote = pet && pet.pacote && typeof pet.pacote === "object" && !Array.isArray(pet.pacote) ? pet.pacote : null;
+  if (pacote && pacote.ativo && Array.isArray(pacote.historico)) {
+    const historico = [...pacote.historico];
+    const h = historico.indexOf(ag.dataHora);
+    if (h !== -1) historico.splice(h, 1);
+    try {
+      await LaneAdmin.sincronizar("pets", { atualizados: [{ ...pet, pacote: { ...pacote, historico, feitos: historico.length } }] });
+    } catch (erro) {
+      console.error("[LanePets] devolver banho ao pacote:", erro);
+      toast("Agendamento excluído, mas o banho não voltou ao pacote: " + erro.message, "error");
+      await recarregar();
+      return;
+    }
+  }
   toast("Agendamento excluído.", "success");
+  await recarregar();
 }
 
 /* ===========================================================================
@@ -1310,9 +1271,11 @@ async function excluirAgendamento(id, idx) {
 
    O fluxo inteiro vive em memória. Enquanto o administrador percorre as
    etapas NADA é gravado: o agendamento só vai para o banco no clique final
-   da revisão, pela mesma gravação que a tela antiga usava
-   (LaneStore.salvar -> POST /api/admin/sync/agendamentos). A validação de pacote
+   da revisão (POST /api/admin/sync/agendamentos). A validação de pacote
    e a baixa no pacote do pet são exatamente as regras que já existiam.
+   27/09: clientes/pets vêm de GET /api/admin/pets (busca no servidor), o
+   catálogo de GET /api/admin/agenda/servicos e os horários lotados de
+   GET /api/admin/agenda/lotados.
    =========================================================================== */
 const ETAPAS = [
   { id: "cliente", rotulo: "Cliente" },
@@ -1327,17 +1290,62 @@ const ETAPAS = [
 
 let fluxo = null;
 
+const PETS_WIZARD = 500;
+
 function abrirNovoAgendamento() {
-  carregarDadosAgenda();
   fluxo = {
     etapa: 0, dono: "", petsEscolhidos: [], servicosIdx: [],
     unidade: LaneUnidades.ativas().some(u => u.id === unidadeSelecionada) ? unidadeSelecionada : ((LaneUnidades.ativas()[0] || {}).id || ""),
     data: "", hora: "", transporte: false, valorTransporte: "",
     pagamentoStatus: "A pagar", formaPagamento: "", obs: "", responsavelId: "",
-    buscaCliente: "", concluido: false, salvos: []
+    buscaCliente: "", concluido: false, salvos: [],
+    carregando: true, erroCarga: "", petsBusca: [], petsBuscaTotal: 0, petsDoDono: [], lotados: [], lotadosChave: ""
   };
   pintarEtapa();
   abrirModal("modalNovo");
+  const meu = fluxo;
+  Promise.all([garantirServicos(), buscarPetsWizard("")]).then(() => {
+    if (fluxo !== meu) return;
+    fluxo.carregando = false;
+    pintarEtapa();
+  }).catch(erro => {
+    console.error("[LanePets] novo agendamento:", erro);
+    if (fluxo !== meu) return;
+    fluxo.carregando = false;
+    fluxo.erroCarga = erro.message;
+    pintarEtapa();
+  });
+}
+
+/* Clientes com pets: busca no servidor (a lista inteira nao vem mais para a tela). */
+let buscaPetsVez = 0;
+async function buscarPetsWizard(termo) {
+  const minha = ++buscaPetsVez;
+  const d = await LaneAdmin.petsPainel({ busca: termo, limite: PETS_WIZARD });
+  if (minha !== buscaPetsVez || !fluxo) return;
+  fluxo.petsBusca = d.itens || [];
+  fluxo.petsBuscaTotal = d.total || 0;
+}
+const buscarPetsComAtraso = debounceWizard(termo => buscarPetsWizard(termo).then(() => { if (fluxo && etapaAtual().id === "cliente") pintarEtapa(); })
+  .catch(erro => { console.error("[LanePets] busca de clientes:", erro); aviso(erro.message, true); }), 280);
+function debounceWizard(fn, ms) { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; }
+
+/* Pets do cliente escolhido: busca pelo nome do dono e fica so com os dele. */
+async function carregarPetsDoDono(dono) {
+  const d = await LaneAdmin.petsPainel({ busca: dono, limite: PETS_WIZARD });
+  if (!fluxo || fluxo.dono !== dono) return;
+  fluxo.petsDoDono = (d.itens || []).filter(p => p.dono === dono);
+}
+
+/* Horarios lotados da unidade no dia (mesma regra do servidor na gravacao). */
+async function carregarLotados() {
+  if (!fluxo || !fluxo.unidade || !fluxo.data) return;
+  const chave = fluxo.unidade + "|" + fluxo.data;
+  if (fluxo.lotadosChave === chave) return;
+  const d = await LaneAdmin.get("admin/agenda/lotados", { unidade: fluxo.unidade, data: fluxo.data });
+  if (!fluxo || fluxo.unidade + "|" + fluxo.data !== chave) return;
+  fluxo.lotados = d.lotados || [];
+  fluxo.lotadosChave = chave;
 }
 
 const etapaAtual = () => ETAPAS[fluxo.etapa];
@@ -1364,8 +1372,10 @@ function pintarEtapa() {
     $("novoSub").textContent = ultima
       ? "Confira tudo antes de confirmar."
       : "Nada é gravado antes de você conferir e confirmar no final.";
-    $("novoCorpo").innerHTML = CORPO[etapaAtual().id]();
-    ligarEtapa(etapaAtual().id);
+    $("novoCorpo").innerHTML = fluxo.carregando ? '<p class="ag-etapa-ajuda">Carregando clientes e serviços…</p>'
+      : fluxo.erroCarga ? `<p class="ag-etapa-ajuda ag-etapa-ajuda--alerta">${escapeHtml(fluxo.erroCarga)}</p>`
+      : CORPO[etapaAtual().id]();
+    if (!fluxo.carregando && !fluxo.erroCarga) ligarEtapa(etapaAtual().id);
   }
 
   $("novoVoltar").style.display = (fluxo.etapa === 0 || fluxo.concluido) ? "none" : "";
@@ -1384,13 +1394,15 @@ function aviso(texto, erro) {
 /* ------------------------------------------------------- Corpos das etapas */
 const CORPO = {
   cliente: () => {
+    const pets = fluxo.petsBusca;
     const donos = [...new Set(pets.map(p => p.dono).filter(Boolean))].sort((a, b) => a.localeCompare(b, "pt-BR"));
-    const busca = fluxo.buscaCliente.trim().toLowerCase();
-    const filtrados = busca ? donos.filter(d => d.toLowerCase().includes(busca)) : donos;
+    const filtrados = donos;   /* a busca ja rodou no servidor */
+    const cortado = fluxo.petsBuscaTotal > pets.length;
     return `
       <div class="ag-etapa-titulo">Selecione o cliente</div>
       <p class="ag-etapa-ajuda">Clientes com pets cadastrados no sistema. O agendamento fica ligado ao cadastro real.</p>
       <div class="field"><input type="search" id="fxBuscaCliente" placeholder="Buscar cliente pelo nome..." value="${escapeHtml(fluxo.buscaCliente)}"></div>
+      ${cortado ? '<p class="ag-etapa-ajuda">Muitos cadastros: digite parte do nome para encontrar o cliente.</p>' : ""}
       <div class="ag-lista-escolha">${filtrados.length ? filtrados.map(d => {
         const qtd = pets.filter(p => p.dono === d).length;
         return `<button type="button" class="${fluxo.dono === d ? "is-ativa" : ""}" data-fx-dono="${escapeHtml(d)}">
@@ -1401,7 +1413,7 @@ const CORPO = {
   },
 
   pet: () => {
-    const doCliente = pets.filter(p => p.dono === fluxo.dono);
+    const doCliente = fluxo.petsDoDono;
     return `
       <div class="ag-etapa-titulo">Pets de ${escapeHtml(fluxo.dono)}</div>
       <p class="ag-etapa-ajuda">Só aparecem os pets deste cliente. Pode marcar mais de um — cada pet vira um agendamento, como já funcionava.</p>
@@ -1470,7 +1482,7 @@ const CORPO = {
     })() : ""}`,
 
   quando: () => {
-    const ocupados = horariosOcupados(fluxo.unidade, fluxo.data);
+    const ocupados = fluxo.lotadosChave === fluxo.unidade + "|" + fluxo.data ? fluxo.lotados : [];
     return `
       <div class="ag-etapa-titulo">Data e horário</div>
       <p class="ag-etapa-ajuda">Horários que já atingiram a capacidade da unidade (${LaneUnidades.capacidade(fluxo.unidade)} por horário) aparecem bloqueados. O painel permite encaixe manual em qualquer horário com vaga.</p>
@@ -1555,23 +1567,9 @@ const CORPO = {
 
 const HORARIOS_PADRAO = ["08:00", "09:00", "10:00", "11:00", "13:00", "14:00", "15:00", "16:00", "17:00", "18:00"];
 
+/* Agendamentos nao cancelados da unidade (contado no servidor sobre a base inteira). */
 function daUnidadeNome(id) {
-  return agendamentos.filter(a => unidadeDoAgendamento(a) === id && !ehCancelado(a)).length;
-}
-
-/* Horários LOTADOS na unidade e no dia: os que já têm tantos agendamentos
-   quanto a capacidade da unidade (item 5). Mesma regra de
-   GET /api/cliente/horarios e da gravação no servidor. */
-function horariosOcupados(unidade, data) {
-  if (!data) return [];
-  const contagem = {};
-  agendamentos
-    .filter(a => unidadeDoAgendamento(a) === unidade && soData(a.dataHora) === data && !ehCancelado(a))
-    .map(a => String(a.dataHora || "").slice(11, 16))
-    .filter(Boolean)
-    .forEach(h => { contagem[h] = (contagem[h] || 0) + 1; });
-  const capacidade = LaneUnidades.capacidade(unidade);
-  return Object.keys(contagem).filter(h => contagem[h] >= capacidade);
+  return ((agMeta.unidades || {})[id] || {}).ativos || 0;
 }
 
 function corpoSucesso() {
@@ -1597,11 +1595,19 @@ function corpoSucesso() {
 function ligarEtapa(id) {
   if (id === "cliente") {
     const campo = $("fxBuscaCliente");
-    if (campo) campo.oninput = () => { fluxo.buscaCliente = campo.value; const foco = document.activeElement === campo; pintarEtapa(); if (foco) { const novo = $("fxBuscaCliente"); novo.focus(); novo.setSelectionRange(novo.value.length, novo.value.length); } };
+    if (campo) campo.oninput = () => { fluxo.buscaCliente = campo.value; buscarPetsComAtraso(campo.value.trim()); };
   }
   if (id === "quando") {
     const data = $("fxData");
-    if (data) { data.min = hojeISO() > "" ? "" : ""; data.onchange = () => { fluxo.data = data.value; fluxo.hora = ""; pintarEtapa(); }; }
+    if (data) {
+      data.min = hojeISO() > "" ? "" : "";
+      data.onchange = () => {
+        fluxo.data = data.value; fluxo.hora = "";
+        pintarEtapa();
+        carregarLotados().then(() => { if (fluxo && etapaAtual().id === "quando") pintarEtapa(); })
+          .catch(erro => { console.error("[LanePets] horarios lotados:", erro); aviso(erro.message, true); });
+      };
+    }
     const livre = $("fxHoraLivre");
     if (livre) livre.onchange = () => { fluxo.hora = livre.value; pintarEtapa(); };
   }
@@ -1624,7 +1630,7 @@ $("novoCorpo").addEventListener("click", e => {
   const d = alvo.dataset;
 
   if (d.fxDono !== undefined) {
-    if (fluxo.dono !== d.fxDono) { fluxo.dono = d.fxDono; fluxo.petsEscolhidos = []; }
+    if (fluxo.dono !== d.fxDono) { fluxo.dono = d.fxDono; fluxo.petsEscolhidos = []; fluxo.petsDoDono = []; }
   } else if (d.fxPet !== undefined) {
     const i = fluxo.petsEscolhidos.indexOf(d.fxPet);
     if (i === -1) fluxo.petsEscolhidos.push(d.fxPet); else fluxo.petsEscolhidos.splice(i, 1);
@@ -1633,7 +1639,7 @@ $("novoCorpo").addEventListener("click", e => {
     const i = fluxo.servicosIdx.indexOf(n);
     if (i === -1) fluxo.servicosIdx.push(n); else fluxo.servicosIdx.splice(i, 1);
   } else if (d.fxUnidade !== undefined) {
-    if (fluxo.unidade !== d.fxUnidade) { fluxo.unidade = d.fxUnidade; fluxo.hora = ""; fluxo.responsavelId = ""; }
+    if (fluxo.unidade !== d.fxUnidade) { fluxo.unidade = d.fxUnidade; fluxo.hora = ""; fluxo.responsavelId = ""; fluxo.lotadosChave = ""; }
   } else if (d.fxResp !== undefined) {
     fluxo.responsavelId = d.fxResp;
   } else if (d.fxHora !== undefined) {
@@ -1670,19 +1676,26 @@ function validarEtapa() {
 $("novoVoltar").addEventListener("click", () => { if (fluxo && fluxo.etapa > 0) { fluxo.etapa -= 1; pintarEtapa(); } });
 
 $("novoAvancar").addEventListener("click", e => {
-  if (!fluxo) return;
+  if (!fluxo || fluxo.carregando || fluxo.erroCarga) return;
   if (fluxo.concluido) { fecharModal("modalNovo"); fluxo = null; return; }
   const erro = validarEtapa();
   if (erro) { aviso(erro, true); return; }
-  if (etapaAtual().id !== "revisao") { fluxo.etapa += 1; pintarEtapa(); return; }
+  if (etapaAtual().id !== "revisao") {
+    const botao = e.currentTarget;
+    /* O que a proxima etapa precisa vem do servidor antes de desenhar. */
+    const antes = etapaAtual().id === "cliente" ? carregarPetsDoDono(fluxo.dono)
+      : etapaAtual().id === "unidade" && fluxo.data ? (fluxo.lotadosChave = "", carregarLotados()) : Promise.resolve();
+    comLoading(botao, "Carregando...", () => antes.then(() => { fluxo.etapa += 1; pintarEtapa(); })
+      .catch(err => { console.error("[LanePets] novo agendamento:", err); aviso(err.message, true); }));
+    return;
+  }
   comLoading(e.currentTarget, "Gravando...", () => confirmarNovoAgendamento());
 });
 
 /* A ÚNICA gravação do fluxo. Antes daqui nada saiu da tela. */
-function confirmarNovoAgendamento() {
-  carregarDadosAgenda();
+async function confirmarNovoAgendamento() {
   const escolhidos = fluxo.petsEscolhidos
-    .map(nome => pets.find(p => p.dono === fluxo.dono && p.pet === nome))
+    .map(nome => fluxo.petsDoDono.find(p => p.dono === fluxo.dono && p.pet === nome))
     .filter(Boolean);
 
   if (escolhidos.length !== fluxo.petsEscolhidos.length) { aviso("Um dos pets não foi localizado no cadastro. Recarregue a página.", true); return; }
@@ -1698,40 +1711,46 @@ function confirmarNovoAgendamento() {
   const total = totalDoFluxo();
   const valorTransporte = fluxo.transporte ? (parseFloat(fluxo.valorTransporte) || 0) : 0;
 
-  escolhidos.forEach(pet => {
-    agendamentos.push({
+  const novos = escolhidos.map(pet => ({
       unidade: fluxo.unidade, pet: pet.pet, dono: pet.dono, telefone: pet.telefone || "",
       dataHora, servicos: listaServicos, total,
       transporte: fluxo.transporte, valorTransporte,
       status: "Solicitado", obs: fluxo.obs,
       responsavelId: fluxo.responsavelId || "",
       responsavelNome: (LaneUnidades.funcionarios(fluxo.unidade).find(f => f.id === fluxo.responsavelId) || {}).nome || "",
-      pagamentoStatus: fluxo.pagamentoStatus, formaPagamento: fluxo.formaPagamento
-    });
-  });
+      pagamentoStatus: fluxo.pagamentoStatus, formaPagamento: fluxo.formaPagamento,
+      clienteId: pet.clienteId || "", petId: pet.id || ""
+  }));
+
+  /* Primeiro os agendamentos: se o servidor recusar (capacidade, permissao),
+     nenhum banho e descontado do pacote. */
+  try {
+    await LaneAdmin.sincronizar("agendamentos", { criados: novos });
+  } catch (erro) {
+    console.error("[LanePets] novo agendamento:", erro);
+    aviso(erro.message, true);
+    return;
+  }
 
   /* Baixa no pacote: mesma regra de antes, feita só depois que todos os
-     agendamentos foram montados. */
-  const petsLS = LaneStore.obter("pets");
-  escolhidos.forEach(pet => {
-    const i = petsLS.findIndex(p =>
-      String(p.pet || "").toLowerCase() === String(pet.pet || "").toLowerCase() &&
-      String(p.dono || "").toLowerCase() === String(pet.dono || "").toLowerCase());
-    if (i !== -1 && petsLS[i].pacote && typeof petsLS[i].pacote === "object" && petsLS[i].pacote.ativo) {
-      petsLS[i].pacote.feitos = Number(petsLS[i].pacote.feitos || 0) + 1;
-      if (!Array.isArray(petsLS[i].pacote.historico)) petsLS[i].pacote.historico = [];
-      petsLS[i].pacote.historico.push(dataHora);
+     agendamentos foram gravados. */
+  const comPacote = escolhidos
+    .filter(p => p.pacote && typeof p.pacote === "object" && !Array.isArray(p.pacote) && p.pacote.ativo)
+    .map(p => ({ ...p, pacote: { ...p.pacote, feitos: Number(p.pacote.feitos || 0) + 1,
+      historico: [...(Array.isArray(p.pacote.historico) ? p.pacote.historico : []), dataHora] } }));
+  if (comPacote.length) {
+    try { await LaneAdmin.sincronizar("pets", { atualizados: comPacote }); }
+    catch (erro) {
+      console.error("[LanePets] baixa no pacote:", erro);
+      toast("Agendamento criado, mas o banho não foi descontado do pacote: " + erro.message, "error");
     }
-  });
-  LaneStore.salvar("pets", petsLS);
-  pets = petsLS;
-  LaneStore.salvar("agendamentos", agendamentos);
+  }
 
   fluxo.salvos = escolhidos;
   fluxo.concluido = true;
   if (fluxo.unidade !== unidadeSelecionada) { unidadeSelecionada = fluxo.unidade; localStorage.setItem("unidadeAgendamentoSelecionada", fluxo.unidade); }
-  renderTudo();
   pintarEtapa();
+  recarregar();
   toast(escolhidos.length > 1 ? "Agendamentos criados!" : "Agendamento criado!", "success");
 }
 
@@ -1799,9 +1818,11 @@ function montarSelectServicos(select, selecionados) {
   }
 }
 
-function abrirEdicao(id, idx) {
+async function abrirEdicao(id, idx) {
   const { ag } = resolver(id, idx);
   if (!ag) { toast("Agendamento não encontrado. Atualize a página.", "error"); return; }
+  try { await garantirServicos(); }
+  catch (erro) { console.error("[LanePets] catalogo de servicos:", erro); toast(erro.message, "error"); return; }
   edAlvo = ag;
 
   $("edSub").textContent = `${ag.pet || "Pet"} · ${ag.dono || "Cliente"} · ${escapeHtml(ag.id || "sem código")}`;
@@ -1843,11 +1864,9 @@ function montarSelectResponsavel(atual, nomeAtual) {
 }
 $("edUnidade").addEventListener("change", () => montarSelectResponsavel("", ""));
 
-$("formEditar").addEventListener("submit", function (e) {
+$("formEditar").addEventListener("submit", async function (e) {
   e.preventDefault();
   if (!edAlvo) return;
-  const index = indiceAtual(edAlvo);
-  if (index === -1) { toast("Agendamento não encontrado.", "error"); return; }
 
   const unidade = $("edUnidade").value;
   const pet = $("edPet").value.trim();
@@ -1871,14 +1890,18 @@ $("formEditar").addEventListener("submit", function (e) {
     total = servicosAgendados.reduce((s, x) => s + (Number(x.preco) || 0), 0) + (transporte ? valorTransporte : 0);
   }
 
-  const petsAll = LaneStore.obter("pets");
-  const petInfo = petsAll.find(p =>
-    String(p.pet || "").toLowerCase() === pet.toLowerCase() &&
-    String(p.dono || "").toLowerCase() === dono.toLowerCase());
-  const telefone = (petInfo && petInfo.telefone) || agendamentos[index].telefone || "";
+  /* Telefone do cadastro do pet (pet + dono), como antes; sem cadastro, fica o do agendamento. */
+  let petInfo = null;
+  try {
+    const d = await LaneAdmin.petsPainel({ busca: dono, limite: 500 });
+    petInfo = (d.itens || []).find(p =>
+      String(p.pet || "").toLowerCase() === pet.toLowerCase() &&
+      String(p.dono || "").toLowerCase() === dono.toLowerCase()) || null;
+  } catch (erro) { console.warn("[LanePets] telefone do cadastro do pet:", erro); }
+  const telefone = (petInfo && petInfo.telefone) || edAlvo.telefone || "";
 
-  agendamentos[index] = {
-    ...agendamentos[index],
+  const editado = {
+    ...edAlvo,
     unidade: unidade || undefined,
     pet, dono, telefone, dataHora,
     servicos: servicosAgendados, total,
@@ -1890,16 +1913,20 @@ $("formEditar").addEventListener("submit", function (e) {
     pagamentoStatus: $("edPagamentoStatus").value || "A pagar",
     formaPagamento: $("edFormaPagamento").value || ""
   };
+  /* Unidade vazia = registro antigo, sem unidade (antes a chave sumia com undefined). */
+  if (!editado.unidade) editado.unidade = "";
 
   fecharModal("modalEditar");
-  gravarAgendamentos("Agendamento atualizado!");
+  await salvarAgendamento(editado, "Agendamento atualizado!");
 });
 
 /* ===========================================================================
    DELEGAÇÃO DAS AÇÕES (tabela, cards e calendário usam os mesmos data-acao)
    =========================================================================== */
 document.addEventListener("click", e => {
-  const botao = e.target.closest("[data-acao]");
+  /* So os botoes de acao de uma linha (tem data-id); os do dialogo de confirmacao do
+     ui-kit tambem usam data-acao ("confirmar"/"cancelar") e nao sao desta tela. */
+  const botao = e.target.closest("[data-acao][data-id]");
   if (botao) {
     const { acao, id, idx } = botao.dataset;
     if (window.LaneAcoes) window.LaneAcoes.fecharMenu();
@@ -1922,15 +1949,16 @@ document.addEventListener("click", e => {
   if (ordenar) {
     const campo = ordenar.dataset.ordenar;
     agOrdem = { campo, dir: agOrdem.campo === campo && agOrdem.dir === "asc" ? "desc" : "asc" };
-    renderTudo();
+    agPagina = 1;
+    recarregar();
     return;
   }
 
   const pagina = e.target.closest("[data-pagina]");
-  if (pagina && !pagina.disabled) { agPagina = Number(pagina.dataset.pagina); renderTudo(); window.scrollTo({ top: $("agendaSection").offsetTop - 20, behavior: "smooth" }); return; }
+  if (pagina && !pagina.disabled) { agPagina = Number(pagina.dataset.pagina); recarregar(); window.scrollTo({ top: $("agendaSection").offsetTop - 20, behavior: "smooth" }); return; }
 
   const tirar = e.target.closest("[data-tirar-filtro]");
-  if (tirar) { agFiltros[tirar.dataset.tirarFiltro] = ""; agPagina = 1; sincronizarCamposFiltro(); salvarFiltros(); renderTudo(); return; }
+  if (tirar) { agFiltros[tirar.dataset.tirarFiltro] = ""; agPagina = 1; sincronizarCamposFiltro(); salvarFiltros(); recarregar(); return; }
 
   /* Clique numa célula do calendário (ou no "+N") abre aquele dia. */
   const celula = e.target.closest("[data-dia]");
@@ -1939,7 +1967,7 @@ document.addEventListener("click", e => {
     agCursor = new Date(y, m - 1, d);
     agView = "day";
     localStorage.setItem("agendaView", agView);
-    renderTudo();
+    recarregar();
     return;
   }
 
@@ -1953,19 +1981,19 @@ document.addEventListener("click", e => {
 $("btnNovoAgendamento").addEventListener("click", abrirNovoAgendamento);
 
 const debounce = (fn, ms) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; };
-const aoFiltrar = debounce(() => { agPagina = 1; salvarFiltros(); renderTudo(); }, 220);
+const aoFiltrar = debounce(() => { agPagina = 1; salvarFiltros(); recarregar(); }, 300);
 
 $("filtroBusca").addEventListener("input", e => {
   agFiltros.busca = e.target.value;
   $("agBuscaWrap").classList.toggle("tem-texto", agFiltros.busca.length > 0);
   aoFiltrar();
 });
-$("btnLimparBusca").addEventListener("click", () => { agFiltros.busca = ""; sincronizarCamposFiltro(); agPagina = 1; salvarFiltros(); renderTudo(); $("filtroBusca").focus(); });
+$("btnLimparBusca").addEventListener("click", () => { agFiltros.busca = ""; sincronizarCamposFiltro(); agPagina = 1; salvarFiltros(); recarregar(); $("filtroBusca").focus(); });
 ["filtroServico", "filtroStatus", "filtroPagamento", "filtroResponsavel", "filtroDataInicio", "filtroDataFim"].forEach(id => {
   $(id).addEventListener("change", e => {
     const mapa = { filtroServico: "servico", filtroStatus: "status", filtroPagamento: "pagamento", filtroResponsavel: "responsavel", filtroDataInicio: "inicio", filtroDataFim: "fim" };
     agFiltros[mapa[id]] = e.target.value;
-    agPagina = 1; salvarFiltros(); renderTudo();
+    agPagina = 1; salvarFiltros(); recarregar();
   });
 });
 $("btnLimparFiltros").addEventListener("click", limparFiltros);
@@ -1981,19 +2009,19 @@ document.querySelectorAll(".ag-view-btn").forEach(btn => {
     agView = btn.dataset.view;
     localStorage.setItem("agendaView", agView);
     agPagina = 1;
-    renderTudo();
+    recarregar();
   });
 });
 $("agAnterior").addEventListener("click", () => moverPeriodo(-1));
 $("agProximo").addEventListener("click", () => moverPeriodo(1));
-$("agHoje").addEventListener("click", () => { agCursor = new Date(); agCursor.setHours(0, 0, 0, 0); renderTudo(); });
+$("agHoje").addEventListener("click", () => { agCursor = new Date(); agCursor.setHours(0, 0, 0, 0); recarregar(); });
 
 function moverPeriodo(delta) {
   if (agView === "day") agCursor.setDate(agCursor.getDate() + delta);
   else if (agView === "week") agCursor.setDate(agCursor.getDate() + delta * 7);
   else if (agView === "month") agCursor.setMonth(agCursor.getMonth() + delta);
   else return;
-  renderTudo();
+  recarregar();
 }
 
 
@@ -2001,10 +2029,10 @@ function moverPeriodo(delta) {
 /* ===========================================================================
    CARGA E ATUALIZAÇÃO AUTOMÁTICA
 
-   A ponte (js/admin-store.js) já recarrega o estado sozinha — por SignalR
-   quando o servidor avisa, e a cada 20s como rede de segurança. Basta
-   redesenhar quando ela avisar: é isso que faz um agendamento criado pelo
-   CLIENTE aparecer aqui sem ninguém apertar nada.
+   27/09: cada mudança de aba, filtro, ordem, página, visão ou período pede ao
+   servidor só o que vai aparecer (GET /api/admin/agenda). O tempo real
+   (LaneAdmin.aoMudar: SignalR + retomada da aba) recarrega a mesma consulta —
+   é isso que faz um agendamento criado pelo CLIENTE aparecer aqui sozinho.
    =========================================================================== */
 function marcarSync(estado) {
   const el = $("agSync");
@@ -2013,69 +2041,104 @@ function marcarSync(estado) {
   el.textContent = estado === "erro" ? "Sem conexão com o servidor" : "Sincronizado";
 }
 
-function recarregar() {
-  agEstado = "carregando";
-  renderTudo();
-  const promessa = (window.LaneStore && window.LaneStore.recarregar)
-    ? window.LaneStore.recarregar()
-    : Promise.resolve(true);
-  return promessa.then(ok => {
-    carregarDadosAgenda();
-    agEstado = ok === false ? "erro" : "pronto";
-    marcarSync(ok === false ? "erro" : "ok");
-    preencherOpcoesFiltro();
+/* Dias visíveis do calendário (dia / semana / grade de 6 semanas do mês). */
+function janelaVisivel() {
+  if (agView === "day") { const d = isoLocalDate(agCursor); return { de: d, ate: d }; }
+  if (agView === "week") {
+    const ini = inicioSemana(agCursor), fim = new Date(ini); fim.setDate(fim.getDate() + 6);
+    return { de: isoLocalDate(ini), ate: isoLocalDate(fim) };
+  }
+  if (agView === "month") {
+    const ini = inicioSemana(new Date(agCursor.getFullYear(), agCursor.getMonth(), 1)), fim = new Date(ini); fim.setDate(fim.getDate() + 41);
+    return { de: isoLocalDate(ini), ate: isoLocalDate(fim) };
+  }
+  return null;
+}
+
+function parametrosDaTela() {
+  const q = {
+    unidade: unidadeSelecionada, busca: agFiltros.busca.trim(), servico: agFiltros.servico, status: agFiltros.status,
+    pagamento: agFiltros.pagamento, responsavel: agFiltros.responsavel, de: agFiltros.inicio, ate: agFiltros.fim
+  };
+  const janela = janelaVisivel();
+  if (janela) {
+    q.janelaDe = janela.de; q.janelaAte = janela.ate; q.limite = 500;
+    q.fotos = agView === "day" ? "true" : "false";   /* semana/mês não mostram retrato */
+  } else {
+    q.ordem = agOrdem.campo; q.dir = agOrdem.dir; q.limite = AG_POR_PAGINA; q.offset = (agPagina - 1) * AG_POR_PAGINA;
+  }
+  return q;
+}
+
+let geracaoAgenda = 0;
+let primeiraCarga = true;
+async function recarregar() {
+  const minha = ++geracaoAgenda;
+  /* Esqueleto só enquanto não há nada na tela; depois, troca sem piscar. */
+  if (agEstado !== "pronto") { agEstado = "carregando"; renderTudo(); }
+  try {
+    const d = await LaneAdmin.get("admin/agenda", parametrosDaTela());
+    if (minha !== geracaoAgenda) return;
+    /* Página que deixou de existir (o filtro encolheu a lista): volta para a última. */
+    const ultima = Math.max(1, Math.ceil((d.total || 0) / AG_POR_PAGINA));
+    if (agView === "list" && agPagina > ultima) { agPagina = ultima; return recarregar(); }
+
+    agendamentos = (d.itens || []).map(i => i.agendamento);
+    extras = new Map((d.itens || []).map(i => [i.agendamento.id, i.extra || {}]));
+    agMeta = { total: d.total || 0, totalUnidade: d.totalUnidade || 0, temMais: !!d.temMais, kpis: d.kpis || {},
+      unidades: d.unidades || {}, servicosUsados: d.servicosUsados || [], responsaveis: d.responsaveis || [] };
+
+    /* Dados legados: aba salva vazia, sem unidade ativa com esse id e com agendamentos antigos
+       sem unidade -> abre a visão legada em vez de uma agenda vazia (regra de antes). */
+    if (primeiraCarga) {
+      primeiraCarga = false;
+      if (!agMeta.totalUnidade && (agMeta.unidades["sem-unidade"] || {}).total && !LaneUnidades.ativas().some(u => u.id === unidadeSelecionada)
+          && unidadeSelecionada !== "sem-unidade") {
+        unidadeSelecionada = "sem-unidade";
+        localStorage.setItem("unidadeAgendamentoSelecionada", unidadeSelecionada);
+        return recarregar();
+      }
+    }
+
+    agEstado = "pronto";
+    marcarSync("ok");
+    renderAbasUnidades();
     renderTudo();
-  }).catch(erro => {
+  } catch (erro) {
+    if (minha !== geracaoAgenda) return;
     console.error("[LanePets] falha ao carregar os agendamentos:", erro);
     agEstado = "erro";
     marcarSync("erro");
     renderTudo();
-  });
+  }
 }
 
 function iniciar() {
-  carregarDadosAgenda();
-
   const salvos = safeJsonParse(localStorage.getItem("filtrosAgendamento"), {});
   if (typeof salvos.unidade === "string" && salvos.unidade) unidadeSelecionada = salvos.unidade;
   ["busca", "servico", "status", "pagamento", "responsavel", "inicio", "fim"].forEach(k => {
     if (typeof salvos[k] === "string") agFiltros[k] = salvos[k];
   });
 
-  /* Dados legados: se a unidade salva está vazia mas existem agendamentos
-     antigos sem unidade, abre a visão legada em vez de uma agenda vazia. */
-  const naAtual = agendamentos.filter(a => unidadeDoAgendamento(a) === unidadeSelecionada).length;
-  const legados = agendamentos.filter(a => unidadeDoAgendamento(a) === "sem-unidade").length;
-  if (naAtual === 0 && legados > 0 && !LaneUnidades.ativas().some(u => u.id === unidadeSelecionada)) {
-    unidadeSelecionada = "sem-unidade";
-    localStorage.setItem("unidadeAgendamentoSelecionada", unidadeSelecionada);
-  }
-
   renderAbasUnidades();
   preencherOpcoesFiltro();
   sincronizarCamposFiltro();
   /* Item 5: quando a lista real de unidades chegar do banco, refaz as abas. */
   LaneUnidades.carregar().then(() => {
+    const antes = unidadeSelecionada;
     if (unidadeSelecionada !== "sem-unidade" && !LaneUnidades.lista().some(u => u.id === unidadeSelecionada))
       unidadeSelecionada = (LaneUnidades.ativas()[0] || {}).id || "sem-unidade";
     renderAbasUnidades();
     preencherFiltroResponsavel(); /* funcionarios chegam junto com as unidades */
-    renderTudo();
+    if (antes !== unidadeSelecionada) recarregar(); else renderTudo();
   });
 
-  agEstado = (window.LaneStore && window.LaneStore.pronto && window.LaneStore.pronto()) ? "pronto" : "carregando";
+  agEstado = "carregando";
   renderTudo();
-
-  if (agEstado === "carregando") recarregar(); else marcarSync("ok");
+  recarregar();
+  /* Tempo real: o servidor avisa, a mesma consulta roda de novo. */
+  LaneAdmin.aoMudar(() => recarregar());
 }
-
-/* Redesenha quando a ponte trouxer dados novos do banco. */
-window.addEventListener("lanepets:dados", () => {
-  carregarDadosAgenda();
-  if (agEstado !== "pronto") { agEstado = "pronto"; marcarSync("ok"); }
-  preencherOpcoesFiltro();
-  renderTudo();
-});
 
 if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", iniciar);
 else iniciar();

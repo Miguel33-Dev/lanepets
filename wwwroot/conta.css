@@ -1103,3 +1103,19 @@ dialog.cc-modal--wizard { max-width: 780px; }
 .cc-modal--wizard .cc-modal__corpo::-webkit-scrollbar { width: 8px; }
 .cc-modal--wizard .cc-modal__corpo::-webkit-scrollbar-thumb { background: var(--borda-forte); border-radius: 99px; }
 dialog#modal-agenda-detalhes .cc-modal__corpo { max-height: min(88vh, 860px); overflow-y: auto; }
+
+/* 29/09: cartao fidelidade (js/minha-conta.js renderFidelidade) ------------- */
+.cc-fid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; }
+/* flex com quebra (o grid auto-fill dentro de outro grid esticava a pagina no celular) */
+.cc-fid__selos { display: flex; flex-wrap: wrap; gap: 10px; max-width: 560px; }
+.cc-fid__selo {
+  width: 42px; height: 42px; flex: none; border-radius: 50%; display: grid; place-items: center;
+  border: 2px dashed var(--borda); color: var(--suave); background: var(--branco);
+}
+.cc-fid__selo.is-cheio { border: 2px solid var(--verde); background: var(--verde); color: #fff; }
+.cc-fid__selo.is-premio { border: 2px dashed var(--laranja); color: var(--laranja); }
+.cc-fid__texto { font-size: .88rem; color: var(--tinta); margin: 0; }
+.cc-fid__premio {
+  display: flex; gap: 10px; align-items: center; padding: 12px 14px; border-radius: var(--r-sm);
+  background: #fdf0dd; color: #8a4f0a; font-weight: 700; font-size: .88rem;
+}

@@ -433,7 +433,42 @@
     else if (botao.dataset.textoOriginal) { botao.textContent = botao.dataset.textoOriginal; }
   }
 
-  $('#abrir-depoimento').addEventListener('click', () => $('#modal-depoimento').showModal());
+  /* Avaliacao pelo site (26/09): so com a conta do cliente. Nome + telefone nao
+     identificam ninguem, entao o formulario anonimo saiu. Logado (mesmo token da
+     area do cliente), o modal mostra o formulario com os pets da conta e envia para
+     POST /api/cliente/avaliacoes; sem login, mostra "Entrar para avaliar". Quem decide
+     e o servidor: token vencido volta 401 e o modal cai no bloco de login. */
+  const CHAVE_CLIENTE = 'lanePetsClienteToken';
+  const tokenCliente = () => { try { return localStorage.getItem(CHAVE_CLIENTE) || ''; } catch (_) { return ''; } };
+  const apiCliente = (rota, opcoes = {}) => api('/api/cliente/' + rota, {
+    ...opcoes,
+    headers: { ...(opcoes.headers || {}), 'Content-Type': 'application/json', 'X-LanePets-Client': tokenCliente() }
+  });
+
+  function blocoDepoimento(qual) {
+    ['carregando', 'login', 'form'].forEach(b => { $('#dep-' + b).hidden = b !== qual; });
+  }
+
+  async function abrirDepoimento() {
+    $('#dep-feedback').textContent = '';
+    $('#modal-depoimento').showModal();
+    if (!tokenCliente()) { blocoDepoimento('login'); return; }
+    blocoDepoimento('carregando');
+    try {
+      const conta = await apiCliente('conta');
+      $('#dep-quem').textContent = conta.nome || 'cliente LanePets';
+      const pets = conta.pets || [];
+      $('#dep-pet').innerHTML = pets.map(p => `<option value="${esc(p.id)}">${esc(p.petNome)}</option>`).join('');
+      $('#dep-pet-rotulo').hidden = pets.length === 0;
+      blocoDepoimento('form');
+    } catch (erro) {
+      /* Sessao vencida (o servidor reinicia as sessoes em memoria) ou conta removida. */
+      console.error('[LanePets] conta do cliente indisponivel para avaliar:', erro);
+      blocoDepoimento('login');
+    }
+  }
+
+  $('#abrir-depoimento').addEventListener('click', abrirDepoimento);
 
   $('#enviar-depoimento').addEventListener('click', async evento => {
     evento.preventDefault();
@@ -442,19 +477,16 @@
     feedback.textContent = '';
     enviando(botao, true, 'Enviando…');
     try {
-      const dados = await api('/api/public/depoimentos', {
+      const dados = await apiCliente('avaliacoes', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          nome: $('#dep-nome').value,
-          telefone: $('#dep-telefone').value,
-          pet: $('#dep-pet').value,
+          petId: $('#dep-pet').value || null,
           avaliacao: Number($('#dep-avaliacao').value),
           comentario: $('#dep-comentario').value
         })
       });
       feedback.textContent = dados.message;
-      botao.form.reset();
+      $('#dep-comentario').value = '';
     } catch (erro) {
       feedback.textContent = erro.message;
     } finally {

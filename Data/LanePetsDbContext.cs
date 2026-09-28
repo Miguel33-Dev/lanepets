@@ -45,4 +45,7 @@ public class LanePetsDbContext(DbContextOptions<LanePetsDbContext> options) : Db
 
     // Pagamentos (item 8 do roadmap).
     public DbSet<Pagamento> Pagamentos => Set<Pagamento>();
+    // 28/09: recuperacao de senha do cliente (codigo guardado so como hash).
+    public DbSet<RecuperacaoSenha> RecuperacoesSenha => Set<RecuperacaoSenha>();
+    public DbSet<ResgateFidelidade> ResgatesFidelidade => Set<ResgateFidelidade>();   // 29/09
 }

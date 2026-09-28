@@ -73,10 +73,10 @@ $login = Chamar POST '/login' @{ email = 'admin@gmail.com'; senha = '123456' }
 if ($login.status -ne 200) { Write-Host "  [FALHA] Login do admin falhou: $($login.corpo.error)" -ForegroundColor Red; exit 1 }
 $tk = $login.corpo.data.token
 
-function Buscar($texto) { @((Chamar GET "/admin/pagamentos?token=$tk&busca=$([uri]::EscapeDataString($texto))").corpo.data.itens) }
+function Buscar($texto) { @((Chamar GET "/admin/pagamentos?token=$tk&limite=500&busca=$([uri]::EscapeDataString($texto))").corpo.data.itens) }
 
 Titulo 'Busca de pagamentos com varias palavras'
-$todos = @((Chamar GET "/admin/pagamentos?token=$tk").corpo.data.itens)
+$todos = @((Chamar GET "/admin/pagamentos?token=$tk&limite=500").corpo.data.itens)
 $alvo = @($todos | Where-Object { $_.cliente -and $_.cliente.Trim().Contains(' ') })[0]
 if (-not $alvo) { $alvo = @($todos | Where-Object { $_.cliente })[0] }
 if (-not $alvo) { Write-Host '  [PULADO] nenhum pagamento com cliente no banco. Rode antes o testar-pagamentos.ps1.' -ForegroundColor Yellow }
@@ -91,9 +91,9 @@ else {
 }
 
 Titulo 'Filtros usados pelos links do Dashboard'
-$r = Chamar GET "/admin/pagamentos?token=$tk&status=Pendente"
+$r = Chamar GET "/admin/pagamentos?token=$tk&status=Pendente&limite=500"
 Checar '?status=Pendente -> 200 e so Pendente' ($r.status -eq 200 -and @($r.corpo.data.itens | Where-Object { $_.status -ne 'Pendente' }).Count -eq 0)
-$r = Chamar GET "/admin/pagamentos?token=$tk&reembolso=true"
+$r = Chamar GET "/admin/pagamentos?token=$tk&reembolso=true&limite=500"
 Checar '?reembolso=true -> 200 e so reembolso pendente' ($r.status -eq 200 -and @($r.corpo.data.itens | Where-Object { -not $_.reembolsoPendente }).Count -eq 0)
 
 Write-Host "`n--------------------------------------------"

@@ -125,6 +125,27 @@ public sealed class Api(HttpClient http)
 
         return await LoginAdmin(email, senha);
     }
+
+    /// <summary>
+    /// Cria (com o token do Geral) um FUNCIONARIO preso a uma unidade ("franco", "caieiras"),
+    /// grava as permissoes pedidas (o servidor corta o que passa do teto do perfil), entra
+    /// com ele e devolve o token.
+    /// </summary>
+    public async Task<string> FuncionarioCom(string tokenGeral, string unidade, params Permissao[] permissoes)
+    {
+        var email = NovoEmail("func");
+        const string senha = "Senha123";
+        var criado = await Post("/api/admin/usuarios", new { token = tokenGeral, nome = "Funcionario de Teste", email, senha, confirmarSenha = senha, perfil = "Funcionario", unidade });
+        Assert.True(criado.Codigo == 200, $"Criar funcionário falhou: {criado}");
+        var salvo = await Put($"/api/admin/usuarios/{criado.Texto("id")}/permissoes", new
+        {
+            token = tokenGeral,
+            acessoTotal = false,
+            modulos = permissoes.Select(p => new { chave = p.Modulo, visualizar = p.Visualizar, criar = p.Criar, editar = p.Editar, excluir = p.Excluir }).ToArray()
+        });
+        Assert.True(salvo.Codigo == 200, $"Salvar permissões do funcionário falhou: {salvo}");
+        return await LoginAdmin(email, senha);
+    }
 }
 
 /// <summary>Permissao de um modulo para <see cref="Api.AdminCom"/>.</summary>

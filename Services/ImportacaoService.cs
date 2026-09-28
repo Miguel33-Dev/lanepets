@@ -140,7 +140,7 @@ public static class ImportacaoService
                 Telefone = telefone,
                 Endereco = endereco,
                 PacoteJson = Bruto(linha, "pacote") ?? "",
-                Unidade = Texto(linha, "unidade")
+                Unidade = UnidadesRegras.ParaGravar(Texto(linha, "unidade"))
             });
         }
         return new ResultadoImportacao(novos, repetidos, ignorados);
@@ -178,7 +178,7 @@ public static class ImportacaoService
                 PagamentoStatus = Texto(linha, "pagamentoStatus"),
                 FormaPagamento = Texto(linha, "formaPagamento"),
                 Obs = Texto(linha, "obs"),
-                Unidade = Texto(linha, "unidade")
+                Unidade = UnidadesRegras.ParaGravar(Texto(linha, "unidade"))
             });
         }
         return new ResultadoImportacao(novos, repetidos, ignorados);
@@ -206,7 +206,7 @@ public static class ImportacaoService
                 Descricao = descricao,
                 Tipo = tipo,
                 Valor = valor,
-                Unidade = Texto(linha, "unidade"),
+                Unidade = UnidadesRegras.ParaGravar(Texto(linha, "unidade")),
                 Origem = "importacao_painel"
             });
         }

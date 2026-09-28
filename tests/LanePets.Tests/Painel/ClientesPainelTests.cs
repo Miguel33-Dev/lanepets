@@ -5,6 +5,7 @@ namespace LanePets.Tests.Painel;
 
 /// <summary>
 /// Clientes no painel: GET /api/admin/clientes e a gravacao por POST /api/admin/sync/clientes.
+/// 27/09: a lista e paginada ({ total, itens, resumo }); os testes buscam pelo nome para achar o cliente.
 /// Regras: CONTEXTO §6.4 (403, nunca 200 com dados), §6.19 (permissao por modulo e acao
 /// no backend), §6.25 (acao do painel vira evento com o autor).
 /// </summary>
@@ -12,7 +13,7 @@ namespace LanePets.Tests.Painel;
 public class ClientesPainelTests(LanePetsApp app)
 {
     private static JsonElement? Achar(Resposta lista, string id)
-        => lista.Data.EnumerateArray().Cast<JsonElement?>().FirstOrDefault(c => c!.Value.GetProperty("id").GetString() == id);
+        => lista.Data.GetProperty("itens").EnumerateArray().Cast<JsonElement?>().FirstOrDefault(c => c!.Value.GetProperty("id").GetString() == id);
 
     [Fact]
     public async Task Cliente_cadastrado_no_site_aparece_no_painel_com_a_conta_e_o_pet()
@@ -22,7 +23,7 @@ public class ClientesPainelTests(LanePetsApp app)
         var clienteId = await app.NoBanco(db => Task.FromResult(db.UsuariosClientes.Single(u => u.Email == criado.Email).ClienteId));
 
         var painel = app.Api();
-        var lista = await painel.Get($"/api/admin/clientes?token={await painel.LoginAdmin()}");
+        var lista = await painel.Get($"/api/admin/clientes?token={await painel.LoginAdmin()}&busca={Uri.EscapeDataString(criado.Email)}");
 
         Assert.Equal(200, lista.Codigo);
         var cliente = Achar(lista, clienteId) ?? throw new Xunit.Sdk.XunitException("Cliente do site não apareceu no painel.");
@@ -44,7 +45,7 @@ public class ClientesPainelTests(LanePetsApp app)
 
         Assert.Equal(200, r.Codigo);
         Assert.Equal(1, r.Data.GetProperty("criados").GetInt32());
-        var cliente = Achar(await api.Get($"/api/admin/clientes?token={token}"), id) ?? throw new Xunit.Sdk.XunitException("Cliente criado não apareceu.");
+        var cliente = Achar(await api.Get($"/api/admin/clientes?token={token}&busca={Uri.EscapeDataString("Pedro Balcão")}&limite=500"), id) ?? throw new Xunit.Sdk.XunitException("Cliente criado não apareceu.");
         Assert.False(cliente.GetProperty("temConta").GetBoolean());
         Assert.Equal("cadastro_painel", cliente.GetProperty("origem").GetString());
 

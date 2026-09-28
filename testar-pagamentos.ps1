@@ -68,7 +68,7 @@ function Chamar($metodo, $caminho, $corpo, $token) {
     return @{ status = $status; corpo = $dados }
 }
 
-function Pag($origemId) { @((Chamar GET "/admin/pagamentos?token=$tokenGeral&busca=$origemId").corpo.data.itens | Where-Object { $_.origemId -eq $origemId })[0] }
+function Pag($origemId) { @((Chamar GET "/admin/pagamentos?token=$tokenGeral&busca=$origemId&limite=500").corpo.data.itens | Where-Object { $_.origemId -eq $origemId })[0] }
 function Status($idPag, $status, $obs = '') { Chamar POST "/admin/pagamentos/$idPag/status" @{ token = $tokenGeral; status = $status; observacao = $obs } }
 function Agendamento($id) { @((Chamar GET "/admin/estado?token=$tokenGeral").corpo.data.agendamentos | Where-Object { $_.id -eq $id })[0] }
 function AtualizarNoPainel($id, $mudancas) {
@@ -117,7 +117,7 @@ Chamar POST "/cliente/agendamentos/$($a1.id)/cancelar" $null $tokenCli | Out-Nul
 $p1 = Pag $a1.id
 Checar 'continua Aprovado, com reembolso pendente' ($p1.status -eq 'Aprovado' -and $p1.reembolsoPendente -eq $true)
 Checar 'nao da para "desfazer" para aprovar de novo sem decidir o reembolso' ((Status $p1.id 'Aprovado').status -eq 400)
-$resumo = (Chamar GET "/admin/pagamentos?token=$tokenGeral&reembolso=true").corpo.data
+$resumo = (Chamar GET "/admin/pagamentos?token=$tokenGeral&reembolso=true&limite=500").corpo.data
 Checar 'filtro "so reembolso pendente" traz o pagamento' (@($resumo.itens | Where-Object { $_.id -eq $p1.id }).Count -eq 1 -and $resumo.resumo.reembolsosPendentes -ge 1)
 $r = Status $p1.id 'Reembolsado' 'Estorno feito no Pix'
 Checar 'reembolsar -> 200 e limpa o alerta' ($r.status -eq 200 -and (Pag $a1.id).reembolsoPendente -eq $false)

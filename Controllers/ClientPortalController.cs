@@ -7,7 +7,7 @@ using Microsoft.EntityFrameworkCore;
 namespace LanePets.Controllers;
 
 [Route("api/cliente")]
-public class ClientPortalController(LanePetsDbContext db, SessionService sessions, RealtimeNotifier realtime, EventosService eventos) : ApiControllerBase
+public class ClientPortalController(LanePetsDbContext db, SessionService sessions, RealtimeNotifier realtime, EventosService eventos, EmailService email, IConfiguration config) : ApiControllerBase
 {
     /// <summary>Item 15: evento de log com o IP desta requisicao. Nunca lanca.</summary>
     private Task Evento(string categoria, string acao, Cliente? cliente, string alvoId = "", string detalhes = "", string nivel = "info", string autor = "")
@@ -23,11 +23,12 @@ public class ClientPortalController(LanePetsDbContext db, SessionService session
         try
         {
             // Item 11.4b: validacao e gravacao em ContaClienteService.
-            var (cliente, pet, email) = await ContaClienteService.CadastrarAsync(db, new(
+            var (cliente, pet, emailConta) = await ContaClienteService.CadastrarAsync(db, new(
                 request.Nome, request.Email, request.Senha, request.Telefone, request.Endereco, request.Pet, request.Tipo, request.Raca));
             await realtime.NotificarAsync("clientes", "criado", new { cliente.Id, cliente.Nome });
-            await Evento("cliente", "Conta de cliente criada", cliente, cliente.Id, $"Pet inicial: {pet.PetNome}.", autor: email);
-            return OkApi(new { token = sessions.CreateClient(cliente.Id), cliente = new { cliente.Nome, Email = email } });
+            await Evento("cliente", "Conta de cliente criada", cliente, cliente.Id, $"Pet inicial: {pet.PetNome}.", autor: emailConta);
+            await AvisosClienteService.BoasVindasAsync(email, config, emailConta, cliente.Nome, pet.PetNome);   // 28/09
+            return OkApi(new { token = sessions.CreateClient(cliente.Id), cliente = new { cliente.Nome, Email = emailConta } });
         }
         catch (Exception ex) { return ErrorApi(ex); }
     }
@@ -45,6 +46,57 @@ public class ClientPortalController(LanePetsDbContext db, SessionService session
         }
         catch (Exception ex) { return ErrorApi(ex); }
     }
+    // -----------------------------------------------------------------------
+    // ESQUECI MINHA SENHA (28/09)
+    // Sem sessao. O pedido responde sempre a mesma mensagem (nao revela se o e-mail
+    // existe); o codigo vai por e-mail e so o hash fica no banco. Regra em
+    // RecuperacaoSenhaService; aqui ficam o envio, os eventos e o fim das sessoes.
+    // -----------------------------------------------------------------------
+
+    [HttpPost("senha/esqueci")]
+    public async Task<IActionResult> EsqueciSenha([FromBody] EsqueciSenhaRequest request)
+    {
+        try
+        {
+            var pedido = await RecuperacaoSenhaService.SolicitarAsync(db, request.Email, DateTime.UtcNow);
+            if (pedido.Usuario is not null)
+            {
+                var cliente = await db.Clientes.AsNoTracking().FirstOrDefaultAsync(c => c.Id == pedido.Usuario.ClienteId);
+                if (pedido.Codigo is not null)
+                {
+                    var enviado = await email.EnviarAsync(pedido.Usuario.Email, "LanePets · código para redefinir sua senha",
+                        RecuperacaoSenhaService.TextoEmail(cliente?.Nome ?? "", pedido.Codigo));
+                    // Nunca o codigo no log (§6.25): so o fato e o destino.
+                    await Evento("seguranca", enviado ? "Recuperação de senha solicitada" : "Falha ao enviar código de recuperação",
+                        cliente, pedido.Usuario.ClienteId, enviado ? $"Código enviado para {pedido.Usuario.Email}." : "Envio de e-mail falhou; ver log do servidor.",
+                        enviado ? "info" : "erro", pedido.Usuario.Email);
+                }
+                else
+                {
+                    await Evento("seguranca", "Recuperação de senha recusada", cliente, pedido.Usuario.ClienteId, pedido.Motivo, "aviso", pedido.Usuario.Email);
+                }
+            }
+            return OkApi(new { message = RecuperacaoSenhaService.MensagemPedido, validadeMinutos = RecuperacaoSenhaService.MinutosValidade });
+        }
+        catch (Exception ex) { return ErrorApi(ex); }
+    }
+
+    [HttpPost("senha/redefinir")]
+    public async Task<IActionResult> RedefinirSenha([FromBody] RedefinirSenhaRequest request)
+    {
+        try
+        {
+            var usuario = await RecuperacaoSenhaService.RedefinirAsync(db, request.Email, request.Codigo, request.NovaSenha, request.ConfirmarSenha,
+                DateTime.UtcNow, Recusar);
+            // Quem estava logado com a senha antiga (outro aparelho) sai.
+            sessions.EncerrarSessoesDoCliente(usuario.ClienteId);
+            var cliente = await db.Clientes.AsNoTracking().FirstOrDefaultAsync(c => c.Id == usuario.ClienteId);
+            await Evento("seguranca", "Senha redefinida pelo código", cliente, usuario.ClienteId, "Sessões anteriores encerradas.", autor: usuario.Email);
+            return OkApi(new { email = usuario.Email, message = "Senha redefinida. Entre com a nova senha." });
+        }
+        catch (Exception ex) { return ErrorApi(ex); }
+    }
+
     [HttpPost("logout")]
     public IActionResult Logout() { sessions.LogoutClient(Token()); return OkApi(new { encerrado = true }); }
     [HttpGet("conta")]
@@ -53,6 +105,8 @@ public class ClientPortalController(LanePetsDbContext db, SessionService session
         try
         {
             var cliente = await Cliente();
+            // Cobranca mensal do Seguro (26/09): a mensalidade que venceu ja aparece no extrato.
+            await PagamentosService.ReconciliarAsync(db);
             // Campos adicionais (email / criadoEm) vem do usuario vinculado ao cliente.
             // Acrescimo aditivo: nada do que ja era devolvido mudou de nome ou de tipo.
             var usuario = await db.UsuariosClientes.AsNoTracking().FirstOrDefaultAsync(u => u.ClienteId == cliente.Id);
@@ -65,6 +119,8 @@ public class ClientPortalController(LanePetsDbContext db, SessionService session
                 Email = usuario?.Email ?? "",
                 CriadoEm = usuario?.CriadoEm,
                 Status = string.IsNullOrWhiteSpace(cliente.Status) ? "ativo" : cliente.Status,
+                cliente.ReceberAvisos,   // 28/09: avisos de agendamento por e-mail
+                fidelidade = await FidelidadeService.CartaoAsync(db, config, cliente.Id),   // 29/09: cartao fidelidade
                 // A mesma projecao usada pelos endpoints de pet, para a tela
                 // receber sempre os mesmos nomes de campo — venha o pet da
                 // carga inicial da conta ou de um cadastro recem-confirmado.
@@ -75,7 +131,7 @@ public class ClientPortalController(LanePetsDbContext db, SessionService session
                 // Item 8: pagamentos da conta (somente leitura para o cliente).
                 pagamentos = (await db.Pagamentos.AsNoTracking().Where(p => p.ClienteId == cliente.Id).ToListAsync())
                     .OrderByDescending(p => p.DataReferencia)
-                    .Select(p => new { p.Id, p.Origem, p.OrigemId, p.Descricao, p.Valor, p.Forma, p.Status, p.ReembolsoPendente, p.DataReferencia, atualizadoEm = DateTime.SpecifyKind(p.AtualizadoEm, DateTimeKind.Utc).ToString("O") })
+                    .Select(p => new { p.Id, p.Origem, p.OrigemId, p.Competencia, p.Descricao, p.Valor, p.Forma, p.Status, p.ReembolsoPendente, p.DataReferencia, atualizadoEm = DateTime.SpecifyKind(p.AtualizadoEm, DateTimeKind.Utc).ToString("O") })
                     .ToList()
             });
         }
@@ -110,6 +166,25 @@ public class ClientPortalController(LanePetsDbContext db, SessionService session
     // o e-mail ou a senha. O e-mail continua sendo a chave do login em
     // UsuarioCliente e segue unico.
     // -----------------------------------------------------------------------
+
+    /// <summary>28/09: liga/desliga os avisos de agendamento por e-mail (confirmacao, cancelamento, lembrete).</summary>
+    [HttpPut("conta/avisos")]
+    public async Task<IActionResult> Avisos([FromBody] AvisosRequest request)
+    {
+        try
+        {
+            var cliente = await Cliente();
+            var alvo = await db.Clientes.FirstAsync(c => c.Id == cliente.Id);
+            if (alvo.ReceberAvisos != request.Receber)
+            {
+                alvo.ReceberAvisos = request.Receber;
+                await db.SaveChangesAsync();
+                await Evento("cliente", request.Receber ? "Avisos por e-mail ligados" : "Avisos por e-mail desligados", alvo, alvo.Id);
+            }
+            return OkApi(new { receberAvisos = alvo.ReceberAvisos, message = alvo.ReceberAvisos ? "Você vai receber os avisos de agendamento por e-mail." : "Avisos por e-mail desligados." });
+        }
+        catch (Exception ex) { return ErrorApi(ex); }
+    }
 
     [HttpPut("conta/email")]
     public async Task<IActionResult> AlterarEmail([FromBody] AlterarEmailRequest request)
@@ -311,7 +386,14 @@ public class ClientPortalController(LanePetsDbContext db, SessionService session
         {
             var cliente = await Cliente();
             // Item 11.4c: filtro pela conta e adocao dos contratos antigos em SegurosClienteService.
+            // Cobranca mensal (26/09): gera a mensalidade que venceu; situacao e mensalidades de
+            // cada contrato vem logo abaixo, so da propria conta.
+            await PagamentosService.ReconciliarAsync(db);
             var meus = await SegurosClienteService.MeusAsync(db, cliente);
+            var mensalidades = (await db.Pagamentos.AsNoTracking()
+                    .Where(p => p.Origem == PagamentosService.OrigemSeguro && p.ClienteId == cliente.Id).ToListAsync())
+                .ToLookup(p => p.OrigemId);
+            var agora = DateTime.UtcNow;
             return OkApi(meus.Select(x => new
             {
                 x.Seguro.Id,
@@ -329,6 +411,7 @@ public class ClientPortalController(LanePetsDbContext db, SessionService session
                 DataCancelamento = x.Seguro.DataCancelamento.HasValue ? x.Seguro.DataCancelamento.Value.ToString("O") : null,
                 // O botao "Cancelar seguro" so existe para contrato que ainda esta valendo.
                 podeCancelar = SegurosClienteService.PodeCancelar(x.Seguro),
+                cobranca = MensalidadesSeguro.Resumo(x.Seguro, mensalidades[x.Seguro.Id], agora),
                 // Detalhes do plano vem do catalogo: se o admin corrigir a
                 // cobertura, o cliente ve a versao corrigida.
                 valorMensal = x.Plano?.ValorMensal ?? 0m,
@@ -428,7 +511,8 @@ public class ClientPortalController(LanePetsDbContext db, SessionService session
         catch (Exception ex) { return ErrorApi(ex); }
     }
 
-    /// <summary>Envia uma avaliacao ja vinculada a conta (segue para a mesma moderacao do site).</summary>
+    /// <summary>Envia uma avaliacao ja vinculada a conta (segue para a mesma moderacao do site).
+    /// Desde 26/09 e o UNICO caminho para avaliar: o botao do site tambem chama esta rota.</summary>
     [HttpPost("avaliacoes")]
     public async Task<IActionResult> CriarAvaliacao([FromBody] AvaliacaoRequest request)
     {
@@ -438,7 +522,7 @@ public class ClientPortalController(LanePetsDbContext db, SessionService session
             // Item 11.4c: validacao e gravacao em AvaliacoesService.
             var depoimento = await AvaliacoesService.CriarDoClienteAsync(db, cliente, request.PetId, request.Avaliacao, request.Comentario);
             await realtime.NotificarAsync("avaliacoes", "criada", new { depoimento.Id, depoimento.NomeCliente });
-            await Evento("cliente", "Avaliação enviada", cliente, depoimento.Id, $"{depoimento.Avaliacao} estrela(s)");
+            await Evento("avaliacao", "Avaliação enviada", cliente, depoimento.Id, $"{depoimento.NomePet} · {depoimento.Avaliacao} estrela(s) · aguardando moderação");
             return OkApi(new { depoimento.Id, depoimento.Status, message = "Avaliacao enviada! Ela aparece no site assim que a equipe aprovar." });
         }
         catch (Exception ex) { return ErrorApi(ex); }
@@ -458,7 +542,7 @@ public class ClientPortalController(LanePetsDbContext db, SessionService session
         // Item 5: cada unidade leva capacidade e servicos oferecidos ([] = todos),
         // para o wizard filtrar servicos pela unidade escolhida.
         unidades = (await db.Unidades.AsNoTracking().Where(u => u.Ativa).OrderBy(u => u.Nome).ToListAsync())
-            .Select(u => new { u.Id, u.Nome, u.Endereco, u.Telefone, u.HorarioFuncionamento, u.Ativa, capacidade = UnidadesRegras.CapacidadeDe(u), servicos = UnidadesRegras.Servicos(u) })
+            .Select(u => new { u.Id, u.Nome, u.Endereco, u.Telefone, u.HorarioFuncionamento, u.Ativa, capacidade = UnidadesRegras.CapacidadeDe(u), servicos = UnidadesRegras.Servicos(u), u.ConfirmacaoAutomatica })
     });
     [HttpGet("horarios")]
     public async Task<IActionResult> Horarios([FromQuery] string unidade, [FromQuery] string data)
@@ -481,8 +565,13 @@ public class ClientPortalController(LanePetsDbContext db, SessionService session
                 request.PetId, request.ServicoId, request.Unidade, request.Data, request.Horario,
                 request.Transporte, request.FormaPagamento, request.Observacao));
             await realtime.NotificarAsync("agendamentos", "criado", new { appointment.Id, appointment.Dono, appointment.DataHora });
-            await Evento("agendamento", "Agendamento criado pelo cliente", cliente, appointment.Id, $"{appointment.Pet} · {service.Nome} · {appointment.DataHora} · {appointment.Unidade}");
-            return OkApi(appointment);
+            var automatico = appointment.Status == StatusAgendamento.Confirmado;
+            await Evento("agendamento", automatico ? "Agendamento criado e confirmado automaticamente" : "Agendamento criado pelo cliente", cliente, appointment.Id, $"{appointment.Pet} · {service.Nome} · {appointment.DataHora} · {Normalizador.NomeUnidade(appointment.Unidade)}");
+            await AvisosClienteService.AgendamentoRecebidoAsync(db, email, config, appointment);   // 28/09: comprovante por e-mail
+            // Gravado com o id da unidade; a tela do cliente recebe o nome (ParaExibir). Solto do
+            // rastreamento antes, para a troca de exibicao nunca voltar para o banco.
+            db.Entry(appointment).State = Microsoft.EntityFrameworkCore.EntityState.Detached;
+            return OkApi(AgendamentosClienteService.ParaExibir(appointment));
         }
         catch (Exception ex) { return ErrorApi(ex); }
     }
@@ -511,6 +600,9 @@ public class ClientPortalController(LanePetsDbContext db, SessionService session
     private async Task<Cliente> Cliente() { var session = sessions.RequireClient(Token()); return await db.Clientes.FindAsync(session.AdminToken) ?? throw new UnauthorizedAccessException("Cliente não localizado."); }
     public record CadastroRequest(string? Nome, string? Email, string? Senha, string? Telefone, string? Endereco, string? Pet, string? Tipo, string? Raca);
     public record LoginRequest(string? Email, string? Senha);
+    public record EsqueciSenhaRequest(string? Email);
+    public record AvisosRequest(bool Receber);
+    public record RedefinirSenhaRequest(string? Email, string? Codigo, string? NovaSenha, string? ConfirmarSenha);
     public record AgendamentoRequest(string PetId, string ServicoId, string Unidade, string Data, string Horario, string? Transporte, string? FormaPagamento, string? Observacao);
     /// <summary>
     /// Itens 6/7: o cliente cancela o proprio pedido enquanto ele esta

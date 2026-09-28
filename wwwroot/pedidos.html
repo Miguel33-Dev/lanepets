@@ -4,12 +4,12 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Pedidos &middot; LanePets</title>
-<link rel="stylesheet" href="design-system.css?v=6">
+<link rel="stylesheet" href="design-system.css?v=9">
 <script src="js/config.js"></script>
 <script src="js/api.js"></script>
 <script src="lib/signalr/signalr.min.js"></script>
-<script src="js/admin-dados.js?v=2"></script>
-<script src="js/admin-permissoes.js?v=5"></script>
+<script src="js/admin-dados.js?v=5"></script>
+<script src="js/admin-permissoes.js?v=7"></script>
 <script src="js/unidades.js?v=3"></script>
 <script src="js/busca.js?v=1"></script>
 <script src="js/marca-unidades.js?v=1" defer></script>
@@ -21,7 +21,7 @@
 </header>
 <main class="page-content">
   <div class="page-header">
-    <div><h1>Pedidos da loja</h1><p>Cada linha nasceu na &Aacute;rea do Cliente e foi gravada no banco. A tela se atualiza sozinha quando chega um pedido novo.</p></div>
+    <div><h1>Pedidos da loja</h1><p>Cada linha nasceu na &Aacute;rea do Cliente e foi gravada no banco. A tela se atualiza sozinha quando chega um pedido novo e mostra 50 por vez.</p></div>
     <div><button class="btn btn-outline" type="button" id="btnAtualizar">Atualizar</button></div>
   </div>
 
@@ -42,7 +42,10 @@
     </div>
     <div style="display:flex;justify-content:space-between;align-items:center;gap:var(--sp-3);flex-wrap:wrap;margin-top:var(--sp-3)">
       <span class="small-note" id="contagemPedidos" aria-live="polite"></span>
-      <button type="button" class="btn btn-outline btn-sm" id="btnLimparPedidos" data-limpar-filtros>Limpar filtros</button>
+      <div style="display:flex;gap:var(--sp-2);flex-wrap:wrap">
+        <button type="button" class="btn btn-outline btn-sm" id="btnMaisPedidos" hidden style="display:none">Carregar mais</button>
+        <button type="button" class="btn btn-outline btn-sm" id="btnLimparPedidos" data-limpar-filtros>Limpar filtros</button>
+      </div>
     </div>
     <div class="table-wrap tabela-cards" style="margin-top:var(--sp-4)">
       <table><thead><tr><th>Pedido</th><th>Cliente</th><th>Produto</th><th>Qtd.</th><th>Valor</th><th>Pagamento</th><th>Retirada</th><th>Status</th><th>Data</th><th></th></tr></thead><tbody id="corpoTabela"></tbody></table>
@@ -101,7 +104,7 @@ document.getElementById('corpoTabela').addEventListener('change', async evento =
   try {
     const r = await LaneAdmin.post(`admin/pedidos/${sel.dataset.id}/status`, { status: novo });
     toast(r.message || 'Status atualizado.', 'success');
-    await carregar();
+    await carregar();   /* cancelamento devolve estoque: recarrega a tabela de estoque tambem */
   } catch (erro) {
     console.error('[LanePets] status do pedido:', erro);
     toast(erro.message, 'error');
@@ -110,28 +113,33 @@ document.getElementById('corpoTabela').addEventListener('change', async evento =
 });
 
 /* Item 16: filtros no padrao LaneBusca (sem acento, varias palavras, digitos do
-   telefone, periodo, URL e "Limpar filtros"). */
+   telefone, periodo, URL e "Limpar filtros").
+   27/09: busca, filtros e paginacao vao para o servidor — 50 por vez, "Carregar mais"
+   pede a proxima pagina; os cartoes vem do bloco "resumo" (base inteira, nao so a pagina). */
 const FILTROS_PEDIDOS = { busca: 'busca', status: 'filtroStatus', unidade: 'filtroUnidade', de: 'filtroDe', ate: 'filtroAte' };
-const dataLocal = v => { const d = new Date(v); if (isNaN(d)) return ''; const z = n => String(n).padStart(2, '0'); return `${d.getFullYear()}-${z(d.getMonth() + 1)}-${z(d.getDate())}`; };
+const POR_PAGINA = 50;
+let totalFiltro = 0, totalGeral = 0;
+let geracao = 0;   /* descarta resposta antiga quando o filtro muda no meio da busca */
+const valor = id => document.getElementById(id).value.trim();
+const temFiltro = () => LaneBusca.ativos(Object.values(FILTROS_PEDIDOS)) > 0;
+
+function filtros(limite, offset) {
+  LaneBusca.gravarUrl(FILTROS_PEDIDOS);
+  return { busca: valor('busca'), status: valor('filtroStatus'), unidade: valor('filtroUnidade'),
+    de: valor('filtroDe'), ate: valor('filtroAte'), limite, offset };
+}
 
 function pintar() {
-  const termo = document.getElementById('busca').value;
-  const status = document.getElementById('filtroStatus').value;
-  const unidade = document.getElementById('filtroUnidade').value;
-  const de = document.getElementById('filtroDe').value;
-  const ate = document.getElementById('filtroAte').value;
-  const visiveis = pedidos.filter(p => {
-    const dia = dataLocal(p.criadoEm);
-    return (!status || String(p.status || '') === status) &&
-      (unidade === 'todas' || (unidade === 'sem-unidade' ? !p.unidade : p.unidade === unidade)) &&
-      (!de || dia >= de) && (!ate || dia <= ate) &&
-      LaneBusca.combina(termo, [p.id, p.cliente, p.telefone, p.produtoNome, p.formaPagamento, p.unidadeNome]);
-  });
-  LaneBusca.gravarUrl(FILTROS_PEDIDOS);
-  LaneBusca.contador('contagemPedidos', visiveis.length, pedidos.length, 'pedido', 'pedidos');
-  document.getElementById('btnLimparPedidos').style.display = LaneBusca.ativos(Object.values(FILTROS_PEDIDOS)) === 0 ? 'none' : '';
+  const filtrado = temFiltro();
+  const nome = totalFiltro === 1 ? 'pedido' : 'pedidos';
+  document.getElementById('contagemPedidos').textContent = (pedidos.length < totalFiltro
+    ? `Mostrando ${pedidos.length} de ${totalFiltro} ${nome}` : `${totalFiltro} ${nome}`) + (filtrado ? ' no filtro atual' : '');
+  const mais = document.getElementById('btnMaisPedidos');
+  mais.hidden = pedidos.length >= totalFiltro;
+  mais.style.display = mais.hidden ? 'none' : '';
+  document.getElementById('btnLimparPedidos').style.display = filtrado ? '' : 'none';
 
-  document.getElementById('corpoTabela').innerHTML = visiveis.length ? visiveis.map(p => `
+  document.getElementById('corpoTabela').innerHTML = pedidos.length ? pedidos.map(p => `
     <tr>
       <td><code>${esc(p.id)}</code></td>
       <td><strong>${esc(p.cliente)}</strong><br><span class="small-note">${esc(p.telefone)}</span></td>
@@ -143,25 +151,59 @@ function pintar() {
       <td>${selo(p.status)}</td>
       <td>${new Date(p.criadoEm).toLocaleString('pt-BR')}</td>
       <td>${acaoStatus(p)}</td>
-    </tr>`).join('') : LaneBusca.linhaVazia(10, pedidos.length, { nenhum: 'Nenhum pedido registrado ainda.', filtro: 'Nenhum pedido encontrado com esses filtros.' });
+    </tr>`).join('') : LaneBusca.linhaVazia(10, totalGeral, { nenhum: 'Nenhum pedido registrado ainda.', filtro: 'Nenhum pedido encontrado com esses filtros.' });
+}
 
-  const ativos = pedidos.filter(p => String(p.status || '').toLowerCase() !== 'cancelado');
-  document.getElementById('kpiTotal').textContent = pedidos.length;
-  document.getElementById('kpiPendentes').textContent = pedidos.filter(p => String(p.status || '').toLowerCase() === 'pendente').length;
-  document.getElementById('kpiValor').textContent = brl(ativos.reduce((s, p) => s + Number(p.total || 0), 0));
-  document.getElementById('kpiItens').textContent = ativos.reduce((s, p) => s + Number(p.quantidade || 0), 0);
+function pintarResumo(r) {
+  r = r || {};
+  totalGeral = r.total ?? 0;
+  document.getElementById('kpiTotal').textContent = r.total ?? 0;
+  document.getElementById('kpiPendentes').textContent = r.pendentes ?? 0;
+  document.getElementById('kpiValor').textContent = brl(r.faturamento);
+  document.getElementById('kpiItens').textContent = r.itensVendidos ?? 0;
+}
+
+/* manterQuantidade: depois de mudar um status (ou de um aviso em tempo real), recarrega
+   sem "encolher" o que ja estava aberto. */
+async function carregarPedidos({ manterQuantidade = false } = {}) {
+  const minha = ++geracao;
+  try {
+    const d = await LaneAdmin.pedidos(filtros(manterQuantidade ? Math.max(POR_PAGINA, pedidos.length) : POR_PAGINA, 0));
+    if (minha !== geracao) return;
+    pedidos = d.itens || [];
+    totalFiltro = d.total ?? pedidos.length;
+    pintarResumo(d.resumo);
+    pintar();
+  } catch (erro) {
+    if (minha !== geracao) return;
+    console.error('[LanePets] pedidos:', erro);
+    document.getElementById('corpoTabela').innerHTML = `<tr><td colspan="10">${esc(erro.message)}</td></tr>`;
+  }
+}
+
+async function carregarMais() {
+  const botao = document.getElementById('btnMaisPedidos');
+  botao.disabled = true;
+  const minha = geracao;
+  try {
+    const d = await LaneAdmin.pedidos(filtros(POR_PAGINA, pedidos.length));
+    if (minha !== geracao) return;          /* filtro mudou enquanto buscava */
+    const vistos = new Set(pedidos.map(p => p.id));
+    pedidos = pedidos.concat((d.itens || []).filter(p => !vistos.has(p.id)));
+    totalFiltro = d.total ?? totalFiltro;
+    pintar();
+  } catch (erro) {
+    console.error('[LanePets] pedidos (carregar mais):', erro);
+    toast(erro.message, 'error');
+  } finally { botao.disabled = false; }
 }
 
 async function carregar() {
-  try {
-    [pedidos, produtos] = await Promise.all([LaneAdmin.pedidos(), LaneAdmin.produtos()]);
-    pintar();
-    pintarEstoque();
-  }
-  catch (erro) {
-    console.error('[LanePets] pedidos:', erro);
-    document.getElementById('corpoTabela').innerHTML = `<tr><td colspan='8'>${esc(erro.message)}</td></tr>`;
-  }
+  await Promise.all([
+    carregarPedidos({ manterQuantidade: true }),
+    LaneAdmin.produtos().then(lista => { produtos = lista; pintarEstoque(); })
+      .catch(erro => { console.error('[LanePets] produtos:', erro); document.getElementById('corpoEstoque').innerHTML = `<tr><td colspan="7">${esc(erro.message)}</td></tr>`; })
+  ]);
 }
 
 /* ---------- Estoque ---------- */
@@ -202,26 +244,28 @@ document.getElementById('corpoEstoque').addEventListener('click', async evento =
 });
 
 document.getElementById('buscaProduto').oninput = pintarEstoque;
-document.getElementById('busca').oninput = pintar;
-document.getElementById('filtroStatus').onchange = pintar;
-['filtroDe', 'filtroAte'].forEach(id => document.getElementById(id).onchange = pintar);
+const recarregar = () => carregarPedidos();
+document.getElementById('busca').oninput = LaneBusca.atrasar(recarregar, 300);
+document.getElementById('filtroStatus').onchange = recarregar;
+['filtroDe', 'filtroAte'].forEach(id => document.getElementById(id).onchange = recarregar);
+document.getElementById('btnMaisPedidos').onclick = carregarMais;
 document.addEventListener('click', e => {
   if (!e.target.closest('[data-limpar-filtros]')) return;
   LaneBusca.limpar(Object.values(FILTROS_PEDIDOS));
   document.getElementById('filtroUnidade').value = 'todas';
-  pintar();
+  recarregar();
   document.getElementById('busca').focus();
 });
-LaneBusca.atalhos('busca', pintar);
+LaneBusca.atalhos('busca', recarregar);
 LaneBusca.lerUrl(FILTROS_PEDIDOS);
 /* Item 5: pedido tem unidade de retirada. */
 LaneUnidades.preencherSelect(document.getElementById('filtroUnidade'), { todas: true, semUnidade: true });
 LaneUnidades.carregar().then(() => {
   LaneUnidades.preencherSelect(document.getElementById('filtroUnidade'), { todas: true, semUnidade: true });
   /* A lista de unidades chega depois: reaplica a unidade que veio na URL. */
-  if (LaneBusca.lerUrl({ unidade: 'filtroUnidade' })) pintar();
+  if (LaneBusca.lerUrl({ unidade: 'filtroUnidade' })) recarregar();
 });
-document.getElementById('filtroUnidade').onchange = pintar;
+document.getElementById('filtroUnidade').onchange = recarregar;
 document.getElementById('btnAtualizar').onclick = carregar;
 window.addEventListener('load', () => { carregar(); LaneAdmin.aoMudar(carregar); });
 </script>

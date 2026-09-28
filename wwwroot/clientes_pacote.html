@@ -4,12 +4,11 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Pacotes &middot; LanePets</title>
-  <link rel="stylesheet" href="design-system.css?v=6">
+  <link rel="stylesheet" href="design-system.css?v=9">
   <style>
     /* Modal, cabeçalho, ações e backup vêm do design-system.css (nada redefinido aqui). */
     .pacote-toolbar { display:grid; grid-template-columns:minmax(260px,1fr) 180px auto; gap:var(--sp-3); align-items:end; }
     .pacote-toolbar .field { margin-bottom:0; }
-    .table-wrap { overflow:auto; border:1px solid var(--border); border-radius:var(--r-lg); background:var(--surface); }
     #tabelaPacote { width:100%; min-width:1450px; border-collapse:separate; border-spacing:0; }
     #tabelaPacote th { position:sticky; top:0; z-index:2; background:var(--surface-muted); color:var(--ink-700); font-size:.74rem; text-transform:uppercase; letter-spacing:.04em; padding:12px 14px; border-bottom:1px solid var(--border); text-align:left; white-space:nowrap; }
     #tabelaPacote td { padding:13px 14px; border-bottom:1px solid var(--border); vertical-align:top; font-size:.84rem; color:var(--ink-700); }
@@ -32,9 +31,10 @@
   <script src="js/config.js"></script>
   <script src="js/api.js"></script>
   <script src="lib/signalr/signalr.min.js"></script>
-  <script src="js/admin-dados.js?v=2"></script>
-  <script src="js/admin-store.js?v=2"></script>
-<script src="js/admin-permissoes.js?v=5"></script>
+  <script src="js/admin-dados.js?v=5"></script>
+  <script>window.LANE_COLECOES = ['pets'];   /* 27/09: so o que esta tela usa vem do servidor */</script>
+  <script src="js/admin-store.js?v=3"></script>
+<script src="js/admin-permissoes.js?v=7"></script>
 <script src="js/marca-unidades.js?v=1" defer></script>
 </head>
 <body>
@@ -382,36 +382,6 @@
         }
         LaneStore.salvar("pets", pets);
       }
-    }
-
-    // Integração automática: escuta agendamentos e atualiza histórico
-    function integrarHistoricoBanhos() {
-      const agendamentos = LaneStore.obter("agendamentos");
-      const pets = LaneStore.obter("pets");
-      // Limpa histórico de todos os pets pacote
-      pets.forEach(p => {
-        if (p.pacote && p.pacote.ativo) {
-          p.pacote.historico = [];
-          p.pacote.feitos = 0;
-        }
-      });
-      // Para cada agendamento, se for cliente pacote, adiciona ao histórico
-      agendamentos.forEach(a => {
-        const idx = pets.findIndex(p =>
-          p.pet.toLowerCase() === a.pet.toLowerCase() &&
-          p.dono.toLowerCase() === a.dono.toLowerCase() &&
-          p.pacote && p.pacote.ativo
-        );
-        if (idx !== -1) {
-          if (!Array.isArray(pets[idx].pacote.historico)) pets[idx].pacote.historico = [];
-          // Evita duplicidade
-          if (!pets[idx].pacote.historico.includes(a.dataHora)) {
-            pets[idx].pacote.historico.push(a.dataHora);
-            pets[idx].pacote.feitos += 1;
-          }
-        }
-      });
-      LaneStore.salvar("pets", pets);
     }
 
     // Ao carregar a página, integra histórico e mostra a tabela

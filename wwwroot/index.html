@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Cadastro &middot; LanePets</title>
-<link rel="stylesheet" href="design-system.css?v=6">
+<link rel="stylesheet" href="design-system.css?v=9">
 <style>
   #listaServicosCadastrados { list-style: none; margin: var(--sp-2) 0 0; padding: 0; }
   #listaServicosCadastrados li { padding: 4px 0; }
@@ -54,16 +54,16 @@
   .module-card-cta svg { transition: transform .14s var(--ease); }
   .module-card:hover .module-card-cta svg { transform: translateX(3px); }
 
-  .kpi .value.skeleton { display: inline-block; width: 54px; height: 1.6rem; border-radius: var(--r-sm); margin-top: 8px; }
 
   #buscaCadastroVazio { display: none; }
 </style>
   <script src="js/config.js"></script>
   <script src="js/api.js"></script>
   <script src="lib/signalr/signalr.min.js"></script>
-  <script src="js/admin-dados.js?v=2"></script>
-  <script src="js/admin-store.js?v=2"></script>
-  <script src="js/admin-permissoes.js?v=5"></script>
+  <script src="js/admin-dados.js?v=5"></script>
+  <script>window.LANE_COLECOES = ['pets', 'servicos'];   /* 27/09: so o que esta tela usa vem do servidor */</script>
+  <script src="js/admin-store.js?v=3"></script>
+  <script src="js/admin-permissoes.js?v=7"></script>
 <script src="js/marca-unidades.js?v=1" defer></script>
 </head>
 <body>
@@ -750,10 +750,12 @@
        painel — e já filtrada por permissão pelo backend. */
     const pronto = window.LaneStore && window.LaneStore.pronto && window.LaneStore.pronto();
     if (pronto) {
-      const nClientes = LaneStore.lista('clientes').length;
+      /* Clientes e produtos nao sao carregados nesta tela: o servidor manda so a contagem. */
+      const totais = LaneStore.totais || {};
+      const nClientes = Number(totais.clientes || 0);
       const nPets = LaneStore.lista('pets').length;
       const nServicos = LaneStore.lista('servicos').length;
-      const nProdutos = LaneStore.lista('produtos').length;
+      const nProdutos = Number(totais.produtos || 0);
       preencherContador('[data-kpi="clientes"]', String(nClientes));
       preencherContador('[data-kpi="pets"]', String(nPets));
       preencherContador('[data-kpi="servicos"]', String(nServicos));

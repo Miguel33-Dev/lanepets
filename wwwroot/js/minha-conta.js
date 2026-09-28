@@ -49,11 +49,79 @@
   $('#ir-cadastro').addEventListener('click', e => { e.preventDefault(); mostrarPainel('cadastro'); $('#cad-nome').focus(); });
   $('#ir-login').addEventListener('click', e => { e.preventDefault(); mostrarPainel('login'); $('#login-email').focus(); });
   $('#sucesso-continuar').addEventListener('click', () => { mostrarPainel('login'); $('#login-senha').focus(); });
+  /* Esqueci minha senha (28/09): pedir o codigo por e-mail e trocar a senha com ele.
+     O servidor responde sempre a mesma mensagem ao pedido (nao revela se o e-mail existe). */
+  const formRecPedir = $('#form-rec-pedir'), formRecTrocar = $('#form-rec-trocar');
+  UI.ligarCampos(formRecPedir);
+  UI.ligarCampos(formRecTrocar);
+  UI.validarNoBlur($('#rec-email'), v => UI.EMAIL_RE.test(v));
+  function abrirRecuperacao(etapa) {
+    mostrarPainel('recuperar');
+    UI.alerta('#rec-aviso', ''); UI.alerta('#rec-info', '');
+    const trocar = etapa === 'trocar';
+    formRecPedir.hidden = trocar;  formRecPedir.style.display = trocar ? 'none' : '';
+    formRecTrocar.hidden = !trocar; formRecTrocar.style.display = trocar ? '' : 'none';
+    $('#rec-sub').textContent = trocar
+      ? `Digite o código enviado para ${$('#rec-email').value.trim()} e escolha a nova senha.`
+      : 'Informe o e-mail da sua conta. Enviaremos um código de 6 dígitos para você criar uma nova senha.';
+    (trocar ? $('#rec-codigo') : $('#rec-email')).focus();
+  }
   $('#esqueci').addEventListener('click', e => {
     e.preventDefault();
-    UI.alerta('#login-info', 'Para redefinir sua senha, fale com a equipe LanePets em uma das nossas unidades.');
+    const digitado = $('#login-email').value.trim();
+    if (digitado && !$('#rec-email').value) $('#rec-email').value = digitado;
+    abrirRecuperacao('pedir');
   });
+  $('#rec-voltar').addEventListener('click', e => { e.preventDefault(); mostrarPainel('login'); $('#login-email').focus(); });
+  $('#rec-reenviar').addEventListener('click', e => { e.preventDefault(); abrirRecuperacao('pedir'); });
+  $('#rec-codigo').addEventListener('input', e => { e.target.value = e.target.value.replace(/\D/g, '').slice(0, 6); });
+
+  formRecPedir.addEventListener('submit', async event => {
+    event.preventDefault();
+    UI.limpar(formRecPedir);
+    UI.alerta('#rec-aviso', '');
+    const campo = $('#rec-email');
+    const email = campo.value.trim();
+    if (!UI.EMAIL_RE.test(email)) { UI.erro(campo, 'Digite um e-mail válido, como nome@email.com.'); return; }
+    UI.carregando('#rec-enviar', true, 'Enviando…');
+    try {
+      const d = await api('senha/esqueci', { method: 'POST', body: JSON.stringify({ email }) });
+      abrirRecuperacao('trocar');
+      UI.alerta('#rec-info', d.message || 'Se o e-mail estiver cadastrado, enviamos o código.');
+    } catch (erro) {
+      console.error('[LanePets] Falha ao pedir o código de recuperação:', erro);
+      UI.alerta('#rec-aviso', erro.message || 'Não foi possível enviar o código.');
+    } finally { UI.carregando('#rec-enviar', false); }
+  });
+
+  formRecTrocar.addEventListener('submit', async event => {
+    event.preventDefault();
+    UI.limpar(formRecTrocar);
+    UI.alerta('#rec-aviso', '');
+    const cCodigo = $('#rec-codigo'), cSenha = $('#rec-senha'), cSenha2 = $('#rec-senha2');
+    let valido = true;
+    if (!/^\d{6}$/.test(cCodigo.value)) valido = UI.erro(cCodigo, 'O código tem 6 dígitos.');
+    if (!senhaValida(cSenha.value)) valido = UI.erro(cSenha, 'Mínimo de 8 caracteres, com letra e número.');
+    if (cSenha2.value !== cSenha.value) valido = UI.erro(cSenha2, 'As senhas não conferem.');
+    if (!valido) { UI.alerta('#rec-aviso', 'Revise os campos destacados para continuar.'); return; }
+    UI.carregando('#rec-trocar', true, 'Salvando…');
+    try {
+      const d = await api('senha/redefinir', { method: 'POST', body: JSON.stringify({
+        email: $('#rec-email').value.trim(), codigo: cCodigo.value, novaSenha: cSenha.value, confirmarSenha: cSenha2.value }) });
+      formRecTrocar.reset();
+      mostrarPainel('login');
+      $('#login-email').value = d.email || $('#rec-email').value.trim();
+      UI.alerta('#login-info', d.message || 'Senha redefinida. Entre com a nova senha.');
+      $('#login-senha').focus();
+    } catch (erro) {
+      console.error('[LanePets] Falha ao redefinir a senha:', erro);
+      UI.alerta('#rec-aviso', erro.message || 'Não foi possível redefinir a senha.');
+      if (/c[oó]digo/i.test(erro.message || '')) { UI.erro(cCodigo, 'Confira o código.'); cCodigo.select(); }
+    } finally { UI.carregando('#rec-trocar', false); }
+  });
+
   if (location.hash === '#cadastro') mostrarPainel('cadastro');
+  if (location.hash === '#recuperar') abrirRecuperacao('pedir');
 
   /* Medidor de força da senha ------------------------------------------- */
   /* Mesma regra do servidor (Services/Validacao.cs, item 13): 8+ caracteres,
@@ -122,7 +190,9 @@
   const CLASSE_STATUS = {
     'confirmado': 'ok', 'concluído': 'ok', 'concluido': 'ok', 'pago': 'ok', 'aprovado': 'ok', 'ativo': 'ok', 'entregue': 'ok',
     'pendente': 'aguarda', 'solicitado': 'aguarda', 'reembolsado': 'info', 'em andamento': 'info', 'em contato': 'info', 'em preparo': 'info', 'separado': 'info',
-    'cancelado': 'erro', 'recusado': 'erro', 'inativo': 'erro'
+    'cancelado': 'erro', 'recusado': 'erro', 'inativo': 'erro',
+    /* Cobranca mensal do Seguro Pet (26/09) */
+    'em dia': 'ok', 'aguardando pagamento': 'aguarda', 'inadimplente': 'erro'
   };
   const selo = valor => {
     let texto = String(valor || '—').trim();
@@ -246,11 +316,15 @@
        um zero que poderia ser lido como "voce nao tem seguro". */
     const segurosAtivos = segurosContratados.filter(s => String(s.status || '').toLowerCase() !== 'cancelada');
     const seguroValor = segurosCarregados ? (segurosAtivos.length ? 'Ativo' : 'Nenhum') : '—';
+    /* Cobranca mensal (26/09): mensalidade atrasada alem da tolerancia aparece ja no resumo. */
+    const inadimplentes = segurosAtivos.filter(s => s.cobranca && s.cobranca.situacao === 'Inadimplente').length;
     const seguroNota = !segurosCarregados
       ? 'Carregando seus contratos'
-      : segurosAtivos.length
-        ? `${segurosAtivos.length} contrato${segurosAtivos.length > 1 ? 's' : ''} em vigor`
-        : 'Nenhum plano contratado';
+      : inadimplentes
+        ? `${inadimplentes} com mensalidade em atraso`
+        : segurosAtivos.length
+          ? `${segurosAtivos.length} contrato${segurosAtivos.length > 1 ? 's' : ''} em vigor`
+          : 'Nenhum plano contratado';
 
     $('#cc-resumo').innerHTML = [
       metrica({
@@ -396,6 +470,35 @@
     </section>`;
   }
 
+  /* 29/09: cartao fidelidade — cada atendimento CONCLUIDO vale 1 selo (conta.fidelidade, calculado no servidor). */
+  const PATA = '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="7" cy="8" r="2"/><circle cx="12" cy="5.5" r="2"/><circle cx="17" cy="8" r="2"/><path d="M12 13c-3.3 0-6 2.1-6 4.7 0 1.6 1.5 2.3 3 1.8.9-.3 1.9-.5 3-.5s2.1.2 3 .5c1.5.5 3-.2 3-1.8 0-2.6-2.7-4.7-6-4.7Z"/></svg>';
+  function renderFidelidade() {
+    const alvo = $('#cc-fidelidade');
+    const f = conta && conta.fidelidade;
+    if (!alvo) return;
+    if (!f) { alvo.innerHTML = ''; return; }
+    const selos = Array.from({ length: f.selos }, (_, i) => {
+      const cheio = i < f.selosNoCartao;
+      const ultimo = i === f.selos - 1;
+      return `<span class="cc-fid__selo${cheio ? ' is-cheio' : ultimo ? ' is-premio' : ''}" title="${cheio ? 'Atendimento concluído' : ultimo ? esc(f.premio) : 'Próximo atendimento'}">${cheio || ultimo ? PATA : i + 1}</span>`;
+    }).join('');
+    const premio = f.premiosDisponiveis > 0
+      ? `<div class="cc-fid__premio">${PATA}<span>Você tem ${f.premiosDisponiveis === 1 ? '1 prêmio' : f.premiosDisponiveis + ' prêmios'}: ${esc(f.premio)}. Avise a equipe no próximo atendimento.</span></div>`
+      : '';
+    const texto = f.concluidos === 0
+      ? `Cada atendimento concluído vale 1 selo. Complete ${f.selos} e ganhe ${esc(f.premio)}.`
+      : `${f.selosNoCartao} de ${f.selos} selos · faltam ${f.faltamParaProximo} para ${esc(f.premio)}.`;
+    alvo.innerHTML = `
+      <section class="cc-painel">
+        <div class="cc-painel__topo"><div><h2>Cartão fidelidade</h2><p>${f.concluidos} atendimento(s) concluído(s)${f.resgatados ? ` · ${f.resgatados} prêmio(s) já resgatado(s)` : ''}.</p></div></div>
+        <div class="cc-fid">
+          ${premio}
+          <div class="cc-fid__selos" role="img" aria-label="${f.selosNoCartao} de ${f.selos} selos">${selos}</div>
+          <p class="cc-fid__texto">${texto}</p>
+        </div>
+      </section>`;
+  }
+
   function renderProximo() {
     const proximo = proximoAgendamento();
     if (!proximo) {
@@ -446,6 +549,8 @@
     html('#cc-acesso', `
       <div class="cc-dado"><dt>E-mail de acesso</dt><dd>${esc(conta.email) || '—'}</dd></div>
       <div class="cc-dado"><dt>Senha</dt><dd>••••••••</dd></div>`);
+    // 28/09: avisos por e-mail. Conta antiga sem o campo = ligado (o padrao do banco).
+    $('#cc-receber-avisos').checked = conta.receberAvisos !== false;
   }
 
   /* =====================================================================
@@ -1490,6 +1595,7 @@
       renderAgendamentos();
       renderResumo();
       renderProximo();
+      renderFidelidade();
       renderPagamentos();
       toast('Agendamento cancelado.');
     } catch (erro) {
@@ -1583,8 +1689,13 @@
 
     if (agFluxo.concluido) {
       $('#aw-eyebrow').textContent = 'Agendamento';
-      $('#aw-titulo').textContent = 'Agendamento confirmado! 🎉';
-      $('#aw-sub').textContent = 'Seu atendimento foi agendado com sucesso.';
+      /* 29/09: o titulo segue o status gravado. Antes dizia "confirmado" mesmo com o
+         agendamento Solicitado; agora so diz quando a unidade confirma automaticamente. */
+      const confirmado = (agFluxo.salvo || {}).status === 'Confirmado';
+      $('#aw-titulo').textContent = confirmado ? 'Agendamento confirmado! 🎉' : 'Pedido de agendamento enviado!';
+      $('#aw-sub').textContent = confirmado
+        ? 'Seu horário está garantido. Enviamos a confirmação por e-mail.'
+        : 'A equipe LanePets confirma o horário e você recebe o aviso por e-mail.';
       $('#aw-corpo').innerHTML = corpoSucessoAg();
     } else {
       $('#aw-eyebrow').textContent = 'Novo agendamento';
@@ -1661,6 +1772,7 @@
                 <span class="ag-escolha__nome">${esc(u.nome)}</span>
                 ${atende ? '' : '<span class="ag-escolha__meta">Não oferece o serviço escolhido</span>'}
                 ${u.endereco ? `<span class="ag-escolha__meta">${esc(u.endereco)}</span>` : ''}
+                ${u.confirmacaoAutomatica ? '<span class="ag-escolha__meta" style="display:block;margin-top:4px;color:var(--verde);font-weight:700">✓ Confirmação na hora</span>' : ''}
                 ${u.telefone ? `<span class="ag-escolha__meta">${esc(u.telefone)}</span>` : ''}
                 ${u.horarioFuncionamento ? `<span class="ag-escolha__meta">${esc(u.horarioFuncionamento)}</span>` : ''}
               </span>
@@ -1791,7 +1903,7 @@
     return `
       <div class="ag-sucesso">
         <span class="ag-sucesso__marca">${ico(ICO_AG.check, 30)}</span>
-        <p>Guarde os dados abaixo. A equipe LanePets confirma o atendimento com você.</p>
+        <p>${a.status === 'Confirmado' ? 'Guarde os dados abaixo. Se não puder ir, cancele pela área do cliente para liberar o horário.' : 'Guarde os dados abaixo. A equipe LanePets confirma o atendimento com você.'}</p>
         <div class="cc-resumo-bloco">
           ${linhaResumo('Pet', esc(a.pet))}
           ${linhaResumo('Serviço', esc(servicosDo(a)))}
@@ -1942,6 +2054,7 @@
       renderAgendamentos();
       renderResumo();
       renderProximo();
+      renderFidelidade();
       renderPagamentos();
       pintarEtapaAgenda();
     } catch (erro) {
@@ -2025,6 +2138,7 @@
       renderAgendamentos();
       renderResumo();
       renderProximo();
+      renderFidelidade();
       renderPagamentos();
     } catch (erro) {
       console.error('[LanePets] Falha ao recarregar agendamentos:', erro);
@@ -2292,6 +2406,23 @@
 
   const ehCartao = metodo => /cart/i.test(String(metodo || ''));
 
+  /* Cobranca mensal (26/09): uma mensalidade por mes, gerada sozinha no dia do mes em
+     que o seguro foi contratado. A situacao vem pronta do servidor; a tela so descreve. */
+  function cobrancaDoSeguro(c) {
+    const cb = c.cobranca;
+    if (!cb || cb.situacao === 'Encerrado') return '';
+    const partes = [`Mensalidades: ${selo(cb.situacao)}`];
+    if (cb.emAberto > 0) {
+      partes.push(`${cb.emAberto} em aberto · ${brl(cb.valorEmAberto)} (desde ${dataCurta(cb.vencimentoEmAberto)})`);
+    } else if (cb.proximoVencimento) {
+      partes.push(`próxima em ${dataCurta(cb.proximoVencimento)}`);
+    }
+    const aviso = cb.situacao === 'Inadimplente'
+      ? `<br><strong>Mensalidade em atraso há ${cb.diasEmAtraso} dias.</strong> Fale com a equipe LanePets para regularizar; o seguro continua ativo.`
+      : '';
+    return partes.join(' · ') + aviso;
+  }
+
   async function renderSeguro() {
     const caixa = $('#cc-planos');
     caixa.innerHTML = '<div class="cc-esqueleto" style="height:150px;grid-column:1/-1"></div>';
@@ -2326,8 +2457,9 @@
           meta: [
             `Contratado em ${dataCurta(c.criadoEm)}`,
             c.metodoPagamento
-              ? `Pagamento: ${esc(c.metodoPagamento)}${c.cartaoFinal ? ' **** ' + esc(c.cartaoFinal) : ''} · ${esc(c.pagamentoStatus || 'Pendente')}`
+              ? `Pagamento: ${esc(c.metodoPagamento)}${c.cartaoFinal ? ' **** ' + esc(c.cartaoFinal) : ''}${c.cobranca ? '' : ' · ' + esc(c.pagamentoStatus || 'Pendente')}`
               : '',
+            cobrancaDoSeguro(c),
             c.dataCancelamento ? `<strong>Cancelado em ${dataCurta(c.dataCancelamento)}</strong>` : '',
             listaDe(c.coberturas).length ? 'Cobertura: ' + esc(listaDe(c.coberturas).join(', ')) : '',
             c.beneficios ? 'Benefícios: ' + esc(c.beneficios) : '',
@@ -2815,6 +2947,7 @@
       renderPerfil();
       renderResumo();
       renderProximo();
+      renderFidelidade();
       renderPets();
       renderVisaoPets();
       renderAgendamentos();
@@ -3243,6 +3376,26 @@
     } catch (e) {
       console.error('[LanePets] Falha ao alterar o e-mail:', e);
       aviso('#em-msg', e.status === 401 ? 'Sua sessão expirou. Entre novamente.' : e.message, true);
+    }
+  });
+
+  /* 28/09: liga/desliga os avisos de agendamento por e-mail (PUT conta/avisos). */
+  $('#cc-receber-avisos').addEventListener('change', async (ev) => {
+    const caixa = ev.currentTarget;
+    const receber = caixa.checked;
+    caixa.disabled = true;
+    aviso('#av-msg', '');
+    try {
+      const r = await api('conta/avisos', { method: 'PUT', body: JSON.stringify({ receber }) });
+      conta.receberAvisos = r.receberAvisos;
+      caixa.checked = r.receberAvisos;
+      toast(r.message);
+    } catch (e) {
+      caixa.checked = !receber;
+      console.error('[LanePets] Falha ao alterar os avisos por e-mail:', e);
+      aviso('#av-msg', e.status === 401 ? 'Sua sessão expirou. Entre novamente.' : e.message, true);
+    } finally {
+      caixa.disabled = false;
     }
   });
 

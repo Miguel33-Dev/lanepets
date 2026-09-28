@@ -360,7 +360,7 @@ http://localhost:5180
 
 🧪 Testes automatizados
 
-O projeto tem testes automatizados em tests/LanePets.Tests (xUnit + WebApplicationFactory).
+O projeto tem 153 testes automatizados em tests/LanePets.Tests (xUnit + WebApplicationFactory).
 
 Eles sobem a aplicação inteira em memória contra um banco SQLite temporário — o banco em uso nunca é tocado — e cobrem:
 
@@ -369,12 +369,73 @@ Eles sobem a aplicação inteira em memória contra um banco SQLite temporário 
 * Agendamentos (capacidade por horário, status, cancelamento)
 * Pedidos (baixa e devolução de estoque) e pagamentos (transições e reembolso)
 * Permissões (403 para quem não tem o módulo ou a ação)
+* Listas paginadas e filtradas no servidor (Pedidos, Clientes, Pets, Agendamentos e Pagamentos)
+* Cobrança mensal do Seguro Pet, importação de dados, dashboard e relatório financeiro
 
 Para rodar, de dentro da pasta LanePetsCSharp (não precisa do dotnet run de pé):
 
 dotnet test tests/LanePets.Tests
 
 A cada push no master o GitHub Actions compila o projeto e roda os mesmos testes (selo no topo deste arquivo).
+
+⸻
+
+✉️ E-mail (recuperação de senha e avisos)
+
+O sistema manda e-mail para o tutor que tem conta no site:
+
+* Código de 6 dígitos do "Esqueceu sua senha?" (vale 15 minutos, uso único, 5 tentativas).
+* Boas-vindas ao criar a conta e "recebemos o agendamento" quando o cliente agenda.
+* Agendamento confirmado ou cancelado pela equipe no painel e lembrete na véspera (a partir das 9h) — o cliente pode desligar estes em Minha Conta > Avisos por e-mail.
+
+Sem SMTP configurado, nada sai para a internet: cada e-mail vira um arquivo .txt na pasta emails, ao lado do banco (Windows: %LOCALAPPDATA%\LanePets\emails) — é a caixa de saída de desenvolvimento.
+
+Para chegar na caixa de entrada de verdade (exemplo com Gmail):
+
+1. Na conta Google, ative a verificação em duas etapas e crie uma senha de app (myaccount.google.com/apppasswords).
+2. Crie o arquivo appsettings.Development.json na pasta do projeto (ele está no .gitignore — a senha nunca vai para o GitHub):
+
+{
+  "LanePets": {
+    "Email": {
+      "SmtpHost": "smtp.gmail.com",
+      "SmtpPorta": "587",
+      "SmtpUsuario": "seu.email@gmail.com",
+      "SmtpSenha": "senha de app de 16 letras",
+      "Remetente": "LanePets <seu.email@gmail.com>"
+    }
+  }
+}
+
+3. Reinicie o sistema. No console aparece "enviado por SMTP" a cada e-mail. Os testes automatizados ignoram essa configuração e nunca mandam e-mail de verdade.
+
+Em produção, use variáveis de ambiente (LanePets__Email__SmtpHost, LanePets__Email__SmtpPorta, LanePets__Email__SmtpUsuario, LanePets__Email__SmtpSenha, LanePets__Email__Remetente) e, opcional, LanePets__UrlPublica para o link da área do cliente no rodapé.
+
+⸻
+
+🌐 Colocar no ar (Railway, com Docker)
+
+O Dockerfile já está pronto: o Railway (ou qualquer serviço que rode Docker) compila e sobe o LanePets sozinho a partir do GitHub.
+
+1. Faça o push do projeto para o GitHub.
+2. Em railway.com, crie uma conta, clique em New Project → Deploy from GitHub repo e escolha o repositório LanePets.
+3. No serviço criado, abra Settings → Volumes (ou clique com o botão direito no serviço → Attach volume) e monte um volume em /app/data. É lá que ficam o banco, os backups, os e-mails .txt e os logs — sem o volume, os dados somem a cada deploy.
+4. Em Variables, cadastre:
+
+LanePets__AdminSenhaInicial=uma senha forte (8+ com letra e número) para o admin@gmail.com
+LanePets__FinancePassword=a senha da área financeira
+LanePets__UrlPublica=https://seu-endereco.up.railway.app (opcional: link nos e-mails)
+
+   E-mail de verdade: as mesmas chaves do SMTP da seção de e-mail (LanePets__Email__SmtpHost, ...).
+5. Em Settings → Networking, clique em Generate Domain. Pronto: o site abre nesse endereço com HTTPS.
+
+Regras de segurança da hospedagem:
+
+* Em produção o LanePets não sobe com as senhas de exemplo (123456): o log mostra quais variáveis faltam.
+* A dica "Credenciais de teste" da tela de login do painel só aparece no modo demonstração.
+* Quer uma vitrine em que qualquer pessoa entre com admin@gmail.com / 123456? Use LanePets__Demo=true — mas lembre que o visitante vira Administrador Geral.
+* O appsettings.Development.json (com a sua senha de app do Gmail) nunca entra na imagem (.dockerignore).
+* Vitrine para recrutadores: LanePets__Visitante=true mostra na tela de login do painel o botão "Entrar como visitante (só leitura)". O visitante navega por todas as telas do petshop, mas nada é gravado (o servidor responde 403), e Usuários, Log de eventos e Configurações ficam fechados. Ele vê os dados do painel: ligue só com dados de exemplo.
 
 ⸻
 
@@ -502,7 +563,7 @@ Possíveis melhorias futuras:
 * [x]	Controle de estoque
 * [ ]	Sistema de notificações
 * [ ]	Confirmação automática de agendamento
-* [ ]	Recuperação de senha
+* [x]	Recuperação de senha (código por e-mail, 15 minutos, uso único)
 * [ ]	E-mail de confirmação
 * [x]	Controle de pagamentos (status, reembolso, conciliação)
 * [ ]	Integração com gateway de pagamento
@@ -514,6 +575,7 @@ Possíveis melhorias futuras:
 * [x]	Sistema de permissões administrativas
 * [x]	Logs do sistema
 * [x]	Backup do banco de dados
+* [x]	Paginação e filtros no servidor (o painel não baixa mais o banco inteiro)
 
 ⸻
 

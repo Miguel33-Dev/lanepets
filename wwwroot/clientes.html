@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Clientes &middot; LanePets</title>
-<link rel="stylesheet" href="design-system.css?v=6">
+<link rel="stylesheet" href="design-system.css?v=9">
 <link rel="stylesheet" href="css/clientes-admin.css?v=1">
 <style>
   /* Faixa lateral que marca o pet de cliente-pacote na tabela de pets. */
@@ -16,9 +16,8 @@
   <script src="js/config.js"></script>
   <script src="js/api.js"></script>
   <script src="lib/signalr/signalr.min.js"></script>
-  <script src="js/admin-dados.js?v=2"></script>
-  <script src="js/admin-store.js?v=2"></script>
-<script src="js/admin-permissoes.js?v=5"></script>
+  <script src="js/admin-dados.js?v=5"></script>
+<script src="js/admin-permissoes.js?v=7"></script>
 <script src="js/marca-unidades.js?v=1" defer></script>
 </head>
 <body>
@@ -115,7 +114,7 @@
       </section>
 
       <!-- ======================= PETS ======================= -->
-      <section class="card" style="margin-top:var(--sp-5);">
+      <section class="card" id="cardPets" style="margin-top:var(--sp-5);">
         <div class="cli-sec-head">
           <div>
             <h2 class="section-title">Pets cadastrados</h2>
@@ -147,6 +146,9 @@
             </thead>
             <tbody></tbody>
           </table>
+        </div>
+        <div style="display:flex;justify-content:center;margin-top:var(--sp-3)">
+          <button type="button" class="btn btn-outline btn-sm" id="btnMaisPets" hidden style="display:none">Carregar mais</button>
         </div>
       </section>
 
@@ -213,7 +215,7 @@
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
       </button>
     </div>
-    <input type="hidden" id="editIndex">
+    <input type="hidden" id="editId">
     <div class="field-row">
       <div class="field"><label for="editDono">Nome do dono</label><input type="text" id="editDono" required></div>
       <div class="field"><label for="editPet">Nome do pet</label><input type="text" id="editPet" required></div>
@@ -242,38 +244,36 @@
 
 <script src="ui-kit.js?v=5"></script>
 <script src="js/busca.js?v=1"></script>
-<script src="js/clientes-admin.js?v=4"></script>
+<script src="js/clientes-admin.js?v=7"></script>
 <script>
 /* =============================================================================
-   Clientes — funcoes que ja existiam nesta tela.
+   Clientes — edicao do cliente e tabela de pets.
 
-   Tudo continua vindo do lanepets.db atraves da ponte js/admin-store.js:
+   27/09: a tela saiu do LaneStore (que baixava o painel inteiro pelo estado).
 
-       banco  ->  GET /api/admin/estado  ->  LaneStore.obter  ->  tela
-       tela   ->  LaneStore.salvar -> POST /api/admin/sync/<lista>  ->  banco
+       banco  ->  GET /api/admin/pets (50 por vez, busca e tipo no servidor)  ->  tabela
+       tela   ->  POST /api/admin/sync/<clientes|pets> (o mesmo de sempre)      ->  banco
 
-   A apresentacao da lista de clientes mora em js/clientes-admin.js; aqui ficam
-   a edicao do cliente e a tabela de pets — sem mudanca de regra. (O backup e do
-   servidor: VACUUM INTO na subida, listado em Administracao > Integridade.)
+   "Atualizar regrava o registro inteiro": a edicao manda o objeto completo que
+   veio da lista, so com os campos do formulario trocados. A lista de clientes
+   mora em js/clientes-admin.js.
    ============================================================================= */
 
-    function lista(chave) {
-      try { return LaneStore.obter(chave); }
-      catch (e) { return []; }
-    }
+    const escHtml = v => { const d = document.createElement("div"); d.textContent = v == null ? "" : String(v); return d.innerHTML; };
+    const PETS_POR_VEZ = 50;
+    let pets = [], totalPets = 0, totalGeralPets = 0, geracaoPets = 0;
+    const petPorId = id => pets.find(p => p.id === id) || null;
 
     function abrirModalEditar() { document.getElementById("modalEditar").classList.add("ativo"); }
     window.fecharModal = function () { document.getElementById("modalEditar").classList.remove("ativo"); };
     window.fecharModalCliente = function () { document.getElementById("modalCliente").classList.remove("ativo"); };
 
-
-
     /* ---------------------------------------------------------------- */
     /* Edicao do cliente                                                 */
     /* ---------------------------------------------------------------- */
     window.editarClienteConta = function (id) {
-      const cliente = lista("clientes").find(c => c.id === id);
-      if (!cliente) return;
+      const cliente = window.LaneClientes && window.LaneClientes.item(id);
+      if (!cliente) { toast("Cliente não está na página aberta. Atualize a lista.", "error"); return; }
       document.getElementById("clienteId").value = cliente.id;
       document.getElementById("clienteNome").value = cliente.nome || "";
       document.getElementById("clienteTelefone").value = cliente.telefone || "";
@@ -283,92 +283,125 @@
       document.getElementById("modalCliente").classList.add("ativo");
     };
 
-    document.getElementById("formCliente").onsubmit = function (e) {
+    document.getElementById("formCliente").onsubmit = async function (e) {
       e.preventDefault();
       const id = document.getElementById("clienteId").value;
-      const clientes = lista("clientes");
-      const alvo = clientes.find(c => c.id === id);
+      const alvo = window.LaneClientes && window.LaneClientes.item(id);
       if (!alvo) return;
-      alvo.nome = document.getElementById("clienteNome").value.trim();
-      alvo.telefone = document.getElementById("clienteTelefone").value.trim();
-      alvo.endereco = document.getElementById("clienteEndereco").value.trim();
-      alvo.observacoes = document.getElementById("clienteObs").value.trim();
-      alvo.status = document.getElementById("clienteStatus").value;
-      LaneStore.salvar("clientes", clientes);
-      fecharModalCliente();
-      if (typeof window.desenharClientes === "function") window.desenharClientes();
-      toast("Cliente atualizado no banco.", "success");
+      const botao = e.submitter || this.querySelector('[type="submit"]');
+      const editado = Object.assign({}, alvo, {
+        nome: document.getElementById("clienteNome").value.trim(),
+        telefone: document.getElementById("clienteTelefone").value.trim(),
+        endereco: document.getElementById("clienteEndereco").value.trim(),
+        observacoes: document.getElementById("clienteObs").value.trim(),
+        status: document.getElementById("clienteStatus").value
+      });
+      if (botao) botao.disabled = true;
+      try {
+        await LaneAdmin.sincronizar("clientes", { atualizados: [editado] });
+        fecharModalCliente();
+        toast("Cliente atualizado no banco.", "success");
+        /* O nome e o telefone do cliente vao para os pets dele: recarrega as duas listas. */
+        await Promise.all([window.LaneClientes.recarregar(), carregarTabelaPets({ manterQuantidade: true })]);
+      } catch (erro) {
+        console.error("[LanePets] editar cliente:", erro);
+        toast(erro.message, "error");
+      } finally { if (botao) botao.disabled = false; }
     };
 
     /* ---------------------------------------------------------------- */
-    /* Lista de pets                                                     */
+    /* Lista de pets (paginada no servidor)                              */
     /* ---------------------------------------------------------------- */
-    window.carregarTabelaPets = function () {
-      const todosPets = lista("pets");
-      /* Item 16: busca propria dos pets (antes usava a busca de clientes) no
-         padrao LaneBusca. Tipo por grupo: o site grava "Cachorro", o painel "Cão". */
-      const termo = document.getElementById("buscaPet") ? document.getElementById("buscaPet").value : "";
-      const filtroTipo = document.getElementById("filtroTipo") ? document.getElementById("filtroTipo").value : "";
-      const grupoTipo = t => {
-        const n = LaneBusca.normal(t);
-        if (["cao", "cachorro", "cadela", "dog", "canino"].includes(n)) return "Cão";
-        if (["gato", "gata", "felino", "cat"].includes(n)) return "Gato";
-        return n ? "Outro" : "";
-      };
+    const podeVerPets = () => !window.LanePermissoes || !window.LanePermissoes.estadoAtual || window.LanePermissoes.pode("pets", "visualizar");
 
-      const petsFiltrados = todosPets
-        .map((p, i) => ({ ...p, realIndex: i }))
-        .filter(p =>
-          LaneBusca.combina(termo, [p.pet, p.dono, p.raca, p.telefone, p.endereco, p.tipo]) &&
-          (filtroTipo === "" || grupoTipo(p.tipo) === filtroTipo)
-        )
-        .sort((a, b) => (a.dono || "").localeCompare(b.dono || "") || (a.pet || "").localeCompare(b.pet || ""));
+    function filtrosPets(limite, offset) {
+      return { busca: document.getElementById("buscaPet").value.trim(), tipo: document.getElementById("filtroTipo").value, limite, offset };
+    }
 
+    function pintarPets() {
       const tbody = document.querySelector("#tabelaClientes tbody");
-      tbody.innerHTML = "";
-      LaneBusca.contador("contagemPets", petsFiltrados.length, todosPets.length, "pet", "pets");
+      LaneBusca.contador("contagemPets", pets.length, totalPets, "pet", "pets");
+      const filtrado = !!(document.getElementById("buscaPet").value.trim() || document.getElementById("filtroTipo").value);
+      if (filtrado && pets.length >= totalPets) document.getElementById("contagemPets").textContent += " no filtro atual";
+      const mais = document.getElementById("btnMaisPets");
+      mais.hidden = pets.length >= totalPets;
+      mais.style.display = mais.hidden ? "none" : "";
 
-      if (!petsFiltrados.length) {
-        tbody.innerHTML = LaneBusca.linhaVazia(7, todosPets.length, { nenhum: "Nenhum pet cadastrado.", filtro: "Nenhum pet encontrado com esses filtros." });
+      if (!pets.length) {
+        tbody.innerHTML = LaneBusca.linhaVazia(7, totalGeralPets, { nenhum: "Nenhum pet cadastrado.", filtro: "Nenhum pet encontrado com esses filtros." });
         return;
       }
-
-      petsFiltrados.forEach(p => {
-        const row = document.createElement("tr");
-        if (p.pacote && p.pacote.ativo) row.classList.add("pacote");
-        row.innerHTML = `
-          <td>${p.dono || "—"}</td>
-          <td>${p.pet || "—"}</td>
-          <td>${p.raca || "-"}</td>
-          <td>${p.telefone || "-"}</td>
-          <td>${p.endereco || "-"}</td>
-          <td>${p.tipo ? `<span class="badge badge-info">${p.tipo}</span>` : "-"}</td>
+      tbody.innerHTML = pets.map(p => `
+        <tr class="${p.pacote && p.pacote.ativo ? "pacote" : ""}">
+          <td>${escHtml(p.dono || "—")}</td>
+          <td>${escHtml(p.pet || "—")}</td>
+          <td>${escHtml(p.raca || "-")}</td>
+          <td>${escHtml(p.telefone || "-")}</td>
+          <td>${escHtml(p.endereco || "-")}</td>
+          <td>${p.tipo ? `<span class="badge badge-info">${escHtml(p.tipo)}</span>` : "-"}</td>
           <td><div class="row-actions">
-            <button class="btn btn-outline btn-sm" data-permissao="pets:editar" onclick="editarCliente(${p.realIndex})">Editar</button>
-            <button class="btn btn-danger btn-sm" data-permissao="pets:excluir" onclick="excluirCliente(${p.realIndex})">Excluir</button>
-          </div></td>`;
-        tbody.appendChild(row);
-      });
-
+            <button class="btn btn-outline btn-sm" type="button" data-permissao="pets:editar" data-pet-editar="${escHtml(p.id)}">Editar</button>
+            <button class="btn btn-danger btn-sm" type="button" data-permissao="pets:excluir" data-pet-excluir="${escHtml(p.id)}">Excluir</button>
+          </div></td>
+        </tr>`).join("");
       if (window.LanePermissoes && typeof window.LanePermissoes.ajustarElementos === "function") {
         window.LanePermissoes.ajustarElementos(tbody);
       }
+    }
+
+    /* manterQuantidade: depois de gravar (ou de um aviso em tempo real), recarrega sem encolher o que estava aberto. */
+    window.carregarTabelaPets = async function ({ manterQuantidade = false } = {}) {
+      if (!podeVerPets()) return;
+      const minha = ++geracaoPets;
+      try {
+        const d = await LaneAdmin.petsPainel(filtrosPets(manterQuantidade ? Math.max(PETS_POR_VEZ, pets.length) : PETS_POR_VEZ, 0));
+        if (minha !== geracaoPets) return;
+        pets = d.itens || [];
+        totalPets = d.total || 0;
+        totalGeralPets = d.totalGeral || 0;
+        pintarPets();
+      } catch (erro) {
+        if (minha !== geracaoPets) return;
+        console.error("[LanePets] pets:", erro);
+        document.querySelector("#tabelaClientes tbody").innerHTML = `<tr><td colspan="7">${escHtml(erro.message)}</td></tr>`;
+      }
     };
 
-    window.excluirCliente = async function (index) {
-      const ok = await confirmarAcao({ titulo: "Excluir pet?", texto: "O cadastro será removido do banco de dados.", textoBotao: "Excluir" });
+    async function carregarMaisPets() {
+      const botao = document.getElementById("btnMaisPets");
+      botao.disabled = true;
+      const minha = geracaoPets;
+      try {
+        const d = await LaneAdmin.petsPainel(filtrosPets(PETS_POR_VEZ, pets.length));
+        if (minha !== geracaoPets) return;
+        const vistos = new Set(pets.map(p => p.id));
+        pets = pets.concat((d.itens || []).filter(p => !vistos.has(p.id)));
+        totalPets = d.total || totalPets;
+        pintarPets();
+      } catch (erro) {
+        console.error("[LanePets] pets (carregar mais):", erro);
+        toast(erro.message, "error");
+      } finally { botao.disabled = false; }
+    }
+
+    async function excluirPet(id) {
+      const pet = petPorId(id);
+      const ok = await confirmarAcao({ titulo: "Excluir pet?", texto: `O cadastro${pet ? " de " + pet.pet : ""} será removido do banco de dados.`, textoBotao: "Excluir" });
       if (!ok) return;
-      const pets = lista("pets");
-      pets.splice(index, 1);
-      LaneStore.salvar("pets", pets);
-      carregarTabelaPets();
-      toast("Cadastro excluído.", "success");
-    };
+      try {
+        await LaneAdmin.sincronizar("pets", { removidos: [id] });
+        toast("Cadastro excluído.", "success");
+        await Promise.all([carregarTabelaPets({ manterQuantidade: true }), window.LaneClientes.recarregar()]);
+      } catch (erro) {
+        console.error("[LanePets] excluir pet:", erro);
+        toast(erro.message, "error");
+      }
+    }
 
-    window.editarCliente = function (index) {
-      const pet = lista("pets")[index];
+    function editarPet(id) {
+      const pet = petPorId(id);
       if (!pet) return;
-      document.getElementById("editIndex").value = index;
+      document.getElementById("editId").value = id;
       document.getElementById("editDono").value = pet.dono || "";
       document.getElementById("editPet").value = pet.pet || "";
       document.getElementById("editPetExtra").value = "";
@@ -378,13 +411,11 @@
       document.getElementById("editTipo").value = pet.tipo || "";
       document.getElementById("editPacote").checked = !!(pet.pacote && pet.pacote.ativo);
       abrirModalEditar();
-    };
+    }
 
-    document.getElementById("formEditar").onsubmit = function (e) {
+    document.getElementById("formEditar").onsubmit = async function (e) {
       e.preventDefault();
-      const index = Number(document.getElementById("editIndex").value);
-      const pets = lista("pets");
-      const atual = pets[index];
+      const atual = petPorId(document.getElementById("editId").value);
       if (!atual) return;
 
       /* O servidor devolvia pacote vazio como [] (array). Marcar ".ativo" num array
@@ -394,7 +425,7 @@
 
       /* O id e o vinculo com o cliente sao preservados: sem isso o registro
          seria gravado como um cadastro novo, e nao como uma edicao. */
-      pets[index] = Object.assign({}, atual, {
+      const editado = Object.assign({}, atual, {
         dono: document.getElementById("editDono").value.trim(),
         pet: document.getElementById("editPet").value.trim(),
         tipo: document.getElementById("editTipo").value,
@@ -404,41 +435,62 @@
         pacote: pacote.ativo ? pacote : {}
       });
 
+      const criados = [];
       const novoPet = document.getElementById("editPetExtra").value.trim();
       if (novoPet) {
-        pets.push({
+        criados.push({
           clienteId: atual.clienteId || "",
-          dono: pets[index].dono,
+          dono: editado.dono,
           pet: novoPet,
-          tipo: pets[index].tipo,
+          tipo: editado.tipo,
           raca: "",
-          telefone: pets[index].telefone,
-          endereco: pets[index].endereco,
+          telefone: editado.telefone,
+          endereco: editado.endereco,
           unidade: atual.unidade || ""
         });
       }
 
-      LaneStore.salvar("pets", pets);
-      fecharModal();
-      carregarTabelaPets();
-      toast("Cadastro atualizado no banco.", "success");
+      const botao = e.submitter || this.querySelector('[type="submit"]');
+      if (botao) botao.disabled = true;
+      try {
+        await LaneAdmin.sincronizar("pets", { atualizados: [editado], criados });
+        fecharModal();
+        toast("Cadastro atualizado no banco.", "success");
+        await Promise.all([carregarTabelaPets({ manterQuantidade: true }), novoPet ? window.LaneClientes.recarregar() : null]);
+      } catch (erro) {
+        console.error("[LanePets] editar pet:", erro);
+        toast(erro.message, "error");
+      } finally { if (botao) botao.disabled = false; }
     };
 
     /* ---------------------------------------------------------------- */
     /* Ligacao com a tela                                                */
     /* ---------------------------------------------------------------- */
     document.addEventListener("DOMContentLoaded", function () {
-      document.getElementById("filtroTipo").addEventListener("change", carregarTabelaPets);
-      document.getElementById("buscaPet").addEventListener("input", carregarTabelaPets);
+      const recarregarPets = () => carregarTabelaPets();
+      document.getElementById("filtroTipo").addEventListener("change", recarregarPets);
+      document.getElementById("buscaPet").addEventListener("input", LaneBusca.atrasar(recarregarPets, 300));
       document.getElementById("buscaPet").addEventListener("keydown", e => {
-        if (e.key === "Escape" && e.target.value) { e.stopPropagation(); e.target.value = ""; carregarTabelaPets(); }
+        if (e.key === "Escape" && e.target.value) { e.stopPropagation(); e.target.value = ""; recarregarPets(); }
       });
+      document.getElementById("btnMaisPets").addEventListener("click", carregarMaisPets);
       document.getElementById("tabelaClientes").addEventListener("click", e => {
+        const editar = e.target.closest("[data-pet-editar]");
+        if (editar) { editarPet(editar.dataset.petEditar); return; }
+        const excluir = e.target.closest("[data-pet-excluir]");
+        if (excluir) { excluirPet(excluir.dataset.petExcluir); return; }
         if (!e.target.closest("[data-limpar-filtros]")) return;
         document.getElementById("buscaPet").value = "";
         document.getElementById("filtroTipo").value = "";
-        carregarTabelaPets();
+        recarregarPets();
       });
+
+      /* Sem permissao de ver pets a secao some (o servidor responderia 403). */
+      const iniciarPets = () => {
+        if (!podeVerPets()) { const card = document.getElementById("cardPets"); if (card) card.remove(); return; }
+        carregarTabelaPets();
+      };
+      if (window.LanePermissoes && window.LanePermissoes.pronto) window.LanePermissoes.pronto(iniciarPets); else iniciarPets();
 
       document.getElementById("modalEditar").addEventListener("mousedown", function (e) {
         if (e.target === this) fecharModal();

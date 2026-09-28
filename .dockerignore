@@ -1,8 +1,20 @@
+# 29/09: o que NUNCA entra na imagem
 bin/
 obj/
 .git/
-.gitignore
-README.md
+.github/
+.vs/
+.vscode/
+.idea/
+tests/
+Claude outputs/
+LanePetsCSharp/
 *.db
+*.db-wal
+*.db-shm
 *.user
 *.suo
+*.ps1
+# segredos locais (SMTP com senha de app) — em producao tudo vem por variavel de ambiente
+appsettings.Development.json
+appsettings.*.Local.*

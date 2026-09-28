@@ -26,3 +26,9 @@ publish/
 
 # Logs
 *.log
+
+# 26/09: lixo que nao vai para o repositorio
+*.db-wal
+*.db-shm
+.fuse_hidden*
+Claude outputs/

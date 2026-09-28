@@ -79,26 +79,10 @@ public class PublicController(LanePetsDbContext db, PermissaoService permissoes,
     public async Task<IActionResult> UnidadesPublicas() => OkApi((await db.Unidades.AsNoTracking().Where(u => u.Ativa).OrderBy(u => u.Nome).ToListAsync()).Select(u => new { u.Id, u.Nome, u.Endereco, u.Telefone, u.HorarioFuncionamento }));
 
 
-    [HttpPost("public/depoimentos")]
-    public async Task<IActionResult> CriarDepoimento([FromBody] DepoimentoRequest request)
-    {
-        try
-        {
-            var nome = (request.Nome ?? "").Trim(); var telefone = NormalizarTelefone(request.Telefone);
-            if (nome.Length < 3 || telefone.Length < 8 || string.IsNullOrWhiteSpace(request.Comentario)) throw new Exception("Informe seu nome, telefone e comentário.");
-            if (request.Avaliacao is < 1 or > 5) throw new Exception("A avaliação deve ter entre 1 e 5 estrelas.");
-            var cliente = (await db.Clientes.AsNoTracking().ToListAsync()).FirstOrDefault(c => NormalizarTelefone(c.Telefone) == telefone && string.Equals(c.Nome, nome, StringComparison.OrdinalIgnoreCase));
-            if (cliente is null) throw new Exception("Seu cadastro não foi localizado. Use os mesmos nome e telefone cadastrados no LanePets.");
-            var pet = await db.Pets.AsNoTracking().FirstOrDefaultAsync(p => p.ClienteId == cliente.Id && p.PetNome.ToLower() == (request.Pet ?? "").Trim().ToLower());
-            if (pet is null) throw new Exception("Pet não localizado para este cadastro.");
-            db.Depoimentos.Add(new Depoimento { Id = "DEP-" + Guid.NewGuid().ToString("N")[..12].ToUpperInvariant(), ClienteId = cliente.Id, NomeCliente = cliente.Nome, NomePet = pet.PetNome, Telefone = cliente.Telefone, Avaliacao = request.Avaliacao, Comentario = request.Comentario.Trim(), Status = "Pendente" });
-            await db.SaveChangesAsync();
-            await eventos.RegistrarAsync(new("avaliacao", "Avaliação enviada pelo site", "info", "publico", cliente.Id, cliente.Nome, "",
-                $"{pet.PetNome} · {request.Avaliacao} estrela(s) · aguardando moderação"), HttpContext);
-            await realtime.NotificarAsync("avaliacoes", "criada"); return OkApi(new { message = "Obrigado! Seu comentário foi enviado para moderação." });
-        }
-        catch (Exception ex) { return ErrorApi(ex); }
-    }
+    // 26/09: o POST anonimo de avaliacao (public/depoimentos com nome + telefone) foi REMOVIDO.
+    // Nome + telefone nao identificam ninguem (§6.5): dava para avaliar em nome de outro cliente.
+    // Avaliacao agora so pela conta: POST /api/cliente/avaliacoes (AvaliacoesService), inclusive
+    // a partir do botao do site. Um POST aqui responde 405 no envelope (so o GET continua).
 
     [HttpPost("public/seguros/solicitacoes")]
     public async Task<IActionResult> ContratarSeguro([FromBody] SeguroRequest request)
@@ -134,7 +118,12 @@ public class PublicController(LanePetsDbContext db, PermissaoService permissoes,
         try
         {
             await permissoes.ExigirAsync(token, ModulosAdmin.Seguros, AcaoPermissao.Visualizar);
+            // Cobranca mensal (26/09): gera a mensalidade que venceu antes de mostrar a situacao.
+            await PagamentosService.ReconciliarAsync(db);
             var contratos = await db.SolicitacoesSeguro.AsNoTracking().OrderByDescending(s => s.CriadoEm).ToListAsync();
+            var mensalidades = (await db.Pagamentos.AsNoTracking().Where(p => p.Origem == PagamentosService.OrigemSeguro).ToListAsync())
+                .ToLookup(p => p.OrigemId);
+            var agora = DateTime.UtcNow;
             var clientes = await db.Clientes.AsNoTracking().ToDictionaryAsync(c => c.Id, c => c);
             var pets = await db.Pets.AsNoTracking().ToDictionaryAsync(p => p.Id, p => p);
             var planos = await db.PlanosSeguro.AsNoTracking().ToDictionaryAsync(p => p.Id, p => p);
@@ -165,7 +154,10 @@ public class PublicController(LanePetsDbContext db, PermissaoService permissoes,
                 clienteAtual = clientes.TryGetValue(s.ClienteId, out var c) ? c.Nome : "",
                 telefoneAtual = clientes.TryGetValue(s.ClienteId, out var c2) ? c2.Telefone : "",
                 petAtual = pets.TryGetValue(s.PetId, out var pt) ? pt.PetNome : "",
-                valorMensal = planos.TryGetValue(s.PlanoSeguroId, out var pl) ? pl.ValorMensal : 0m
+                valorMensal = planos.TryGetValue(s.PlanoSeguroId, out var pl) ? pl.ValorMensal : 0m,
+                // Situacao da cobranca mensal (Em dia / Aguardando pagamento / Inadimplente / Encerrado)
+                // e as mensalidades. Null no pedido de contato do site (nao e cobranca).
+                cobranca = MensalidadesSeguro.Resumo(s, mensalidades[s.Id], agora)
             }));
         }
         catch (Exception ex) { return ErrorApi(ex); }
@@ -265,6 +257,9 @@ public class PublicController(LanePetsDbContext db, PermissaoService permissoes,
             var item = await db.SolicitacoesSeguro.FindAsync(id) ?? throw new Exception("Solicitação não encontrada.");
             var antes = item.Status;
             item.Status = request.Status is "Pendente" or "Em contato" or "Concluída" or "Cancelada" ? request.Status : throw new Exception("Status inválido.");
+            // A data do cancelamento e onde a cobranca mensal para (MensalidadesSeguro.Devidas).
+            if (item.Status == "Cancelada" && antes != "Cancelada") item.DataCancelamento = DateTime.UtcNow;
+            else if (item.Status != "Cancelada" && antes == "Cancelada") item.DataCancelamento = null;
             await db.SaveChangesAsync();
             await PagamentosService.ReconciliarAsync(db);
             if (antes != item.Status)
@@ -275,7 +270,6 @@ public class PublicController(LanePetsDbContext db, PermissaoService permissoes,
         catch (Exception ex) { return ErrorApi(ex); }
     }
     private static string NormalizarTelefone(string? value) => new string((value ?? "").Where(char.IsDigit).ToArray());
-    public record DepoimentoRequest(string? Nome, string? Telefone, string? Pet, int Avaliacao, string? Comentario);
     public record SeguroRequest(string PlanoId, string? Nome, string? Telefone, string? Pet, string? Observacao);
     public record StatusRequest(string? Token, string Status);
     public record PlanoRequest(string? Token, string? Nome, string? Descricao, string? Coberturas, string? Beneficios, string? Condicoes, decimal ValorMensal);

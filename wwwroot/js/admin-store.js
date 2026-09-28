@@ -41,6 +41,17 @@
     clientes: { rota: 'clientes', identidade: ['nome', 'telefone'] }
   };
 
+  /* 27/09: cada tela declara ANTES deste script quais colecoes usa
+     (window.LANE_COLECOES = ['produtos']). So essas vem do servidor
+     (GET /api/admin/estado?colecoes=...); sem a declaracao, vem tudo, como antes. */
+  var PEDIDAS = Array.isArray(window.LANE_COLECOES) && window.LANE_COLECOES.length
+    ? window.LANE_COLECOES.filter(function (c) { return Object.prototype.hasOwnProperty.call(COLECOES, c); })
+    : null;
+  function urlEstado(t) {
+    return '/api/admin/estado?token=' + encodeURIComponent(t) + (PEDIDAS ? '&colecoes=' + encodeURIComponent(PEDIDAS.join(',')) : '');
+  }
+  function carregada(colecao) { return !PEDIDAS || PEDIDAS.indexOf(colecao) !== -1; }
+
   var cache = {};      /* o que as telas enxergam agora            */
   var espelho = {};    /* ultima versao conhecida do banco (p/ diff) */
   var carregado = false;
@@ -88,7 +99,7 @@
     if (!t) { vazio(); return; }
     try {
       var xhr = new XMLHttpRequest();
-      xhr.open('GET', '/api/admin/estado?token=' + encodeURIComponent(t), false);
+      xhr.open('GET', urlEstado(t), false);
       xhr.send(null);
       if (xhr.status !== 200) { vazio(); return; }
       var corpo = JSON.parse(xhr.responseText);
@@ -104,7 +115,7 @@
   function recarregar() {
     var t = token();
     if (!t) return Promise.resolve(false);
-    return fetch('/api/admin/estado?token=' + encodeURIComponent(t))
+    return fetch(urlEstado(t))
       .then(function (r) { return r.json(); })
       .then(function (corpo) {
         if (!corpo || corpo.ok !== true) return false;
@@ -226,12 +237,16 @@
   function conferirColecao(colecao) {
     if (!Object.prototype.hasOwnProperty.call(COLECOES, String(colecao)))
       throw new Error('[LanePets] colecao desconhecida: ' + colecao);
+    /* Colecao que a tela nao pediu vem vazia: gravar a partir dela apagaria ou
+       duplicaria o banco. Falha alto em vez de gravar errado. */
+    if (!carregada(String(colecao)))
+      throw new Error('[LanePets] colecao "' + colecao + '" nao foi carregada nesta tela (inclua em window.LANE_COLECOES).');
   }
 
   window.LaneStore = {
     recarregar: recarregar,
     aoAtualizar: function (fn) { if (typeof fn === 'function') ouvintes.push(fn); },
-    lista: function (colecao) { return cache[colecao] || []; },
+    lista: function (colecao) { conferirColecao(colecao); return cache[colecao] || []; },
     /* Copia da colecao para a tela editar a vontade; so vale no banco depois
        de salvar(). (Substitui o antigo JSON.parse(localStorage.getItem(...)).) */
     obter: function (colecao) {

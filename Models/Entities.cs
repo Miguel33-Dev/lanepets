@@ -51,12 +51,14 @@ public class Pet
     public string NecessidadesEspeciais { get; set; } = "";
     public string InfoAtendimento { get; set; } = "";
 }
-public class Cliente { public string Id { get; set; } = ""; public string Nome { get; set; } = ""; public string Telefone { get; set; } = ""; public string Endereco { get; set; } = ""; public string Observacoes { get; set; } = ""; public string Origem { get; set; } = ""; public string Status { get; set; } = ""; }
+public class Cliente { public string Id { get; set; } = ""; public string Nome { get; set; } = ""; public string Telefone { get; set; } = ""; public string Endereco { get; set; } = ""; public string Observacoes { get; set; } = ""; public string Origem { get; set; } = ""; public string Status { get; set; } = ""; /* 28/09: aceita avisos de agendamento por e-mail (confirmacao, cancelamento, lembrete). */ public bool ReceberAvisos { get; set; } = true; }
 public class Agendamento { public string Id { get; set; } = ""; public string Pet { get; set; } = ""; public string Dono { get; set; } = ""; public string Telefone { get; set; } = ""; public string DataHora { get; set; } = ""; public string ServicosJson { get; set; } = "[]"; public decimal Total { get; set; } public string Transporte { get; set; } = ""; public decimal ValorTransporte { get; set; } public string Status { get; set; } = ""; public string PagamentoStatus { get; set; } = ""; public string FormaPagamento { get; set; } = ""; public string Obs { get; set; } = ""; public string Unidade { get; set; } = ""; public string ClienteId { get; set; } = ""; public string PetId { get; set; } = "";
     /* Item 4 (24/09): funcionario responsavel (Id de UsuarioAdministrador com perfil Funcionario da
        mesma unidade). Nunca vai para o JSON da entidade: o cliente recebe so o primeiro nome. */
     [System.Text.Json.Serialization.JsonIgnore] public string ResponsavelId { get; set; } = "";
-    [System.ComponentModel.DataAnnotations.Schema.NotMapped] public string ResponsavelNome { get; set; } = ""; }
+    [System.ComponentModel.DataAnnotations.Schema.NotMapped] public string ResponsavelNome { get; set; } = "";
+    /* 28/09: quando o lembrete da vespera saiu por e-mail (nulo = ainda nao). Uso interno, fora do JSON. */
+    [System.Text.Json.Serialization.JsonIgnore] public DateTime? LembreteEnviadoEm { get; set; } }
 public class Servico { public string Id { get; set; } = ""; public string Nome { get; set; } = ""; public decimal Preco { get; set; } public string Porte { get; set; } = ""; public string AdicionaisJson { get; set; } = "[]"; public string Pacote { get; set; } = ""; public string Adicional { get; set; } = ""; }
 public class Produto { public string Id { get; set; } = ""; public string Codigo { get; set; } = ""; public string Nome { get; set; } = ""; public string Categoria { get; set; } = ""; public decimal ValorCompra { get; set; } public decimal ValorVenda { get; set; } public int Estoque { get; set; } public int EstoqueMinimo { get; set; } public bool ControlaEstoque { get; set; }
     /* Item 6 (24/09): descricao, foto (data URI via ImagemDataUri) e "Visivel na loja". */
@@ -88,7 +90,7 @@ public class UsuarioAdministrador { public string Id { get; set; } = ""; public 
 //                   (padrao, entao unidade antiga continua oferecendo tudo).
 // Unidade nao e excluida: sai de operacao com Ativa = false (historico intacto).
 // Funcionarios NAO ficam aqui: sao os UsuariosAdministradores com Unidade = Id.
-public class Unidade { public string Id { get; set; } = ""; public string Nome { get; set; } = ""; public string Endereco { get; set; } = ""; public string Telefone { get; set; } = ""; public string HorarioFuncionamento { get; set; } = ""; public bool Ativa { get; set; } = true; public int Capacidade { get; set; } = 1; public string ServicosJson { get; set; } = "[]"; }
+public class Unidade { public string Id { get; set; } = ""; public string Nome { get; set; } = ""; public string Endereco { get; set; } = ""; public string Telefone { get; set; } = ""; public string HorarioFuncionamento { get; set; } = ""; public bool Ativa { get; set; } = true; public int Capacidade { get; set; } = 1; public string ServicosJson { get; set; } = "[]"; /* 29/09: agendamento do site ja nasce Confirmado */ public bool ConfirmacaoAutomatica { get; set; } }
 public class Pedido { public string Id { get; set; } = ""; public string ClienteId { get; set; } = ""; public string ProdutoId { get; set; } = ""; public string ProdutoNome { get; set; } = ""; public int Quantidade { get; set; } public decimal Total { get; set; } public string FormaPagamento { get; set; } = ""; public string Status { get; set; } = "Pendente"; public DateTime CriadoEm { get; set; } = DateTime.UtcNow; public string Unidade { get; set; } = ""; }
 
 // ---------------------------------------------------------------------------
@@ -230,9 +232,49 @@ public class Pagamento
     public string Status { get; set; } = "Pendente";
     public bool ReembolsoPendente { get; set; }
     public string Unidade { get; set; } = "";
-    public string DataReferencia { get; set; } = "";  // data do atendimento / do pedido / da contratacao
+    public string DataReferencia { get; set; } = "";  // data do atendimento / do pedido / do vencimento da mensalidade
+    // Seguro Pet (26/09): mes da mensalidade, "AAAA-MM". Vazio em agendamento e pedido.
+    // Chave unica: (Origem, OrigemId, Competencia).
+    public string Competencia { get; set; } = "";
     public DateTime CriadoEm { get; set; } = DateTime.UtcNow;
     public DateTime AtualizadoEm { get; set; } = DateTime.UtcNow;
     public string AtualizadoPor { get; set; } = "";
     public string Observacao { get; set; } = "";
+}
+
+// ---------------------------------------------------------------------------
+// RECUPERACAO DE SENHA DO CLIENTE (28/09)
+//
+// Um pedido de "Esqueci minha senha". O codigo de 6 digitos que vai por e-mail NUNCA
+// e gravado: fica so o hash SHA-256 de (Id + codigo). Vale 15 minutos, aceita 5
+// tentativas e serve uma vez so (UsadoEm). Pedido novo invalida os anteriores.
+// ---------------------------------------------------------------------------
+public class RecuperacaoSenha
+{
+    public string Id { get; set; } = "";
+    public string UsuarioClienteId { get; set; } = "";
+    public string ClienteId { get; set; } = "";
+    /// <summary>29/09: preenchido quando o pedido e do painel administrativo (UsuarioClienteId fica vazio).</summary>
+    public string UsuarioAdminId { get; set; } = "";
+    public string CodigoHash { get; set; } = "";
+    public DateTime CriadoEm { get; set; } = DateTime.UtcNow;
+    public DateTime ExpiraEm { get; set; }
+    public DateTime? UsadoEm { get; set; }
+    public int Tentativas { get; set; }
+}
+
+
+/// <summary>
+/// 29/09: resgate do cartao fidelidade (FidelidadeService). Os selos nao sao gravados: saem da contagem de
+/// atendimentos Concluidos do cliente; cada resgate "gasta" Selos daquela contagem (o N em vigor no resgate).
+/// </summary>
+public class ResgateFidelidade
+{
+    public string Id { get; set; } = "";
+    public string ClienteId { get; set; } = "";
+    public DateTime CriadoEm { get; set; } = DateTime.UtcNow;
+    public int Selos { get; set; }
+    public string Premio { get; set; } = "";
+    public string AutorId { get; set; } = "";
+    public string Autor { get; set; } = "";
 }

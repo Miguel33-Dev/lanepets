@@ -8,7 +8,8 @@ namespace LanePets.Services;
 /// <summary>
 /// Item 8 do roadmap (25/09): pagamentos.
 ///
-/// UM pagamento por origem (agendamento, pedido, contratacao de seguro).
+/// UM pagamento por origem (agendamento, pedido) e, no Seguro Pet, um por MES do
+/// contrato (26/09: Competencia "AAAA-MM", regra em <see cref="MensalidadesSeguro"/>).
 /// A regra inteira mora aqui:
 ///   - <see cref="ReconciliarAsync"/> cria o pagamento que falta, acompanha
 ///     valor/forma enquanto ele esta Pendente e aplica o cancelamento da origem
@@ -89,6 +90,11 @@ public static class PagamentosService
         }
         else if (pag.Origem == OrigemSeguro)
         {
+            // Seguro tem uma mensalidade por mes: o campo antigo espelha so a mais recente.
+            var competencias = await db.Pagamentos.AsNoTracking()
+                .Where(p => p.Origem == OrigemSeguro && p.OrigemId == pag.OrigemId)
+                .Select(p => p.Competencia).ToListAsync();
+            if (competencias.Any(c => string.CompareOrdinal(c, pag.Competencia) > 0)) return;
             var s = await db.SolicitacoesSeguro.FirstOrDefaultAsync(x => x.Id == pag.OrigemId);
             if (s is not null) s.PagamentoStatus = pag.Status == Aprovado ? "Pago" : pag.Status;
         }
@@ -98,8 +104,12 @@ public static class PagamentosService
     // RECONCILIACAO
     // -----------------------------------------------------------------------
 
+    // Competencia: so no Seguro ("AAAA-MM"); vazio nas outras origens.
+    // ReembolsaSePago: origem cancelada depois de paga vira "reembolso pendente". No Seguro,
+    // so a mensalidade mais recente (o mes em curso); meses anteriores ja foram usufruidos.
     private record Fonte(string Origem, string OrigemId, string ClienteId, string Cliente, string Descricao, decimal Valor,
-        string Forma, string Unidade, string DataReferencia, bool Cancelada, string? StatusAntigo);
+        string Forma, string Unidade, string DataReferencia, bool Cancelada, string? StatusAntigo,
+        string Competencia = "", bool ReembolsaSePago = true);
 
     /// <summary>
     /// Deixa a tabela Pagamentos coerente com as origens e salva. Idempotente:
@@ -137,20 +147,38 @@ public static class PagamentosService
                 // Pedido nao tinha status de pagamento: entregue = pago na retirada.
                 PedidosService.Exibir(p.Status) == PedidosService.Entregue ? "Pago" : null));
 
-        // Seguro: so contratacao (tem valor). Pedido de contato do site publico nao e cobranca.
-        foreach (var s in await db.SolicitacoesSeguro.AsNoTracking().Where(s => s.ClienteId != "").ToListAsync())
-            if (s.Valor > 0)
-                fontes.Add(new(OrigemSeguro, s.Id, s.ClienteId, NomeCliente(s.ClienteId, s.NomeCliente),
-                    $"Seguro {s.NomePlano} · {s.NomePet}", s.Valor, s.MetodoPagamento, "",
-                    s.CriadoEm.ToString("yyyy-MM-ddTHH:mm:ss"), string.Equals(s.Status, "Cancelada", StringComparison.OrdinalIgnoreCase), s.PagamentoStatus));
-
-        var existentes = (await db.Pagamentos.ToListAsync()).GroupBy(p => (p.Origem, p.OrigemId)).ToDictionary(g => g.Key, g => g.First());
-        var alterados = 0;
+        // Seguro (26/09): uma mensalidade por mes devido, gerada sozinha (MensalidadesSeguro).
+        // Pedido de contato do site publico nao e cobranca. Carregado COM rastreamento:
+        // o campo antigo PagamentoStatus e acertado no fim (espelho da mensalidade mais recente).
         var agora = DateTime.UtcNow;
+        var seguros = (await db.SolicitacoesSeguro.Where(s => s.ClienteId != "").ToListAsync())
+            .Where(MensalidadesSeguro.Cobravel).ToList();
+        foreach (var s in seguros)
+        {
+            var devidas = MensalidadesSeguro.Devidas(s, agora);
+            var cancelado = MensalidadesSeguro.Cancelado(s);
+            foreach (var m in devidas)
+                fontes.Add(new(OrigemSeguro, s.Id, s.ClienteId, NomeCliente(s.ClienteId, s.NomeCliente),
+                    $"Seguro {s.NomePlano} · {s.NomePet} · {MensalidadesSeguro.CompetenciaTexto(m.Competencia)}", s.Valor, s.MetodoPagamento, "",
+                    MensalidadesSeguro.DataReferencia(m.Vencimento), cancelado,
+                    // So a primeira mensalidade herda o status antigo; as seguintes nascem Pendente.
+                    m.Numero == 0 ? s.PagamentoStatus : null,
+                    m.Competencia, ReembolsaSePago: m.Numero == devidas.Count - 1));
+        }
+
+        var existentes = (await db.Pagamentos.ToListAsync())
+            .GroupBy(p => (p.Origem, p.OrigemId, p.Competencia ?? ""))
+            .ToDictionary(g => g.Key, g => g.First());
+        var alterados = 0;
 
         foreach (var f in fontes)
         {
-            if (!existentes.TryGetValue((f.Origem, f.OrigemId), out var pag))
+            // Pagamento de seguro de antes da cobranca mensal (sem competencia) passa a ser o do 1o mes.
+            if (f.Competencia.Length > 0 && !existentes.ContainsKey((f.Origem, f.OrigemId, f.Competencia))
+                && existentes.Remove((f.Origem, f.OrigemId, ""), out var antigo))
+                existentes[(f.Origem, f.OrigemId, f.Competencia)] = antigo;
+
+            if (!existentes.TryGetValue((f.Origem, f.OrigemId, f.Competencia), out var pag))
             {
                 // Primeiro pagamento desta origem: status tirado do campo antigo.
                 var inicial = Normalizar(f.StatusAntigo) is { Length: > 0 } st ? st : Pendente;
@@ -158,20 +186,38 @@ public static class PagamentosService
                 pag = new Pagamento
                 {
                     Id = "PAG-" + Guid.NewGuid().ToString("N")[..12].ToUpperInvariant(),
-                    Origem = f.Origem, OrigemId = f.OrigemId, Status = inicial,
+                    Origem = f.Origem, OrigemId = f.OrigemId, Competencia = f.Competencia, Status = inicial,
                     CriadoEm = agora, AtualizadoEm = agora, AtualizadoPor = "sistema"
                 };
                 db.Pagamentos.Add(pag);
-                existentes[(f.Origem, f.OrigemId)] = pag;
+                existentes[(f.Origem, f.OrigemId, f.Competencia)] = pag;
                 alterados++;
             }
             alterados += Acompanhar(pag, f, agora);
         }
 
         // Origem apagada (ex.: agendamento excluido no painel): trata como cancelada.
-        var chaves = fontes.Select(f => (f.Origem, f.OrigemId)).ToHashSet();
-        foreach (var pag in existentes.Values.Where(p => !chaves.Contains((p.Origem, p.OrigemId))))
-            alterados += AplicarCancelamento(pag, agora, "Origem excluída");
+        // Mensalidade de um seguro que ainda existe, mas ja nao e devida (contrato cancelado
+        // sem data de cancelamento): so a que esta em aberto e cancelada; paga fica paga.
+        var chaves = fontes.Select(f => (f.Origem, f.OrigemId, f.Competencia)).ToHashSet();
+        var idsSeguros = seguros.Select(s => s.Id).ToHashSet();
+        foreach (var pag in existentes.Where(e => !chaves.Contains(e.Key)).Select(e => e.Value).ToList())
+        {
+            if (pag.Origem == OrigemSeguro && idsSeguros.Contains(pag.OrigemId))
+                alterados += AplicarCancelamento(pag, agora, "Seguro cancelado", reembolsaSePago: false);
+            else
+                alterados += AplicarCancelamento(pag, agora, "Origem excluída");
+        }
+
+        // Espelho do Seguro: PagamentoStatus do contrato = status da mensalidade mais recente.
+        var porSeguro = existentes.Values.Where(p => p.Origem == OrigemSeguro).ToLookup(p => p.OrigemId);
+        foreach (var s in seguros)
+        {
+            var ultima = porSeguro[s.Id].OrderByDescending(p => p.Competencia, StringComparer.Ordinal).FirstOrDefault();
+            if (ultima is null) continue;
+            var espelho = ultima.Status == Aprovado ? "Pago" : ultima.Status;
+            if (s.PagamentoStatus != espelho) { s.PagamentoStatus = espelho; alterados++; }
+        }
 
         if (alterados > 0) await db.SaveChangesAsync();
         return alterados;
@@ -188,6 +234,7 @@ public static class PagamentosService
         Set(pag.Descricao, f.Descricao, v => pag.Descricao = v);
         Set(pag.Unidade, f.Unidade, v => pag.Unidade = v);
         Set(pag.DataReferencia, f.DataReferencia, v => pag.DataReferencia = v);
+        Set(pag.Competencia ?? "", f.Competencia, v => pag.Competencia = v);
         // Valor e forma so acompanham a origem enquanto nada foi pago.
         if (pag.Status is Pendente or Recusado)
         {
@@ -196,7 +243,7 @@ public static class PagamentosService
         }
 
         var n = 0;
-        if (f.Cancelada) n += AplicarCancelamento(pag, agora, "Origem cancelada");
+        if (f.Cancelada) n += AplicarCancelamento(pag, agora, "Origem cancelada", f.ReembolsaSePago);
         else if (f.Origem == OrigemAgendamento)
         {
             // "Pago / A pagar" do painel de Agendamentos continua valendo.
@@ -208,7 +255,7 @@ public static class PagamentosService
         return 0;
     }
 
-    private static int AplicarCancelamento(Pagamento pag, DateTime agora, string motivo)
+    private static int AplicarCancelamento(Pagamento pag, DateTime agora, string motivo, bool reembolsaSePago = true)
     {
         if (pag.Status is Pendente or Recusado)
         {
@@ -216,7 +263,7 @@ public static class PagamentosService
             pag.Observacao = motivo;
             return 1;
         }
-        if (pag.Status == Aprovado && !pag.ReembolsoPendente)
+        if (reembolsaSePago && pag.Status == Aprovado && !pag.ReembolsoPendente)
         {
             pag.ReembolsoPendente = true; pag.AtualizadoEm = agora; pag.AtualizadoPor = "sistema";
             pag.Observacao = motivo + " depois do pagamento: decidir o reembolso.";

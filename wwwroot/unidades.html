@@ -4,10 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Unidades &middot; LanePets</title>
-<link rel="stylesheet" href="design-system.css?v=6">
+<link rel="stylesheet" href="design-system.css?v=9">
 <script src="js/config.js"></script>
 <script src="js/api.js"></script>
-<script src="js/admin-permissoes.js?v=5"></script>
+<script src="js/admin-permissoes.js?v=7"></script>
 <!--
   UNIDADES (item 5 do roadmap, 24/09)
   Cadastro das unidades: nome, endereco, telefone, horario, capacidade por
@@ -78,6 +78,11 @@
       <div class="field"><label for="uTelefone">Telefone</label><input class="input" id="uTelefone" maxlength="30" placeholder="(11) 99999-9999"></div>
       <div class="field"><label for="uCapacidade">Atendimentos por hor&aacute;rio *</label><input class="input" id="uCapacidade" type="number" min="1" max="20" value="1" required>
         <p class="small-note" style="margin-top:var(--sp-1)">Quantos pets podem ser atendidos ao mesmo tempo (1 a 20).</p></div>
+      <div class="field largo">
+        <label>Confirma&ccedil;&atilde;o de agendamentos</label>
+        <div class="un-servicos" style="grid-template-columns:1fr"><label><input type="checkbox" id="uAuto"> Confirmar automaticamente os agendamentos feitos pelo site</label></div>
+        <p class="small-note" style="margin-top:var(--sp-1)">Ligado: o hor&aacute;rio livre j&aacute; nasce <strong>Confirmado</strong> e o tutor recebe a confirma&ccedil;&atilde;o na hora. Desligado: nasce Solicitado e a equipe confirma.</p>
+      </div>
       <div class="field largo"><label for="uHorario">Hor&aacute;rio de funcionamento</label><input class="input" id="uHorario" maxlength="120" placeholder="Segunda a s&aacute;bado, 08h &agrave;s 18h"></div>
       <div class="field largo">
         <label>Servi&ccedil;os oferecidos</label>
@@ -94,6 +99,6 @@
 </div>
 
 <script src="ui-kit.js?v=5"></script>
-<script src="js/unidades-admin.js?v=3"></script>
+<script src="js/unidades-admin.js?v=4"></script>
 </body>
 </html>

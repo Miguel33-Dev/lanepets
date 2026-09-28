@@ -4,20 +4,14 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Usu&aacute;rios Administrativos &middot; LanePets</title>
-<link rel="stylesheet" href="design-system.css?v=6">
+<link rel="stylesheet" href="design-system.css?v=9">
 <link rel="stylesheet" href="css/admin-acoes.css?v=1">
 <script src="js/config.js"></script>
 <script src="js/api.js"></script>
-<script src="js/admin-permissoes.js?v=5"></script>
+<script src="js/admin-permissoes.js?v=7"></script>
 <script src="js/admin-acoes.js?v=1"></script>
 <style>
-/* Confirmação destrutiva: o botão que apaga não fica colado no Cancelar. */
-.modal-actions .btn-perigo {
-  background: var(--danger-500); color: #fff; border: 1px solid var(--danger-500);
-  transition: background .16s var(--ease), box-shadow .16s var(--ease);
-}
-.modal-actions .btn-perigo:hover { background: #a93226; }
-.modal-actions .btn-perigo:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(192,57,43,.25); }
+/* Botao destrutivo e "salvando" moram no design-system.css (.btn-danger-solid, .btn.carregando). */
 .confirmar-alvo {
   margin-top: var(--sp-4); padding: var(--sp-3) var(--sp-4);
   background: var(--surface-muted); border: 1px solid var(--border);
@@ -188,14 +182,6 @@
    intactas, esperando o desligamento. */
 .perm-grade.suspensa { opacity: .45; pointer-events: none; }
 
-/* ---------- Botao salvando ---------- */
-.btn.carregando { pointer-events: none; opacity: .8; }
-.btn.carregando::before {
-  content: ''; width: 14px; height: 14px; margin-right: 8px; border-radius: 50%;
-  border: 2px solid rgba(255,255,255,.45); border-top-color: #fff;
-  display: inline-block; vertical-align: -2px;
-  animation: acao-girar .6s linear infinite;
-}
 
 @media (max-width: 720px) {
   .perm-grade { grid-template-columns: 1fr; }
@@ -402,6 +388,6 @@
 </div>
 
 <script src="ui-kit.js?v=5"></script>
-<script src="js/usuarios-admin.js?v=3"></script>
+<script src="js/usuarios-admin.js?v=4"></script>
 </body>
 </html>

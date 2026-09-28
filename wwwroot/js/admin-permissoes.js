@@ -191,8 +191,21 @@
     if (!u) return;
     document.querySelectorAll('.topbar-user-info strong').forEach(el => { el.textContent = u.nome; });
     document.querySelectorAll('.topbar-user-info span').forEach(el => { el.textContent = u.perfilRotulo; });
+    /* 29/09: conta de visitante da vitrine — deixa claro que nada pode ser alterado. */
+    if (u.visitante && !document.getElementById('lp-visitante')) {
+      const destino = document.querySelector('.topbar-right');
+      if (destino) {
+        const selo = document.createElement('span');
+        selo.id = 'lp-visitante';
+        selo.className = 'lp-visitante';
+        selo.title = 'Você entrou como visitante: pode navegar por tudo, mas nada é gravado.';
+        selo.innerHTML = '<span class="hide-mobile">Modo visitante&nbsp;·&nbsp;</span>só leitura';
+        destino.prepend(selo);
+      }
+    }
     document.querySelectorAll('.topbar-user .avatar').forEach(el => {
-      const partes = String(u.nome || 'LP').trim().split(/\s+/);
+      /* So palavras que comecam com letra: "Visitante (só leitura)" vira "VS", nao "V(". */
+      const partes = String(u.nome || 'LP').trim().split(/\s+/).map(p => p.replace(/^[^\p{L}]+/u, '')).filter(Boolean);
       el.textContent = ((partes[0] || 'L')[0] + (partes[1] || partes[0] || 'P')[0]).toUpperCase();
     });
   }
@@ -202,6 +215,65 @@
     if (!modulos || podeVerAlgum(modulos)) return false;
     location.replace('acesso-negado.html?modulo=' + encodeURIComponent(modulos[0]));
     return true;
+  }
+
+  /* ------------------------------------------------------------------
+     29/09: SINO — o que esta esperando a equipe agir (GET /api/admin/notificacoes).
+     Sem "lido/nao lido": resolvida a pendencia, o aviso some. Atualiza a cada
+     minuto, ao voltar para a aba e, onde houver tempo real, a cada aviso do SignalR.
+     ------------------------------------------------------------------ */
+  const ICONE_SINO = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 1 1 12 0c0 7 3 8 3 8H3s3-1 3-8"/><path d="M10.3 20a1.9 1.9 0 0 0 3.4 0"/></svg>';
+  const escSino = t => String(t == null ? '' : t).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  let sinoTimer = null;
+
+  function montarSino() {
+    const destino = document.querySelector('.topbar-right');
+    if (!destino || document.getElementById('lp-sino')) return;
+    const caixa = document.createElement('div');
+    caixa.className = 'lp-sino';
+    caixa.id = 'lp-sino';
+    caixa.innerHTML = `
+      <button class="lp-sino__botao" type="button" aria-haspopup="true" aria-expanded="false" aria-label="Pendências" title="Pendências">
+        ${ICONE_SINO}<span class="lp-sino__contador" hidden></span>
+      </button>
+      <div class="lp-sino__painel" role="dialog" aria-label="Pendências" hidden>
+        <p class="lp-sino__titulo">Pendências</p>
+        <div class="lp-sino__lista"><p class="lp-sino__vazio">Carregando…</p></div>
+      </div>`;
+    const usuario = destino.querySelector('.topbar-user');
+    destino.insertBefore(caixa, usuario || null);
+
+    const botao = caixa.querySelector('.lp-sino__botao'), painel = caixa.querySelector('.lp-sino__painel');
+    const abrir = aberto => { painel.hidden = !aberto; botao.setAttribute('aria-expanded', String(aberto)); if (aberto) atualizarSino(); };
+    botao.addEventListener('click', e => { e.stopPropagation(); abrir(painel.hidden); });
+    document.addEventListener('click', e => { if (!caixa.contains(e.target)) abrir(false); });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape' && !painel.hidden) { abrir(false); botao.focus(); } });
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) atualizarSino(); });
+    if (window.LaneAdmin && typeof window.LaneAdmin.aoMudar === 'function') window.LaneAdmin.aoMudar(() => atualizarSino());
+    clearInterval(sinoTimer);
+    sinoTimer = setInterval(atualizarSino, 60000);
+    atualizarSino();
+  }
+
+  async function atualizarSino() {
+    const caixa = document.getElementById('lp-sino');
+    if (!caixa) return;
+    const contador = caixa.querySelector('.lp-sino__contador'), lista = caixa.querySelector('.lp-sino__lista');
+    try {
+      const r = await fetch('/api/admin/notificacoes?token=' + encodeURIComponent(token()));
+      const corpo = await r.json();
+      if (!r.ok || !corpo.ok) throw new Error(corpo.error || ('HTTP ' + r.status));
+      const { total, itens } = corpo.data;
+      contador.hidden = !total;
+      contador.textContent = total > 99 ? '99+' : String(total);
+      caixa.querySelector('.lp-sino__botao').setAttribute('aria-label', total ? `Pendências: ${total}` : 'Pendências: nenhuma');
+      lista.innerHTML = itens.length
+        ? itens.map(i => `<a class="lp-sino__item" href="${escSino(i.link)}"><b>${i.quantidade > 99 ? '99+' : i.quantidade}</b><span>${escSino(i.texto)}</span></a>`).join('')
+        : '<p class="lp-sino__vazio">Nada pendente agora. Tudo em dia!</p>';
+    } catch (erro) {
+      console.warn('[LanePets] não foi possível carregar as pendências:', erro);
+      lista.innerHTML = '<p class="lp-sino__vazio">Não foi possível carregar as pendências agora.</p>';
+    }
   }
 
   async function carregar() {
@@ -234,6 +306,7 @@
     ajustarMenu();
     ajustarElementos();
     identificarUsuario();
+    montarSino();
     espera.splice(0).forEach(fn => { try { fn(window.LanePermissoes); } catch (e) { console.error(e); } });
   }
 

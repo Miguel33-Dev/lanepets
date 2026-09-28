@@ -21,6 +21,48 @@ public static class UnidadesRegras
         Normalizador.RegistrarUnidades(unidades.Select(u => (u.Id, u.Nome, u.Ativa)));
     }
 
+    /// <summary>
+    /// Unidade como ela deve ser GRAVADA (26/09): sempre o id do cadastro ("franco").
+    /// Valor que nao corresponde a nenhuma unidade e mantido como veio (a Integridade
+    /// aponta), para nao apagar historico; vazio continua vazio.
+    /// </summary>
+    public static string ParaGravar(string? valor)
+    {
+        var texto = (valor ?? "").Trim();
+        return Normalizador.IdUnidade(texto) is { Length: > 0 } id ? id : texto;
+    }
+
+    /// <summary>
+    /// Unificacao da unidade gravada pelo NOME (26/09). O site gravava "Franco da Rocha" e o
+    /// painel "franco"; as comparacoes ja passavam pelo Normalizador, mas o dado ficava misto.
+    /// Na subida (depois do backup e do RecarregarAsync), troca pelo id tudo o que for
+    /// reconhecido, em todas as tabelas com unidade. Idempotente: na segunda vez nao ha nada
+    /// para trocar. Devolve quantos registros mudaram.
+    /// </summary>
+    public static async Task<int> UnificarGravadasPeloNomeAsync(LanePetsDbContext db)
+    {
+        var mudou = 0;
+        void Acertar<T>(IEnumerable<T> itens, Func<T, string> ler, Action<T, string> gravar)
+        {
+            foreach (var item in itens)
+            {
+                var atual = ler(item) ?? "";
+                var novo = ParaGravar(atual);
+                if (novo != atual) { gravar(item, novo); mudou++; }
+            }
+        }
+
+        Acertar(await db.Agendamentos.ToListAsync(), a => a.Unidade, (a, v) => a.Unidade = v);
+        Acertar(await db.Pets.ToListAsync(), p => p.Unidade, (p, v) => p.Unidade = v);
+        Acertar(await db.EntradasESaidas.ToListAsync(), e => e.Unidade, (e, v) => e.Unidade = v);
+        Acertar(await db.Pacotes.ToListAsync(), p => p.Unidade, (p, v) => p.Unidade = v);
+        Acertar(await db.Pedidos.ToListAsync(), p => p.Unidade, (p, v) => p.Unidade = v);
+        Acertar(await db.UsuariosAdministradores.Where(u => u.Unidade != "").ToListAsync(), u => u.Unidade, (u, v) => u.Unidade = v);
+
+        if (mudou > 0) await db.SaveChangesAsync();
+        return mudou;
+    }
+
     /// <summary>Ids dos servicos da unidade. Lista vazia = oferece todos.</summary>
     public static List<string> Servicos(Unidade unidade)
     {

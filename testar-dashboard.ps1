@@ -70,7 +70,7 @@ function Chamar($metodo, $caminho, $corpo, $token) {
 }
 
 function Resumo($de, $ate, $unidade = 'todas', $tk = $tokenGeral) { Chamar GET "/admin/resumo?token=$tk&de=$de&ate=$ate&unidade=$unidade" }
-function Pag($origemId) { @((Chamar GET "/admin/pagamentos?token=$tokenGeral&busca=$origemId").corpo.data.itens | Where-Object { $_.origemId -eq $origemId })[0] }
+function Pag($origemId) { @((Chamar GET "/admin/pagamentos?token=$tokenGeral&busca=$origemId&limite=500").corpo.data.itens | Where-Object { $_.origemId -eq $origemId })[0] }
 
 Titulo 'Servidor no ar'
 try { Checar 'API respondendo' ((Chamar GET '/health').status -eq 200) }
@@ -152,7 +152,7 @@ Checar 'funcionario com dashboard -> 200' ($rf.status -eq 200) "($($rf.corpo.err
 $fi = $rf.corpo.data
 Checar 'resposta marcada como restrita' ($fi.restrito -eq $true)
 Checar 'faturamento e pagamentos pendentes vem nulos (nao zero)' ($null -eq $fi.indicadores.faturamento -and $null -eq $fi.indicadores.pagamentosPendentes -and $null -eq $fi.indicadores.valorPendente)
-Checar 'nenhum valor em dinheiro no bloco financeiro' ([decimal]$fi.financeiro.receita -eq 0 -and [decimal]$fi.financeiro.despesas -eq 0 -and @($fi.porUnidade).Count -eq 0 -and @($fi.mensal).Count -eq 0)
+Checar 'nenhum valor em dinheiro no bloco financeiro (null, nunca 0)' ($null -eq $fi.financeiro.receita -and $null -eq $fi.financeiro.despesas -and $null -eq $fi.operacional.receitaDePedidos -and @($fi.porUnidade).Count -eq 0 -and @($fi.mensal).Count -eq 0)
 Checar 'contagens operacionais continuam (agenda, estoque)' ($null -ne $fi.indicadores.agendamentosHoje -and $null -ne $fi.indicadores.estoqueBaixo)
 Chamar DELETE "/admin/usuarios/$idFunc`?token=$tokenGeral" $null | Out-Null
 

@@ -31,8 +31,24 @@
 
   const vazio = (titulo, texto) =>
     `<div class="empty-state"><h3>${titulo}</h3><p>${texto}</p></div>`;
-  const tabela = (cabecalhos, linhas) =>
-    `<div class="table-wrap"><table><thead><tr>${cabecalhos.map(c => `<th>${c}</th>`).join('')}</tr></thead><tbody>${linhas}</tbody></table></div>`;
+  /* cards = true: abaixo de 860 px cada linha vira um cartao (.tabela-cards, §6.33).
+     O ui-kit.js so rotula as tabelas que ja existem quando a pagina carrega; estas
+     sao desenhadas depois, por isso rotularCards() copia o <th> para data-label. */
+  const tabela = (cabecalhos, linhas, { cards = false } = {}) =>
+    `<div class="table-wrap${cards ? ' tabela-cards' : ''}"><table><thead><tr>${cabecalhos.map(c => `<th>${c}</th>`).join('')}</tr></thead><tbody>${linhas}</tbody></table></div>`;
+
+  function rotularCards(raiz) {
+    raiz.querySelectorAll('.tabela-cards table').forEach(t => {
+      const cab = Array.from(t.querySelectorAll('thead th')).map(th => th.textContent.trim());
+      t.querySelectorAll('tbody tr').forEach(tr => {
+        let col = 0;
+        Array.from(tr.children).forEach(td => {
+          if (!td.hasAttribute('data-label')) td.setAttribute('data-label', cab[col] || '');
+          col += Number(td.colSpan) || 1;
+        });
+      });
+    });
+  }
 
   const BADGE = {
     'Pendente': 'badge-warning',
@@ -42,7 +58,12 @@
     'Recusado': 'badge-danger',
     'Cancelada': 'badge-danger',
     'Cancelado': 'badge-danger',
-    'Pago': 'badge-success'
+    'Pago': 'badge-success',
+    /* Cobranca mensal do Seguro Pet (26/09) */
+    'Em dia': 'badge-success',
+    'Aguardando pagamento': 'badge-warning',
+    'Inadimplente': 'badge-danger',
+    'Encerrado': 'badge-neutral'
   };
   const badge = status => `<span class="badge ${BADGE[status] || 'badge-neutral'}">${esc(status)}</span>`;
 
@@ -320,10 +341,30 @@
     const termo = normalizar($('#buscaSolicitacoes') ? $('#buscaSolicitacoes').value : '');
     const filtro = $('#filtroSolicitacaoStatus') ? $('#filtroSolicitacaoStatus').value : 'todos';
     return solicitacoesCache.filter(s => {
-      if (filtro !== 'todos' && s.status !== filtro) return false;
+      if (filtro === 'inadimplente') { if (!s.cobranca || s.cobranca.situacao !== 'Inadimplente') return false; }
+      else if (filtro !== 'todos' && s.status !== filtro) return false;
       if (termo && !normalizar((s.clienteAtual || s.nomeCliente) + ' ' + (s.petAtual || s.nomePet)).includes(termo)) return false;
       return true;
     });
+  }
+
+  /* Cobranca mensal do Seguro Pet (26/09): situacao calculada pelo servidor a partir
+     das mensalidades (uma por mes, geradas sozinhas). O pedido de contato do site nao
+     tem cobranca (cobranca = null) e continua mostrando so o status antigo. */
+  function cobrancaCelula(s) {
+    const c = s.cobranca;
+    if (!c) return badge(s.pagamentoStatus || 'Pendente');
+    const linhas = [badge(c.situacao)];
+    if (c.emAberto > 0) {
+      linhas.push(`<span class="text-muted">${c.emAberto} mensalidade${c.emAberto > 1 ? 's' : ''} em aberto · ${brl(c.valorEmAberto)}</span>`);
+      if (c.situacao === 'Inadimplente') linhas.push(`<span class="text-muted">vencida há ${c.diasEmAtraso} dias</span>`);
+    } else if (c.proximoVencimento && c.situacao !== 'Encerrado') {
+      linhas.push(`<span class="text-muted">próx. mensalidade ${dataCurta(c.proximoVencimento)}</span>`);
+    }
+    if ((c.mensalidades || []).length) {
+      linhas.push(`<a href="pagamentos.html?origem=seguro&busca=${encodeURIComponent(s.id)}">Ver ${c.mensalidades.length} mensalidade${c.mensalidades.length > 1 ? 's' : ''}</a>`);
+    }
+    return linhas.join('<br>');
   }
 
   function renderSolicitacoes() {
@@ -339,15 +380,16 @@
                   : '<span class="badge badge-neutral">Pedido pelo site</span>'}</td>
             <td>${esc(s.telefoneAtual || s.telefone)}</td>
             <td class="num">${brl(s.valor || s.valorMensal)}<br><span class="text-muted">contratado</span></td>
-            <td>${esc(s.metodoPagamento || 'A combinar')}${s.cartaoFinal ? `<br><span class="text-muted">**** ${esc(s.cartaoFinal)}</span>` : ''}<br>${badge(s.pagamentoStatus || 'Pendente')}</td>
+            <td>${esc(s.metodoPagamento || 'A combinar')}${s.cartaoFinal ? `<br><span class="text-muted">**** ${esc(s.cartaoFinal)}</span>` : ''}<br>${cobrancaCelula(s)}</td>
             <td>${badge(s.status)}${s.dataCancelamento ? `<br><span class="text-muted">Cancelado em ${dataCurta(s.dataCancelamento)}</span>` : ''}</td>
-            <td><select class="input sol-status" data-id="${esc(s.id)}" style="min-width:150px">
+            <td><select class="input sol-status" data-id="${esc(s.id)}" style="min-width:min(150px,100%)">
               ${['Pendente', 'Em contato', 'Concluída', 'Cancelada'].map(op => `<option ${s.status === op ? 'selected' : ''}>${op}</option>`).join('')}
             </select></td>
-          </tr>`).join(''))
+          </tr>`).join(''), { cards: true })
       : (solicitacoesCache.length
           ? vazio('Nenhuma solicitação encontrada', 'Tente buscar por outro termo ou limpar os filtros.')
           : vazio('Nenhuma solicitação recebida', 'As contratações pedidas pelo site aparecem nesta lista.'));
+    rotularCards($('#solicitacoes'));
 
     $$('.sol-status').forEach(campo => campo.onchange = async () => {
       try { await post('/api/admin/solicitacoes/' + campo.dataset.id + '/status', { status: campo.value }); aviso('Status atualizado.', 'success'); await carregarTudo(); }

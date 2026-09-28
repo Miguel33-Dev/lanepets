@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="LanePets — banho, tosa, produtos e seguro para o seu pet em Franco da Rocha e Caieiras. Agende online.">
   <title>LanePets | Cuidado que aproxima</title>
-  <link rel="stylesheet" href="publico.css?v=10">
+  <link rel="stylesheet" href="publico.css?v=11">
 <script src="js/marca-unidades.js?v=1" defer></script>
 </head>
 <body>
@@ -359,10 +359,22 @@
     <button class="fechar" type="button" data-fechar aria-label="Fechar">×</button>
     <p class="eyebrow">Sua experiência</p>
     <h2 id="dep-titulo">Conte para outras famílias</h2>
-    <p>Para publicar, conferimos o seu cadastro e a equipe aprova o comentário.</p>
-    <label>Seu nome<input id="dep-nome" required></label>
-    <label>Telefone cadastrado<input id="dep-telefone" inputmode="tel" required></label>
-    <label>Nome do pet<input id="dep-pet" required></label>
+    <p>A avaliação fica ligada à sua conta LanePets e a equipe aprova o comentário antes de publicar.</p>
+
+    <!-- 26/09: avaliar exige estar logado (nome + telefone nao identificam ninguem). -->
+    <div class="dep-bloco" id="dep-carregando" hidden><p>Conferindo sua conta…</p></div>
+
+    <div class="dep-bloco" id="dep-login" hidden>
+      <p>Para avaliar, entre na sua conta. Assim ninguém consegue publicar uma avaliação no seu nome.</p>
+      <a class="botao primario" href="minha-conta.html#avaliacoes">Entrar para avaliar</a>
+      <a class="botao claro" href="minha-conta.html#cadastro">Ainda não tenho conta</a>
+    </div>
+
+    <div class="dep-bloco" id="dep-form" hidden>
+    <p>Avaliando como <strong id="dep-quem"></strong>.</p>
+    <label id="dep-pet-rotulo">Pet atendido
+      <select id="dep-pet"></select>
+    </label>
     <label>Avaliação
       <select id="dep-avaliacao">
         <option value="5">5 estrelas — Excelente</option>
@@ -372,12 +384,13 @@
         <option value="1">1 estrela — Precisa melhorar</option>
       </select>
     </label>
-    <label>Seu comentário<textarea id="dep-comentario" rows="4" required maxlength="500"></textarea></label>
+    <label>Seu comentário<textarea id="dep-comentario" rows="4" required minlength="10" maxlength="500" placeholder="Conte como foi o atendimento (mínimo de 10 caracteres)"></textarea></label>
     <button class="botao primario" id="enviar-depoimento" value="default">Enviar para avaliação</button>
+    </div>
     <p class="feedback" id="dep-feedback"></p>
   </form>
 </dialog>
 
-<script src="js/publico.js?v=10"></script>
+<script src="js/publico.js?v=11"></script>
 </body>
 </html>

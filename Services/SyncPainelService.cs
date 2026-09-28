@@ -22,7 +22,7 @@ namespace LanePets.Services;
 /// Scoped (uma instancia por requisicao, registrada no Program.cs): guarda o autor da
 /// requisicao para as movimentacoes de estoque.
 /// </summary>
-public sealed class SyncPainelService(LanePetsDbContext db, PermissaoService permissoes)
+public sealed class SyncPainelService(LanePetsDbContext db, PermissaoService permissoes, EmailService email, IConfiguration config)
 {
     // =======================================================================
     // ENTRADA UNICA — o que o POST /api/admin/sync/{colecao} executa depois que o
@@ -97,6 +97,9 @@ public sealed class SyncPainelService(LanePetsDbContext db, PermissaoService per
         await db.SaveChangesAsync();
         // Item 8: agendamento criado/alterado/excluido -> pagamento acompanha.
         if (colecao == "agendamentos") await PagamentosService.ReconciliarAsync(db);
+        // 28/09: a equipe confirmou ou cancelou -> aviso por e-mail ao tutor (depois de gravar; nunca derruba o sync).
+        foreach (var (agendamento, status) in _statusMudou)
+            await AvisosClienteService.StatusAlteradoAsync(db, email, config, agendamento, status);
         return (novosIds, alterados, apagados);
     }
 
@@ -214,10 +217,14 @@ public sealed class SyncPainelService(LanePetsDbContext db, PermissaoService per
         return id;
     }
 
+    /// <summary>28/09: agendamentos cujo status mudou neste lote (para o aviso por e-mail).</summary>
+    private readonly List<(Agendamento Agendamento, string Status)> _statusMudou = [];
+
     private async Task<int> AtualizarAgendamento(JsonElement item)
     {
         var alvo = await db.Agendamentos.FindAsync(Texto(item, "id"));
         if (alvo is null) return 0;
+        var statusAntes = StatusAgendamento.Exibir(alvo.Status);
         alvo.Pet = Texto(item, "pet");
         alvo.Dono = Texto(item, "dono");
         alvo.Telefone = Texto(item, "telefone");
@@ -227,6 +234,7 @@ public sealed class SyncPainelService(LanePetsDbContext db, PermissaoService per
         alvo.Transporte = DescricaoTransporte(item, alvo.Transporte);
         alvo.ValorTransporte = Numero(item, "valorTransporte");
         alvo.Status = StatusAgendamento.Validar(Texto(item, "status"), alvo.Status);
+        if (StatusAgendamento.Exibir(alvo.Status) != statusAntes) _statusMudou.Add((alvo, StatusAgendamento.Exibir(alvo.Status)));
         alvo.PagamentoStatus = Preenchido(Texto(item, "pagamentoStatus"), alvo.PagamentoStatus);
         alvo.FormaPagamento = Texto(item, "formaPagamento");
         alvo.Obs = Texto(item, "obs");

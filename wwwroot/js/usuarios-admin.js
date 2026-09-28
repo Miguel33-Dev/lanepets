@@ -185,7 +185,7 @@
 
       const ok = $('confirmarOk');
       ok.textContent = rotuloOk;
-      ok.className = 'btn ' + (perigo ? 'btn-perigo' : 'btn-primary');
+      ok.className = 'btn ' + (perigo ? 'btn-danger-solid' : 'btn-primary');
 
       const overlay = $('modalConfirmar');
 

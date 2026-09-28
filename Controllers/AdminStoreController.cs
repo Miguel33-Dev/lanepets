@@ -28,7 +28,7 @@ namespace LanePets.Controllers;
 /// Nenhum endpoint anterior foi alterado e nenhuma tabela mudou de esquema.
 /// </summary>
 [Route("api/admin")]
-public class AdminStoreController(LanePetsDbContext db, PermissaoService permissoes, RealtimeNotifier realtime, EventosService eventos, SyncPainelService sync) : ApiControllerBase
+public class AdminStoreController(LanePetsDbContext db, PermissaoService permissoes, RealtimeNotifier realtime, EventosService eventos, SyncPainelService sync, ClientesPainelService clientesPainel, IConfiguration config) : ApiControllerBase
 {
     // =======================================================================
     // LEITURA — o painel inteiro em uma chamada
@@ -39,7 +39,7 @@ public class AdminStoreController(LanePetsDbContext db, PermissaoService permiss
     /// fonte de dados do admin: nada mais vem do navegador.
     /// </summary>
     [HttpGet("estado")]
-    public async Task<IActionResult> Estado([FromQuery] string token = "")
+    public async Task<IActionResult> Estado([FromQuery] string token = "", [FromQuery] string? colecoes = null)
     {
         try
         {
@@ -49,23 +49,39 @@ public class AdminStoreController(LanePetsDbContext db, PermissaoService permiss
             // "esconder no menu" e "nao receber o dado" passam a ser a mesma
             // coisa — nem abrindo o DevTools o dado aparece.
             var contexto = await permissoes.ResolverAsync(token);
+            // 27/09: ?colecoes=produtos,pets -> so essas sao lidas do banco (as telas que ainda usam o
+            // LaneStore pedem so o que mostram). Sem o parametro, tudo, como antes.
+            var pedidas = string.IsNullOrWhiteSpace(colecoes) ? null
+                : colecoes.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                    .Select(Normalizador.Texto).ToHashSet();
+            bool Quer(string colecao) => pedidas is null || pedidas.Contains(Normalizador.Texto(colecao));
             bool Ver(string modulo) => contexto.Pode(modulo, AcaoPermissao.Visualizar);
+            bool Ler(string colecao, string modulo) => Quer(colecao) && Ver(modulo);
 
-            List<Agendamento> agendamentos = Ver(ModulosAdmin.Agendamentos) ? await db.Agendamentos.AsNoTracking().ToListAsync() : new();
-            List<Pet> pets = Ver(ModulosAdmin.Pets) ? await db.Pets.AsNoTracking().ToListAsync() : new();
+            // As contagens por cliente precisam de pets/agendamentos/pedidos: quem pede clientes le os tres.
+            var comClientes = Quer("clientes");
+            List<Agendamento> agendamentos = (Quer("agendamentos") || comClientes) && Ver(ModulosAdmin.Agendamentos) ? await db.Agendamentos.AsNoTracking().ToListAsync() : new();
+            List<Pet> pets = (Quer("pets") || comClientes) && Ver(ModulosAdmin.Pets) ? await db.Pets.AsNoTracking().ToListAsync() : new();
 
             // Funcionario (item 1): agendamentos e pets de outra unidade nao
             // saem do servidor. Para administradores os dois filtros nao cortam nada.
             agendamentos = agendamentos.Where(a => contexto.VeUnidade(a.Unidade)).ToList();
             var petsVisiveis = await permissoes.PetsVisiveisAsync(contexto);
             if (petsVisiveis is not null) pets = pets.Where(p => petsVisiveis.Contains(p.Id)).ToList();
-            List<Cliente> clientes = Ver(ModulosAdmin.Clientes) ? await db.Clientes.AsNoTracking().ToListAsync() : new();
-            List<Servico> servicos = Ver(ModulosAdmin.Servicos) ? await db.Servicos.AsNoTracking().ToListAsync() : new();
-            List<Produto> produtos = Ver(ModulosAdmin.Produtos) ? await db.Produtos.AsNoTracking().ToListAsync() : new();
-            List<EntradaSaida> lancamentos = Ver(ModulosAdmin.Pagamentos) ? await db.EntradasESaidas.AsNoTracking().ToListAsync() : new();
-            List<Pedido> pedidos = Ver(ModulosAdmin.Pedidos) ? await db.Pedidos.AsNoTracking().ToListAsync() : new();
+            List<Cliente> clientes = Ler("clientes", ModulosAdmin.Clientes) ? await db.Clientes.AsNoTracking().ToListAsync() : new();
+            List<Servico> servicos = Ler("servicos", ModulosAdmin.Servicos) ? await db.Servicos.AsNoTracking().ToListAsync() : new();
+            List<Produto> produtos = Ler("produtos", ModulosAdmin.Produtos) ? await db.Produtos.AsNoTracking().ToListAsync() : new();
+            List<EntradaSaida> lancamentos = Ler("entradasESaidas", ModulosAdmin.Pagamentos) ? await db.EntradasESaidas.AsNoTracking().ToListAsync() : new();
+            List<Pedido> pedidos = (Quer("pedidos") || comClientes) && Ver(ModulosAdmin.Pedidos) ? await db.Pedidos.AsNoTracking().ToListAsync() : new();
             pedidos = pedidos.Where(p => contexto.VeUnidade(p.Unidade)).ToList();   // item 5: funcionario ve so a unidade dele
-            List<UsuarioCliente> usuarios = Ver(ModulosAdmin.Clientes) ? await db.UsuariosClientes.AsNoTracking().ToListAsync() : new();
+            List<UsuarioCliente> usuarios = Ler("clientes", ModulosAdmin.Clientes) ? await db.UsuariosClientes.AsNoTracking().ToListAsync() : new();
+
+            // Totais da tela Cadastro: colecao nao lida vira uma contagem barata (mesmas permissoes).
+            async Task<int> Contar<T>(string colecao, string modulo, List<T> lida, IQueryable<T> tabela) where T : class
+                => Quer(colecao) ? lida.Count : Ver(modulo) ? await tabela.CountAsync() : 0;
+            var totalClientes = await Contar("clientes", ModulosAdmin.Clientes, clientes, db.Clientes);
+            var totalProdutos = await Contar("produtos", ModulosAdmin.Produtos, produtos, db.Produtos);
+            var totalServicos = await Contar("servicos", ModulosAdmin.Servicos, servicos, db.Servicos);
 
             // E-mail e data de criacao da conta vivem em UsuariosClientes; o
             // painel precisa deles junto do cliente.
@@ -80,35 +96,21 @@ public class AdminStoreController(LanePetsDbContext db, PermissaoService permiss
 
             return OkApi(new
             {
-                agendamentos = agendamentos.OrderBy(a => a.DataHora).Select(a => ParaPainel(a, nomesResponsaveis)),
-                pets = pets.Select(p => ParaPainel(p)),
+                agendamentos = Quer("agendamentos") ? agendamentos.OrderBy(a => a.DataHora).Select(a => ParaPainel(a, nomesResponsaveis)) : null,
+                pets = Quer("pets") ? pets.Select(p => ParaPainel(p)) : null,
                 servicos = servicos.OrderBy(s => s.Nome).Select(s => ParaPainel(s)),
                 produtos = produtos.OrderBy(p => p.Nome).Select(p => ParaPainel(p)),
                 entradasESaidas = lancamentos.OrderByDescending(e => e.Data).Select(e => ParaPainel(e)),
-                clientes = clientes.OrderBy(c => c.Nome).Select(c => new
-                {
-                    id = c.Id,
-                    nome = c.Nome,
-                    telefone = c.Telefone,
-                    endereco = c.Endereco,
-                    observacoes = c.Observacoes,
-                    origem = string.IsNullOrWhiteSpace(c.Origem) ? "cadastro_painel" : c.Origem,
-                    status = string.IsNullOrWhiteSpace(c.Status) ? "ativo" : c.Status,
-                    email = contaPorCliente.TryGetValue(c.Id, out var u) ? u.Email : "",
-                    temConta = contaPorCliente.ContainsKey(c.Id),
-                    criadoEm = contaPorCliente.TryGetValue(c.Id, out var u2) ? u2.CriadoEm.ToString("O") : "",
-                    qtdPets = petsPorCliente.TryGetValue(c.Id, out var qp) ? qp : 0,
-                    qtdAgendamentos = agsPorCliente.TryGetValue(c.Id, out var qa) ? qa : 0,
-                    qtdPedidos = pedidosPorCliente.TryGetValue(c.Id, out var qd) ? qd : 0
-                }),
+                clientes = clientes.OrderBy(c => c.Nome).Select(c => FormatoPainel.Cliente(c, contaPorCliente.GetValueOrDefault(c.Id),
+                    petsPorCliente.GetValueOrDefault(c.Id), agsPorCliente.GetValueOrDefault(c.Id), pedidosPorCliente.GetValueOrDefault(c.Id))),
                 totais = new
                 {
-                    clientes = clientes.Count,
+                    clientes = totalClientes,
                     contasDeCliente = usuarios.Count,
                     pets = pets.Count,
                     agendamentos = agendamentos.Count,
-                    produtos = produtos.Count,
-                    servicos = servicos.Count,
+                    produtos = totalProdutos,
+                    servicos = totalServicos,
                     pedidos = pedidos.Count,
                     lancamentos = lancamentos.Count
                 },
@@ -119,39 +121,73 @@ public class AdminStoreController(LanePetsDbContext db, PermissaoService permiss
         catch (Exception ex) { return ErrorApi(ex); }
     }
 
-    /// <summary>Lista de clientes do painel: todo mundo que existe no banco,
-    /// tenha vindo do cadastro do site ou do cadastro feito pela equipe.</summary>
+    /// <summary>
+    /// Lista de clientes do painel: todo mundo que existe no banco, tenha vindo do cadastro do
+    /// site ou do cadastro feito pela equipe. 27/09: paginada e filtrada no servidor (a tela
+    /// Clientes saiu do LaneStore) — busca (nome, e-mail, telefone, endereco no padrao LaneBusca),
+    /// status (ativo|inativo), origem (portal_cliente|cadastro_painel), limite (padrao 12) e offset.
+    /// Os itens tem o mesmo formato do /api/admin/estado, que e o que o sync recebe de volta.
+    /// </summary>
     [HttpGet("clientes")]
-    public async Task<IActionResult> Clientes([FromQuery] string token = "")
+    public async Task<IActionResult> Clientes([FromQuery] string token = "", [FromQuery] string? busca = null,
+        [FromQuery] string? status = null, [FromQuery] string? origem = null,
+        [FromQuery] int limite = ClientesPainelService.PorPaginaClientes, [FromQuery] int offset = 0)
     {
         try
         {
-            await permissoes.ExigirAsync(token, ModulosAdmin.Clientes, AcaoPermissao.Visualizar);
-            var clientes = await db.Clientes.AsNoTracking().OrderBy(c => c.Nome).ToListAsync();
-            var usuarios = await db.UsuariosClientes.AsNoTracking().ToListAsync();
-            var pets = await db.Pets.AsNoTracking().ToListAsync();
-            var agendamentos = await db.Agendamentos.AsNoTracking().ToListAsync();
-            var pedidos = await db.Pedidos.AsNoTracking().ToListAsync();
+            var contexto = await permissoes.ExigirAsync(token, ModulosAdmin.Clientes, AcaoPermissao.Visualizar);
+            return OkApi(await clientesPainel.ListarAsync(contexto, new(busca, status, origem), limite, offset));
+        }
+        catch (Exception ex) { return ErrorApi(ex); }
+    }
 
-            var conta = usuarios.GroupBy(u => u.ClienteId).ToDictionary(g => g.Key, g => g.OrderBy(u => u.CriadoEm).First());
+    /// <summary>Detalhe de um cliente: dados, pets e os 8 agendamentos mais recentes (so o que o usuario pode ver).</summary>
+    [HttpGet("clientes/{id}")]
+    public async Task<IActionResult> DetalheCliente(string id, [FromQuery] string token = "")
+    {
+        try
+        {
+            var contexto = await permissoes.ExigirAsync(token, ModulosAdmin.Clientes, AcaoPermissao.Visualizar);
+            return OkApi(await clientesPainel.DetalheAsync(contexto, id));
+        }
+        catch (Exception ex) { return ErrorApi(ex); }
+    }
 
-            return OkApi(clientes.Select(c => new
-            {
-                id = c.Id,
-                nome = c.Nome,
-                telefone = c.Telefone,
-                endereco = c.Endereco,
-                email = conta.TryGetValue(c.Id, out var u) ? u.Email : "",
-                temConta = conta.ContainsKey(c.Id),
-                criadoEm = conta.TryGetValue(c.Id, out var u2) ? u2.CriadoEm.ToString("O") : "",
-                origem = string.IsNullOrWhiteSpace(c.Origem) ? "cadastro_painel" : c.Origem,
-                status = string.IsNullOrWhiteSpace(c.Status) ? "ativo" : c.Status,
-                observacoes = c.Observacoes,
-                qtdPets = pets.Count(p => p.ClienteId == c.Id),
-                qtdAgendamentos = agendamentos.Count(a => a.ClienteId == c.Id),
-                qtdPedidos = pedidos.Count(p => p.ClienteId == c.Id),
-                pets = pets.Where(p => p.ClienteId == c.Id).Select(p => new { id = p.Id, pet = p.PetNome, tipo = p.Tipo, raca = p.Raca })
-            }));
+    /// <summary>
+    /// 29/09: a equipe entregou o premio do cartao fidelidade na unidade — gasta um cartao completo.
+    /// Exige clientes:editar; sem cartao completo responde 400 (FidelidadeService.SemPremio).
+    /// </summary>
+    [HttpPost("clientes/{id}/fidelidade/resgatar")]
+    public async Task<IActionResult> ResgatarFidelidade(string id, [FromBody] TokenFidelidade corpo)
+    {
+        try
+        {
+            var contexto = await permissoes.ExigirAsync(corpo.Token ?? "", ModulosAdmin.Clientes, AcaoPermissao.Editar);
+            var cartao = await FidelidadeService.ResgatarAsync(db, config, id, contexto.Usuario);
+            var nome = await db.Clientes.AsNoTracking().Where(c => c.Id == id).Select(c => c.Nome).FirstOrDefaultAsync() ?? "";
+            await eventos.RegistrarAsync(new("cliente", "Prêmio de fidelidade entregue", "info", "admin", contexto.Usuario.Id, contexto.Usuario.Email, id,
+                $"{cartao.Premio} · {nome} · {cartao.PremiosDisponiveis} prêmio(s) ainda disponível(is)"), HttpContext);
+            await realtime.NotificarAsync("clientes", "fidelidade", new { id });
+            return OkApi(new { fidelidade = cartao, message = $"Prêmio entregue: {cartao.Premio}." });
+        }
+        catch (Exception ex) { return ErrorApi(ex); }
+    }
+
+    public record TokenFidelidade(string? Token);
+
+    /// <summary>
+    /// Pets do painel (tabela "Pets cadastrados" da tela Clientes), paginados: busca (pet, dono,
+    /// raca, telefone, endereco, tipo), tipo por grupo (Cão / Gato / Outro), limite (padrao 50) e
+    /// offset. Funcionario ve so os pets da unidade dele (PetsVisiveisAsync).
+    /// </summary>
+    [HttpGet("pets")]
+    public async Task<IActionResult> PetsPainel([FromQuery] string token = "", [FromQuery] string? busca = null, [FromQuery] string? tipo = null,
+        [FromQuery] int limite = ListaPaginada.Padrao, [FromQuery] int offset = 0)
+    {
+        try
+        {
+            var contexto = await permissoes.ExigirAsync(token, ModulosAdmin.Pets, AcaoPermissao.Visualizar);
+            return OkApi(await clientesPainel.ListarPetsAsync(contexto, busca, tipo, limite, offset));
         }
         catch (Exception ex) { return ErrorApi(ex); }
     }
@@ -163,67 +199,11 @@ public class AdminStoreController(LanePetsDbContext db, PermissaoService permiss
     // banco como unica fonte de verdade.
     // =======================================================================
 
-    private static object ParaPainel(Agendamento a, IReadOnlyDictionary<string, string>? responsaveis = null) => new
-    {
-        id = a.Id,
-        unidade = UnidadePainel(a.Unidade),
-        pet = a.Pet,
-        dono = a.Dono,
-        telefone = a.Telefone,
-        dataHora = a.DataHora,
-        servicos = Json(a.ServicosJson),
-        total = a.Total,
-        // A tela trabalha com um "sim/nao" de transporte; o banco guarda a
-        // descricao ("Busca e entrega", "Cliente leva"). Os dois vao juntos.
-        transporte = TemTransporte(a.Transporte, a.ValorTransporte),
-        transporteDescricao = a.Transporte,
-        valorTransporte = a.ValorTransporte,
-        status = StatusAgendamento.Exibir(a.Status),
-        responsavelId = a.ResponsavelId,
-        responsavelNome = a.ResponsavelId.Length > 0 && responsaveis is not null && responsaveis.TryGetValue(a.ResponsavelId, out var resp) ? resp : "",
-        pagamentoStatus = string.IsNullOrWhiteSpace(a.PagamentoStatus) ? "A pagar" : a.PagamentoStatus,
-        formaPagamento = a.FormaPagamento,
-        obs = a.Obs,
-        clienteId = a.ClienteId,
-        petId = a.PetId
-    };
+    private static object ParaPainel(Agendamento a, IReadOnlyDictionary<string, string>? responsaveis = null) => FormatoPainel.Agendamento(a, responsaveis);
 
-    private static object ParaPainel(Pet p) => new
-    {
-        id = p.Id,
-        dono = p.Dono,
-        pet = p.PetNome,
-        tipo = p.Tipo,
-        raca = p.Raca,
-        telefone = p.Telefone,
-        endereco = p.Endereco,
-        unidade = UnidadePainel(p.Unidade),
-        pacote = JsonObjeto(p.PacoteJson),
-        clienteId = p.ClienteId,
-        // Campos da ficha que a area do cliente ja gravava e que o painel
-        // precisa para mostrar o pet nos detalhes do agendamento. Acrescimo
-        // SOMENTE de leitura: AtualizarPet nao escreve nenhum deles, entao
-        // salvar um pet pelo painel continua sem poder apaga-los.
-        fotoUrl = p.FotoUrl,
-        sexo = p.Sexo,
-        dataNascimento = p.DataNascimento,
-        peso = p.Peso,
-        cor = p.Cor,
-        porte = p.Porte,
-        observacoes = p.Observacoes,
-        necessidadesEspeciais = p.NecessidadesEspeciais
-    };
+    private static object ParaPainel(Pet p) => FormatoPainel.Pet(p);
 
-    private static object ParaPainel(Servico s) => new
-    {
-        id = s.Id,
-        nome = s.Nome,
-        preco = s.Preco,
-        porte = s.Porte,
-        adicionais = Json(s.AdicionaisJson),
-        pacote = s.Pacote,
-        adicional = s.Adicional
-    };
+    private static object ParaPainel(Servico s) => FormatoPainel.Servico(s);
 
     private static object ParaPainel(Produto p) => new
     {
@@ -260,38 +240,6 @@ public class AdminStoreController(LanePetsDbContext db, PermissaoService permiss
     /// (Normalizador.RegistrarUnidades), entao unidade nova funciona aqui sem mudar codigo.
     /// </summary>
     private static string UnidadePainel(string? valor) => Normalizador.IdUnidade(valor);
-
-    /// <summary>
-    /// A tela trabalha com um sim/nao. O banco tem historico gravado de duas
-    /// formas: como descricao ("Busca e entrega") e, nos registros importados
-    /// do navegador, como o texto "True"/"False". As duas sao aceitas aqui.
-    /// </summary>
-    private static bool TemTransporte(string? descricao, decimal valor)
-    {
-        if (valor > 0) return true;
-        var texto = Normalizador.Texto(descricao);
-        return !SemTransporte.Contains(texto);
-    }
-
-    /// <summary>Pacote do pet: sempre objeto (vazio = {}). Devolver [] fazia o painel
-    /// marcar "ativo" num array, que o JSON.stringify descarta — o pacote nunca gravava.</summary>
-    private static object JsonObjeto(string? bruto)
-    {
-        if (string.IsNullOrWhiteSpace(bruto)) return new { };
-        try
-        {
-            var valor = JsonSerializer.Deserialize<JsonElement>(bruto);
-            return valor.ValueKind == JsonValueKind.Object ? valor : new { };
-        }
-        catch { return new { }; }
-    }
-
-    private static object Json(string? bruto)
-    {
-        if (string.IsNullOrWhiteSpace(bruto)) return Array.Empty<object>();
-        try { return JsonSerializer.Deserialize<JsonElement>(bruto); }
-        catch { return Array.Empty<object>(); }
-    }
 
     // =======================================================================
     // ESCRITA — somente o que mudou

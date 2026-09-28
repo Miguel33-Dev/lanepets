@@ -64,9 +64,10 @@ public class SegurosAvaliacoesEventosTests(LanePetsApp app)
     public async Task Avaliacao_enviada_e_moderada_registra_eventos()
     {
         var api = app.Api();
-        await api.CadastrarCliente(nome: "Cliente Teste", pet: "Rex");
+        var (_, petId) = await api.ClienteComPet(nome: "Cliente Teste", pet: "Rex");
         var comentario = "Atendimento ótimo " + Guid.NewGuid().ToString("N");
-        var enviada = await api.Post("/api/public/depoimentos", new { nome = "Cliente Teste", telefone = "(11) 98765-4321", pet = "Rex", avaliacao = 5, comentario });
+        // 26/09: avaliar so pela conta (o POST anonimo do site foi removido).
+        var enviada = await api.Post("/api/cliente/avaliacoes", new { petId, avaliacao = 5, comentario });
         Assert.True(enviada.Codigo == 200, $"Enviar avaliação falhou: {enviada}");
         var depoimentoId = await app.NoBanco(db => Task.FromResult(db.Depoimentos.Single(d => d.Comentario == comentario).Id));
 
@@ -75,14 +76,12 @@ public class SegurosAvaliacoesEventosTests(LanePetsApp app)
         Assert.True(r.Codigo == 200, $"Moderar falhou: {r}");
 
         var eventos = await Eventos(depoimentoId);
-        var aprovada = Assert.Single(eventos);
-        Assert.Equal("Avaliação aprovada", aprovada.Acao);
+        var envio = Assert.Single(eventos, e => e.Acao == "Avaliação enviada");
+        Assert.Equal("avaliacao", envio.Categoria);
+        Assert.Equal("cliente", envio.Origem);
+        Assert.DoesNotContain("98765", envio.Detalhes);                 // nunca telefone no log
+        var aprovada = Assert.Single(eventos, e => e.Acao == "Avaliação aprovada");
         Assert.Equal("avaliacao", aprovada.Categoria);
         Assert.Contains("Pendente → Aprovado", aprovada.Detalhes);
-
-        var envio = await app.NoBanco(db => Task.FromResult(
-            db.EventosLog.Where(e => e.Acao == "Avaliação enviada pelo site" && e.Origem == "publico").ToList()));
-        Assert.NotEmpty(envio);
-        Assert.DoesNotContain(envio, e => e.Detalhes.Contains("98765"));
     }
 }

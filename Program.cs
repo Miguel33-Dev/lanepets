@@ -7,6 +7,23 @@ using Microsoft.EntityFrameworkCore;
 var builder = WebApplication.CreateBuilder(args);
 
 // ---------------------------------------------------------------------------
+// 29/09: HOSPEDAGEM (Railway, Render, Docker)
+// - PORT: a plataforma diz em qual porta escutar; sem PORT vale ASPNETCORE_HTTP_PORTS / launchSettings.
+// - Atras do proxy da plataforma o HTTPS termina antes do app: X-Forwarded-Proto/For dizem o
+//   esquema e o IP reais (HSTS, redirecionamento e o IP do Log de eventos ficam certos).
+// - Em producao, sem LanePets:Demo=true, as senhas de exemplo nao sobem (Hospedagem.ConferirSegredos).
+// ---------------------------------------------------------------------------
+if (Environment.GetEnvironmentVariable("PORT") is { Length: > 0 } portaDaPlataforma && int.TryParse(portaDaPlataforma, out var porta))
+    builder.WebHost.UseUrls($"http://0.0.0.0:{porta}");
+builder.Services.Configure<Microsoft.AspNetCore.Builder.ForwardedHeadersOptions>(o =>
+{
+    o.ForwardedHeaders = Microsoft.AspNetCore.HttpOverrides.ForwardedHeaders.XForwardedFor | Microsoft.AspNetCore.HttpOverrides.ForwardedHeaders.XForwardedProto;
+    o.KnownIPNetworks.Clear();   // o proxy da plataforma nao tem IP fixo
+    o.KnownProxies.Clear();
+});
+Hospedagem.ConferirSegredos(builder.Configuration, builder.Environment);
+
+// ---------------------------------------------------------------------------
 // BANCO DE DADOS — UM SO
 //
 // O projeto tinha dois bancos: petshop.db (area MVC legada, com Views Razor e
@@ -53,6 +70,12 @@ builder.Services.AddSingleton(sp => new RegistroErros(
     Path.Combine(Path.GetDirectoryName(Path.GetFullPath(caminhoDoBanco)) ?? ".", "logs"),
     sp.GetRequiredService<ILogger<RegistroErros>>()));
 
+// 28/09: e-mail (codigo de recuperacao de senha). Sem SMTP configurado, grava em
+// <pasta do lanepets.db>/emails/ — a caixa de saida de desenvolvimento.
+builder.Services.AddSingleton(sp => new EmailService(sp.GetRequiredService<IConfiguration>(),
+    Path.Combine(Path.GetDirectoryName(Path.GetFullPath(caminhoDoBanco)) ?? ".", "emails"),
+    sp.GetRequiredService<ILogger<EmailService>>()));
+
 builder.Services.AddDbContext<LanePetsDbContext>(options =>
     options.UseSqlite(DatabaseBootstrap.MontarConnectionString(caminhoDoBanco)));
 
@@ -64,9 +87,17 @@ builder.Services.AddScoped<SeedService>();
 builder.Services.AddScoped<PermissaoService>();
 // Item 11.5: gravacao do painel (POST /api/admin/sync/{colecao}). Scoped: guarda o autor da requisicao.
 builder.Services.AddScoped<SyncPainelService>();
+builder.Services.AddScoped<ClientesPainelService>();   // 27/09: tela Clientes sem o estado inteiro
+builder.Services.AddScoped<AgendaPainelService>();     // 27/09: tela Agendamentos sem o estado inteiro
 
 // Log de eventos (item 15 do roadmap): singleton que grava com DbContext proprio.
 builder.Services.AddSingleton<EventosService>();
+
+// Cobranca mensal do Seguro Pet (26/09): gera a mensalidade que venceu, de hora em hora.
+builder.Services.AddHostedService<CobrancaMensalSeguroWorker>();
+// Retencao do Log de eventos (26/09): apaga eventos com mais de 12 meses, uma vez por dia.
+builder.Services.AddHostedService<RetencaoLogWorker>();
+builder.Services.AddHostedService<LembreteAgendamentoWorker>();   // 28/09: lembrete da vespera por e-mail
 
 // Canal de tempo real do painel administrativo.
 builder.Services.AddSignalR();
@@ -94,6 +125,7 @@ builder.Services.AddCors(options => options.AddDefaultPolicy(policy => policy
     .AllowCredentials()));
 
 var app = builder.Build();
+app.Services.GetRequiredService<EmailService>().AnunciarModo();   // 29/09: mostra no console se o e-mail sai por SMTP ou .txt
 
 // ---------------------------------------------------------------------------
 // Inicializacao do banco
@@ -122,11 +154,18 @@ using (var scope = app.Services.CreateScope())
         await scope.ServiceProvider.GetRequiredService<SeedService>().SeedAsync();
         // Item 5: lista de unidades dinamica (Normalizador) montada a partir da tabela.
         await UnidadesRegras.RecarregarAsync(scope.ServiceProvider.GetRequiredService<LanePetsDbContext>());
+        // 26/09: unidade gravada pelo nome ("Franco da Rocha") passa a ser o id ("franco"). Idempotente.
+        var unidadesUnificadas = await UnidadesRegras.UnificarGravadasPeloNomeAsync(scope.ServiceProvider.GetRequiredService<LanePetsDbContext>());
+        if (unidadesUnificadas > 0) logger.LogInformation("LanePets: {Total} registro(s) com a unidade gravada pelo nome passaram a usar o id.", unidadesUnificadas);
         // Item 19: indices nas colunas de vinculo (CREATE INDEX IF NOT EXISTS).
         await BancoService.CriarIndicesAsync(scope.ServiceProvider.GetRequiredService<LanePetsDbContext>(), logger);
         // Item 8: cria os pagamentos dos agendamentos, pedidos e seguros que ainda nao tem.
         var pagamentosCriados = await PagamentosService.ReconciliarAsync(scope.ServiceProvider.GetRequiredService<LanePetsDbContext>());
         if (pagamentosCriados > 0) logger.LogInformation("LanePets: {Total} pagamento(s) criados/atualizados a partir dos registros existentes.", pagamentosCriados);
+        // Retencao do Log (26/09): o backup da subida ja foi feito antes daqui.
+        var eventosApagados = await RetencaoEventos.ExecutarAsync(scope.ServiceProvider.GetRequiredService<LanePetsDbContext>(),
+            app.Services.GetRequiredService<EventosService>(), DateTime.UtcNow);
+        if (eventosApagados > 0) logger.LogInformation("LanePets: retenção do Log removeu {Total} evento(s) com mais de {Meses} meses.", eventosApagados, RetencaoEventos.Meses);
         logger.LogInformation("LanePets: banco pronto em {Caminho}.", caminhoDoBanco);
     }
     catch (Exception ex)
@@ -143,6 +182,8 @@ app.Lifetime.ApplicationStopped.Register(() => DatabaseBootstrap.Encerrar(caminh
 // ---------------------------------------------------------------------------
 // Pipeline
 // ---------------------------------------------------------------------------
+app.UseForwardedHeaders();   // 29/09: antes de tudo (ver HOSPEDAGEM no topo)
+
 if (app.Environment.IsDevelopment())
 {
     app.UseDeveloperExceptionPage();

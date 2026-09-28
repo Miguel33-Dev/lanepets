@@ -53,6 +53,7 @@ public class UnidadesController(LanePetsDbContext db, PermissaoService permissoe
                     u.Ativa,
                     capacidade = UnidadesRegras.CapacidadeDe(u),
                     servicos = UnidadesRegras.Servicos(u),
+                    u.ConfirmacaoAutomatica,
                     funcionarios = funcionarios.Where(f => f.Unidade == u.Id).Select(f => new { f.Id, nome = string.IsNullOrWhiteSpace(f.Nome) ? f.Email : f.Nome, f.Email, f.Ativo }),
                     agendamentosFuturos = futuros.TryGetValue(u.Id, out var n) ? n : 0
                 }),
@@ -88,6 +89,7 @@ public class UnidadesController(LanePetsDbContext db, PermissaoService permissoe
                     u.Ativa,
                     capacidade = UnidadesRegras.CapacidadeDe(u),
                     servicos = UnidadesRegras.Servicos(u),
+                    u.ConfirmacaoAutomatica,
                     funcionarios = funcionarios.Where(f => f.Unidade == u.Id).Select(f => new { f.Id, f.Nome })
                 })
             });
@@ -110,7 +112,7 @@ public class UnidadesController(LanePetsDbContext db, PermissaoService permissoe
             await UnidadesRegras.RecarregarAsync(db);
 
             await eventos.RegistrarAsync(new("unidade", "Unidade criada", "info", "admin", contexto.Usuario.Id, contexto.Usuario.Email,
-                unidade.Id, $"{unidade.Nome} · capacidade {unidade.Capacidade} por horário"), HttpContext);
+                unidade.Id, $"{Resumo(unidade)} por horário"), HttpContext);
             await realtime.NotificarAsync("unidades", "criada", new { unidade.Id, unidade.Nome });
             return OkApi(new { unidade.Id, message = "Unidade cadastrada." });
         }
@@ -126,13 +128,13 @@ public class UnidadesController(LanePetsDbContext db, PermissaoService permissoe
             var unidade = await db.Unidades.FirstOrDefaultAsync(u => u.Id == id) ?? throw new Exception("Unidade não encontrada.");
             var dados = await ValidarAsync(req, unidade.Id);
 
-            var antes = $"{unidade.Nome} · capacidade {unidade.Capacidade}";
+            var antes = Resumo(unidade);
             Aplicar(unidade, dados);
             await db.SaveChangesAsync();
             await UnidadesRegras.RecarregarAsync(db);
 
             await eventos.RegistrarAsync(new("unidade", "Unidade alterada", "info", "admin", contexto.Usuario.Id, contexto.Usuario.Email,
-                unidade.Id, $"De [{antes}] para [{unidade.Nome} · capacidade {unidade.Capacidade}]"), HttpContext);
+                unidade.Id, $"De [{antes}] para [{Resumo(unidade)}]"), HttpContext);
             await realtime.NotificarAsync("unidades", "alterada", new { unidade.Id, unidade.Nome });
             return OkApi(new { unidade.Id, message = "Unidade atualizada." });
         }
@@ -177,7 +179,9 @@ public class UnidadesController(LanePetsDbContext db, PermissaoService permissoe
     }
 
     // -----------------------------------------------------------------------
-    private record Dados(string Nome, string Endereco, string Telefone, string Horario, int Capacidade, List<string> Servicos);
+    private record Dados(string Nome, string Endereco, string Telefone, string Horario, int Capacidade, List<string> Servicos, bool? ConfirmacaoAutomatica);
+
+    private static string Resumo(Unidade u) => $"{u.Nome} · capacidade {u.Capacidade} · confirmação automática {(u.ConfirmacaoAutomatica ? "ligada" : "desligada")}";
 
     private async Task<Dados> ValidarAsync(UnidadeRequest req, string? idAtual)
     {
@@ -210,7 +214,7 @@ public class UnidadesController(LanePetsDbContext db, PermissaoService permissoe
             if (faltando.Count > 0) throw new Exception("Um ou mais serviços escolhidos não existem mais. Atualize a página.");
         }
 
-        return new Dados(nome, endereco, telefone, horario, capacidade, pedidos);
+        return new Dados(nome, endereco, telefone, horario, capacidade, pedidos, req.ConfirmacaoAutomatica);
     }
 
     private static void Aplicar(Unidade u, Dados d)
@@ -221,6 +225,8 @@ public class UnidadesController(LanePetsDbContext db, PermissaoService permissoe
         u.HorarioFuncionamento = d.Horario;
         u.Capacidade = d.Capacidade;
         u.ServicosJson = JsonSerializer.Serialize(d.Servicos);
+        // Ausente no pedido (tela antiga, script) = mantem como esta.
+        if (d.ConfirmacaoAutomatica is { } auto) u.ConfirmacaoAutomatica = auto;
     }
 
     /// <summary>Id curto a partir do nome ("Jundiaí Centro" -> "jundiai-centro"), sem repetir.</summary>
@@ -245,6 +251,6 @@ public class UnidadesController(LanePetsDbContext db, PermissaoService permissoe
             .Count(a => Normalizador.Status(a.Status) != "Cancelado" && Normalizador.IdUnidade(a.Unidade) == unidadeId);
     }
 
-    public record UnidadeRequest(string? Token, string? Nome, string? Endereco, string? Telefone, string? HorarioFuncionamento, int? Capacidade, List<string>? Servicos);
+    public record UnidadeRequest(string? Token, string? Nome, string? Endereco, string? Telefone, string? HorarioFuncionamento, int? Capacidade, List<string>? Servicos, bool? ConfirmacaoAutomatica = null);
     public record AtivaRequest(string? Token, bool Ativa);
 }

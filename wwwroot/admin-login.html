@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>LanePets | Acesso Administrativo</title>
-  <link rel="stylesheet" href="auth.css?v=4">
+  <link rel="stylesheet" href="auth.css?v=5">
 <script src="js/marca-unidades.js?v=1" defer></script>
 </head>
 <body class="lp-auth lp-auth--admin">
@@ -24,6 +24,7 @@
     </a>
 
     <main class="lp-card" id="cartao">
+      <div class="lp-painel is-ativo" id="painel-login">
       <span class="lp-badge lp-badge--admin">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
         Área restrita
@@ -34,6 +35,11 @@
 
       <p class="lp-alert lp-alert--erro" id="aviso" role="alert" aria-live="assertive">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5"/><path d="M12 16.2h.01"/></svg>
+        <span></span>
+      </p>
+
+      <p class="lp-alert lp-alert--ok" id="info" role="status" aria-live="polite">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5.5"/><path d="M12 7.7h.01"/></svg>
         <span></span>
       </p>
 
@@ -49,7 +55,7 @@
         </div>
 
         <div class="lp-field">
-          <div class="lp-field__topo"><label for="senha">Senha administrativa</label></div>
+          <div class="lp-field__topo"><label for="senha">Senha administrativa</label><a class="lp-field__link" href="#recuperar" id="esqueci">Esqueceu a senha?</a></div>
           <div class="lp-input">
             <svg class="lp-input__icone" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
             <input id="senha" type="password" autocomplete="current-password" placeholder="••••••••" required>
@@ -67,7 +73,90 @@
         </button>
       </form>
 
-      <p class="lp-dica">Credenciais de teste — <b>admin@gmail.com</b> · senha <b>123456</b></p>
+      <!-- 29/09: vitrine — so aparece com LanePets:Visitante=true (GET /api/health) -->
+      <button class="lp-btn lp-btn--verde" type="button" id="entrar-visitante" style="margin-top:12px;display:none">
+        <span class="lp-spin" aria-hidden="true"></span>
+        <span class="lp-btn__texto">Entrar como visitante (só leitura)</span>
+      </button>
+
+      <p class="lp-dica" id="dica-demo" hidden>Credenciais de teste — <b>admin@gmail.com</b> · senha <b>123456</b></p>
+      </div>
+
+      <!-- ---------- 29/09: esqueci a senha do painel (mesmas regras da area do cliente) ---------- -->
+      <div class="lp-painel" id="painel-recuperar">
+        <span class="lp-badge lp-badge--admin">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
+          Recuperar acesso
+        </span>
+
+        <h1>Esqueceu a senha?</h1>
+        <p class="lp-card__sub" id="rec-sub">Informe o e-mail do seu acesso administrativo. Enviaremos um código de 6 dígitos para você criar uma nova senha.</p>
+
+        <p class="lp-alert lp-alert--erro" id="rec-aviso" role="alert" aria-live="assertive">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5"/><path d="M12 16.2h.01"/></svg>
+          <span></span>
+        </p>
+        <p class="lp-alert lp-alert--ok" id="rec-info" role="status" aria-live="polite">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5.5"/><path d="M12 7.7h.01"/></svg>
+          <span></span>
+        </p>
+
+        <form id="form-rec-pedir" novalidate>
+          <div class="lp-field">
+            <div class="lp-field__topo"><label for="rec-email">E-mail</label></div>
+            <div class="lp-input">
+              <svg class="lp-input__icone" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3.5 7 8.5 6 8.5-6"/></svg>
+              <input id="rec-email" type="email" autocomplete="username" placeholder="seuemail@lanepets.com">
+            </div>
+            <span class="lp-field__msg"></span>
+          </div>
+          <button class="lp-btn lp-btn--primario" type="submit" id="rec-enviar">
+            <span class="lp-spin" aria-hidden="true"></span>
+            <span class="lp-btn__texto">Enviar código</span>
+          </button>
+        </form>
+
+        <form id="form-rec-trocar" novalidate hidden style="display:none">
+          <div class="lp-field">
+            <div class="lp-field__topo"><label for="rec-codigo">Código recebido</label><a class="lp-field__link" href="#recuperar" id="rec-reenviar">Enviar outro código</a></div>
+            <div class="lp-input">
+              <svg class="lp-input__icone" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h10"/></svg>
+              <input id="rec-codigo" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="000000">
+            </div>
+            <span class="lp-field__msg"></span>
+          </div>
+            <div class="lp-field">
+              <div class="lp-field__topo"><label for="rec-senha">Nova senha</label></div>
+              <div class="lp-input">
+                <svg class="lp-input__icone" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
+                <input id="rec-senha" type="password" autocomplete="new-password" minlength="8" placeholder="Mín. 8, com letra e número">
+                <button class="lp-input__acao" type="button" data-alvo="#rec-senha" aria-label="Mostrar senha" aria-pressed="false">
+                  <svg class="lp-olho-on" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.8-6.5 10-6.5S22 12 22 12s-3.8 6.5-10 6.5S2 12 2 12Z"/><circle cx="12" cy="12" r="2.6"/></svg>
+                  <svg class="lp-olho-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3l18 18"/><path d="M10.6 6.2A9.6 9.6 0 0 1 12 6c6.2 0 10 6 10 6a17 17 0 0 1-3.3 3.9"/><path d="M6.3 8.1C3.6 9.8 2 12 2 12s3.8 6.5 10 6.5c1.4 0 2.7-.3 3.8-.8"/><path d="M9.6 9.8a2.6 2.6 0 0 0 3.6 3.6"/></svg>
+                </button>
+              </div>
+              <span class="lp-field__msg"></span>
+            </div>
+            <div class="lp-field">
+              <div class="lp-field__topo"><label for="rec-senha2">Confirmar nova senha</label></div>
+              <div class="lp-input">
+                <svg class="lp-input__icone" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
+                <input id="rec-senha2" type="password" autocomplete="new-password" placeholder="Repita a nova senha">
+                <button class="lp-input__acao" type="button" data-alvo="#rec-senha2" aria-label="Mostrar senha" aria-pressed="false">
+                  <svg class="lp-olho-on" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.8-6.5 10-6.5S22 12 22 12s-3.8 6.5-10 6.5S2 12 2 12Z"/><circle cx="12" cy="12" r="2.6"/></svg>
+                  <svg class="lp-olho-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3l18 18"/><path d="M10.6 6.2A9.6 9.6 0 0 1 12 6c6.2 0 10 6 10 6a17 17 0 0 1-3.3 3.9"/><path d="M6.3 8.1C3.6 9.8 2 12 2 12s3.8 6.5 10 6.5c1.4 0 2.7-.3 3.8-.8"/><path d="M9.6 9.8a2.6 2.6 0 0 0 3.6 3.6"/></svg>
+                </button>
+              </div>
+              <span class="lp-field__msg"></span>
+            </div>
+          <button class="lp-btn lp-btn--primario" type="submit" id="rec-trocar">
+            <span class="lp-spin" aria-hidden="true"></span>
+            <span class="lp-btn__texto">Redefinir senha</span>
+          </button>
+        </form>
+
+        <p class="lp-card__foot">Lembrou a senha? <a href="#login" id="rec-voltar">Voltar para o login</a></p>
+      </div>
     </main>
 
     <a class="lp-voltar" href="cliente.html">
@@ -78,7 +167,7 @@
 
   <script src="js/config.js"></script>
   <script src="js/http.js"></script>
-  <script src="js/auth-ui.js?v=3"></script>
+  <script src="js/auth-ui.js?v=5"></script>
   <script>
   (function () {
     const UI = window.LanePetsAuthUI;
@@ -129,6 +218,7 @@
       event.preventDefault();
       UI.limpar(form);
       UI.alerta('#aviso', '');
+      UI.alerta('#info', '');
 
       const valEmail = email.value.trim();
       let valido = true;
@@ -144,13 +234,7 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ email: valEmail, senha: senha.value })
         });
-        sessionStorage.setItem('lanePetsAuthToken', data.token);
-        /* O administrador vai direto para o painel — nunca para a área do cliente.
-           PARA QUAL pagina do painel depende do que ele pode ver: mandar todo
-           mundo para index.html jogaria um usuario que so tem Produtos direto
-           na tela de "acesso negado" no primeiro login. */
-        UI.carregando(botao, true, 'Acesso liberado…');
-        location.href = primeiraPaginaPermitida(data.permissoes);
+        concluirEntrada(data, botao);
       } catch (erro) {
         UI.carregando(botao, false);
         UI.alerta('#aviso', erro.message || 'Não foi possível entrar. Tente novamente.');
@@ -160,7 +244,113 @@
       }
     });
 
-    email.focus();
+    function concluirEntrada(data, botaoUsado) {
+      sessionStorage.setItem('lanePetsAuthToken', data.token);
+      /* O administrador vai direto para o painel — nunca para a área do cliente.
+         PARA QUAL pagina do painel depende do que ele pode ver: mandar todo
+         mundo para index.html jogaria um usuario que so tem Produtos direto
+         na tela de "acesso negado" no primeiro login. */
+      UI.carregando(botaoUsado, true, 'Acesso liberado…');
+      location.href = primeiraPaginaPermitida(data.permissoes);
+    }
+
+    /* 29/09: "Entrar como visitante" (so leitura, sem senha) — vitrine com LanePets:Visitante=true. */
+    $('#entrar-visitante').addEventListener('click', async () => {
+      const b = $('#entrar-visitante');
+      UI.alerta('#aviso', '');
+      UI.carregando(b, true, 'Entrando…');
+      try {
+        concluirEntrada(await LanePetsHttp.request('login/visitante', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' }), b);
+      } catch (erro) {
+        UI.carregando(b, false);
+        UI.alerta('#aviso', erro.message || 'Não foi possível entrar como visitante.');
+      }
+    });
+
+    /* ---------- 29/09: esqueci a senha do painel ---------- */
+    const formPedir = $('#form-rec-pedir'), formTrocar = $('#form-rec-trocar');
+    const senhaValida = v => v.length >= 8 && /\p{L}/u.test(v) && /\d/.test(v) && v.trim() === v;
+    UI.ligarOlhos(formTrocar);
+    UI.ligarCampos(formPedir);
+    UI.ligarCampos(formTrocar);
+
+    function mostrarPainel(nome) {
+      document.querySelectorAll('.lp-painel').forEach(p => p.classList.toggle('is-ativo', p.id === 'painel-' + nome));
+      ['#aviso', '#info', '#rec-aviso', '#rec-info'].forEach(id => UI.alerta(id, ''));
+    }
+    function etapa(nome) {
+      mostrarPainel('recuperar');
+      const trocar = nome === 'trocar';
+      formPedir.hidden = trocar;  formPedir.style.display = trocar ? 'none' : '';
+      formTrocar.hidden = !trocar; formTrocar.style.display = trocar ? '' : 'none';
+      $('#rec-sub').textContent = trocar
+        ? `Digite o código enviado para ${$('#rec-email').value.trim()} e escolha a nova senha.`
+        : 'Informe o e-mail do seu acesso administrativo. Enviaremos um código de 6 dígitos para você criar uma nova senha.';
+      (trocar ? $('#rec-codigo') : $('#rec-email')).focus();
+    }
+    const post = (rota, corpo) => LanePetsHttp.request(rota, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(corpo) });
+
+    $('#esqueci').addEventListener('click', e => {
+      e.preventDefault();
+      if (email.value.trim() && !$('#rec-email').value) $('#rec-email').value = email.value.trim();
+      etapa('pedir');
+    });
+    $('#rec-voltar').addEventListener('click', e => { e.preventDefault(); mostrarPainel('login'); email.focus(); });
+    $('#rec-reenviar').addEventListener('click', e => { e.preventDefault(); etapa('pedir'); });
+    $('#rec-codigo').addEventListener('input', e => { e.target.value = e.target.value.replace(/\D/g, '').slice(0, 6); });
+
+    formPedir.addEventListener('submit', async event => {
+      event.preventDefault();
+      UI.limpar(formPedir);
+      UI.alerta('#rec-aviso', '');
+      const campo = $('#rec-email'), valor = campo.value.trim();
+      if (!UI.EMAIL_RE.test(valor)) { UI.erro(campo, 'Digite um e-mail válido.'); return; }
+      UI.carregando('#rec-enviar', true, 'Enviando…');
+      try {
+        const d = await post('admin/senha/esqueci', { email: valor });
+        etapa('trocar');
+        UI.alerta('#rec-info', d.message || 'Se o e-mail estiver cadastrado, enviamos o código.');
+      } catch (erro) {
+        console.error('[LanePets] Falha ao pedir o código de recuperação do painel:', erro);
+        UI.alerta('#rec-aviso', erro.message || 'Não foi possível enviar o código.');
+      } finally { UI.carregando('#rec-enviar', false); }
+    });
+
+    formTrocar.addEventListener('submit', async event => {
+      event.preventDefault();
+      UI.limpar(formTrocar);
+      UI.alerta('#rec-aviso', '');
+      const cCodigo = $('#rec-codigo'), cSenha = $('#rec-senha'), cSenha2 = $('#rec-senha2');
+      let valido = true;
+      if (!/^\d{6}$/.test(cCodigo.value)) valido = UI.erro(cCodigo, 'O código tem 6 dígitos.');
+      if (!senhaValida(cSenha.value)) valido = UI.erro(cSenha, 'Mínimo de 8 caracteres, com letra e número.');
+      if (cSenha2.value !== cSenha.value) valido = UI.erro(cSenha2, 'As senhas não conferem.');
+      if (!valido) { UI.alerta('#rec-aviso', 'Revise os campos destacados para continuar.'); return; }
+      UI.carregando('#rec-trocar', true, 'Salvando…');
+      try {
+        const d = await post('admin/senha/redefinir', {
+          email: $('#rec-email').value.trim(), codigo: cCodigo.value, novaSenha: cSenha.value, confirmarSenha: cSenha2.value });
+        formTrocar.reset();
+        mostrarPainel('login');
+        email.value = d.email || $('#rec-email').value.trim();
+        senha.value = '';
+        UI.alerta('#info', d.message || 'Senha redefinida. Entre com a nova senha.');
+        senha.focus();
+      } catch (erro) {
+        console.error('[LanePets] Falha ao redefinir a senha do painel:', erro);
+        UI.alerta('#rec-aviso', erro.message || 'Não foi possível redefinir a senha.');
+        if (/c[oó]digo/i.test(erro.message || '')) { UI.erro(cCodigo, 'Confira o código.'); cCodigo.select(); }
+      } finally { UI.carregando('#rec-trocar', false); }
+    });
+
+    /* 29/09: credenciais de teste so no modo demonstracao (local ou LanePets:Demo=true). No ar de verdade, somem. */
+    fetch('/api/health').then(r => r.json()).then(c => {
+      if (c && c.data && c.data.demo) $('#dica-demo').hidden = false;
+      if (c && c.data && c.data.visitante) $('#entrar-visitante').style.display = '';   // .lp-btn tem display proprio: [hidden] nao basta
+    }).catch(() => {});
+
+    if (location.hash === '#recuperar') etapa('pedir'); else email.focus();
   })();
   </script>
 </body>

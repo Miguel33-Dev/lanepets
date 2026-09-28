@@ -1,16 +1,16 @@
 /* =============================================================================
    LanePets — Clientes (painel administrativo).
 
-   Esta camada e SO de apresentacao. A origem dos dados continua exatamente a
-   mesma de antes:
+   27/09: a tela saiu do LaneStore (que baixava o painel inteiro pelo
+   /api/admin/estado). Agora:
 
-       lanepets.db  ->  GET /api/admin/estado  ->  ponte admin-store.js  ->  tela
-       tela         ->  POST /api/admin/sync/<lista>  ->  lanepets.db
+       lanepets.db  ->  GET /api/admin/clientes (12 por pagina, filtros no servidor)  ->  lista
+       lanepets.db  ->  GET /api/admin/clientes/{id}                                  ->  detalhe
+       tela         ->  POST /api/admin/sync/clientes (o mesmo de sempre)             ->  lanepets.db
 
-   Nenhum numero desta tela e inventado: todos saem das listas "clientes",
-   "pets" e "agendamentos" que a ponte entrega, e dos campos que a API ja
-   devolve por cliente (qtdPets, qtdAgendamentos, qtdPedidos, criadoEm,
-   status, origem, temConta).
+   Nenhum numero desta tela e inventado: os cartoes vem do bloco "resumo" do
+   servidor e as contagens por cliente (qtdPets, qtdAgendamentos, qtdPedidos)
+   sao calculadas la, so com o que o usuario pode ver.
    ============================================================================= */
 (function () {
   'use strict';
@@ -22,19 +22,19 @@
     status: '',        /* '', 'ativo', 'inativo' */
     origem: '',        /* '', 'portal_cliente', 'cadastro_painel' */
     pagina: 1,
-    carregando: true
+    carregando: true,
+    erro: '',
+    itens: [],       /* clientes da pagina atual (formato do sync) */
+    total: 0,        /* total no filtro atual */
+    resumo: null     /* cartoes: base inteira */
   };
+  var geracao = 0;   /* descarta resposta antiga quando o filtro muda no meio da busca */
 
   var pedidosPorCliente = null;   /* preenchido sob demanda, via API de pedidos */
 
   /* ----------------------------------------------------------------- */
   /* Utilidades                                                         */
   /* ----------------------------------------------------------------- */
-  function lista(chave) {
-    try { return LaneStore.obter(chave); }
-    catch (e) { return []; }
-  }
-
   function esc(valor) {
     var d = document.createElement('div');
     d.textContent = valor === null || valor === undefined ? '' : String(valor);
@@ -110,44 +110,50 @@
   /* ----------------------------------------------------------------- */
   /* Filtros                                                            */
   /* ----------------------------------------------------------------- */
-  function todos() { return lista('clientes'); }
+  function item(id) {
+    return estado.itens.filter(function (c) { return c.id === id; })[0] || null;
+  }
 
-  function filtrados() {
-    var termo = normal(estado.busca);
-    return todos().filter(function (c) {
-      if (estado.status && statusDe(c) !== estado.status) return false;
-      if (estado.origem) {
-        var o = c.origem === 'portal_cliente' ? 'portal_cliente' : 'cadastro_painel';
-        if (o !== estado.origem) return false;
-      }
-      if (!termo) return true;
-      /* Item 16: padrao LaneBusca (varias palavras, digitos do telefone). */
-      if (window.LaneBusca) return window.LaneBusca.combina(estado.busca, [c.nome, c.email, c.telefone, c.endereco]);
-      return [c.nome, c.email, c.telefone, c.endereco].some(function (v) {
-        return normal(v).indexOf(termo) !== -1;
-      });
+  function carregar() {
+    var minha = ++geracao;
+    sincronizarUrl();
+    return window.LaneAdmin.clientesPainel({
+      busca: (estado.busca || '').trim(), status: estado.status, origem: estado.origem,
+      limite: POR_PAGINA, offset: (estado.pagina - 1) * POR_PAGINA
+    }).then(function (d) {
+      if (minha !== geracao) return;
+      /* Pagina que deixou de existir (ex.: filtro encolheu a lista): volta para a ultima. */
+      var ultima = Math.max(1, Math.ceil((d.total || 0) / POR_PAGINA));
+      if (estado.pagina > ultima) { estado.pagina = ultima; return carregar(); }
+      estado.itens = d.itens || [];
+      estado.total = d.total || 0;
+      estado.resumo = d.resumo || null;
+      estado.erro = '';
+      estado.carregando = false;
+      pintarResumo();
+      pintarLista();
+    }).catch(function (erro) {
+      if (minha !== geracao) return;
+      console.error('[LanePets] clientes:', erro);
+      estado.erro = erro.message || 'Não foi possível carregar os clientes.';
+      estado.carregando = false;
+      pintarLista();
     });
   }
+  var carregarComAtraso = window.LaneBusca ? window.LaneBusca.atrasar(carregar, 300) : carregar;
 
   /* ----------------------------------------------------------------- */
   /* Cards de resumo — sempre sobre o total real, nao sobre o filtro     */
   /* ----------------------------------------------------------------- */
   function pintarResumo() {
-    var clientes = todos();
-    var ativos = clientes.filter(function (c) { return statusDe(c) === 'ativo'; }).length;
-    var agora = new Date();
-    var novos = clientes.filter(function (c) {
-      if (!c.criadoEm) return false;
-      var d = new Date(c.criadoEm);
-      return !isNaN(d) && d.getMonth() === agora.getMonth() && d.getFullYear() === agora.getFullYear();
-    }).length;
-
-    el('statTotal').textContent = clientes.length;
-    el('statAtivos').textContent = ativos;
-    el('statInativos').textContent = clientes.length - ativos;
-    el('statNovos').textContent = novos;
-    el('numClientes').textContent = clientes.length;
-    el('numClientesRotulo').textContent = clientes.length === 1 ? 'cliente cadastrado' : 'clientes cadastrados';
+    var r = estado.resumo || {};
+    var total = r.total || 0;
+    el('statTotal').textContent = total;
+    el('statAtivos').textContent = r.ativos || 0;
+    el('statInativos').textContent = r.inativos || 0;
+    el('statNovos').textContent = r.novosMes || 0;
+    el('numClientes').textContent = total;
+    el('numClientesRotulo').textContent = total === 1 ? 'cliente cadastrado' : 'clientes cadastrados';
   }
 
   /* ----------------------------------------------------------------- */
@@ -248,26 +254,31 @@
       return;
     }
 
-    var visiveis = filtrados();
-    var totalGeral = todos().length;
-    sincronizarUrl();
+    if (estado.erro) {
+      alvo.innerHTML = '<div class="cli-vazio"><h3>Não foi possível carregar os clientes.</h3><p>' + esc(estado.erro) + '</p>' +
+        '<button type="button" class="btn btn-outline" data-acao="recarregar">Tentar de novo</button></div>';
+      el('paginacao').innerHTML = '';
+      el('resultadoInfo').textContent = '';
+      return;
+    }
 
-    if (!visiveis.length) {
+    var totalGeral = estado.resumo ? estado.resumo.total || 0 : 0;
+    var filtrado = !!((estado.busca || '').trim() || estado.status || estado.origem);
+
+    if (!estado.itens.length) {
       alvo.innerHTML = vazio(totalGeral > 0);
       el('paginacao').innerHTML = '';
       el('resultadoInfo').textContent = totalGeral ? '0 clientes no filtro atual' : '';
       return;
     }
 
-    var totalPaginas = Math.max(1, Math.ceil(visiveis.length / POR_PAGINA));
-    if (estado.pagina > totalPaginas) estado.pagina = totalPaginas;
+    var totalPaginas = Math.max(1, Math.ceil(estado.total / POR_PAGINA));
     var inicio = (estado.pagina - 1) * POR_PAGINA;
-    var pagina = visiveis.slice(inicio, inicio + POR_PAGINA);
 
-    alvo.innerHTML = pagina.map(linhaCliente).join('');
+    alvo.innerHTML = estado.itens.map(linhaCliente).join('');
     el('resultadoInfo').textContent =
-      'Mostrando ' + (inicio + 1) + '–' + (inicio + pagina.length) + ' de ' + visiveis.length +
-      (visiveis.length === 1 ? ' cliente' : ' clientes');
+      'Mostrando ' + (inicio + 1) + '–' + (inicio + estado.itens.length) + ' de ' + estado.total +
+      (estado.total === 1 ? ' cliente' : ' clientes') + (filtrado ? ' no filtro atual' : '');
 
     pintarPaginacao(totalPaginas);
 
@@ -301,31 +312,22 @@
   /* ----------------------------------------------------------------- */
   /* Detalhes do cliente                                                */
   /* ----------------------------------------------------------------- */
-  function petsDoCliente(id) {
-    return lista('pets').filter(function (p) { return p.clienteId === id; });
-  }
-
-  function agendamentosDoCliente(id) {
-    return lista('agendamentos')
-      .filter(function (a) { return a.clienteId === id; })
-      .sort(function (a, b) { return String(b.dataHora || '').localeCompare(String(a.dataHora || '')); });
-  }
-
   /* Os pedidos nao vem na ponte; usamos o mesmo endpoint que a tela de
-     Pedidos ja usa. Sem permissao de pedidos, a secao simplesmente some. */
-  function carregarPedidos() {
-    if (pedidosPorCliente) return Promise.resolve(pedidosPorCliente);
+     Pedidos ja usa, filtrado pelo cliente no servidor (27/09: a lista de
+     pedidos e paginada, entao nao da mais para baixar tudo e agrupar aqui).
+     Sem permissao de pedidos, a secao simplesmente some. */
+  function carregarPedidos(clienteId) {
     if (!window.LaneAdmin || typeof window.LaneAdmin.pedidos !== 'function') return Promise.resolve(null);
-    return window.LaneAdmin.pedidos()
-      .then(function (todosPedidos) {
-        pedidosPorCliente = {};
-        (todosPedidos || []).forEach(function (p) {
-          var k = p.clienteId || p.ClienteId || '';
-          (pedidosPorCliente[k] = pedidosPorCliente[k] || []).push(p);
-        });
+    return window.LaneAdmin.pedidos({ clienteId: clienteId, limite: 8 })
+      .then(function (pagina) {
+        pedidosPorCliente = pedidosPorCliente || {};
+        pedidosPorCliente[clienteId] = (pagina && pagina.itens) || [];
         return pedidosPorCliente;
       })
-      .catch(function () { return null; });
+      .catch(function (erro) {
+        console.error('[LanePets] pedidos do cliente:', erro);
+        return null;
+      });
   }
 
   function miniLista(itens, vazioTexto) {
@@ -333,14 +335,36 @@
     return '<div class="cli-mini">' + itens.join('') + '</div>';
   }
 
+  /* 27/09: o detalhe vem do servidor (GET /api/admin/clientes/{id}): dados,
+     pets e os 8 agendamentos mais recentes — so o que o usuario pode ver. */
+  var detalheAtual = null;
   window.abrirDetalheCliente = function (id, secao) {
-    var c = todos().filter(function (x) { return x.id === id; })[0];
-    if (!c) return;
+    var doLista = item(id);
+    el('detHead').innerHTML = '<div style="min-width:0"><h2>' + esc(doLista ? doLista.nome : 'Cliente') + '</h2></div>';
+    el('detCorpo').innerHTML = '<p class="cli-mini-vazio">Carregando…</p>';
+    var btnEd = el('btnDetEditar');
+    if (btnEd) btnEd.dataset.id = id;
+    el('modalDetalhe').classList.add('ativo');
+    detalheAtual = id;
 
+    window.LaneAdmin.cliente(id).then(function (d) {
+      if (detalheAtual !== id) return;
+      pintarDetalhe(d, secao);
+    }).catch(function (erro) {
+      console.error('[LanePets] detalhe do cliente:', erro);
+      if (detalheAtual !== id) return;
+      el('detCorpo').innerHTML = '<p class="cli-mini-vazio">' + esc(erro.message) + '</p>';
+    });
+  };
+
+  function pintarDetalhe(d, secao) {
+    var c = d.cliente;
+    var id = c.id;
     var st = statusDe(c);
     var nome = c.nome || 'Sem nome';
-    var pets = petsDoCliente(id);
-    var ags = agendamentosDoCliente(id);
+    var pets = d.pets || [];
+    var ags = (d.agendamentos && d.agendamentos.itens) || [];
+    var totalAgs = (d.agendamentos && d.agendamentos.total) || 0;
 
     el('detHead').innerHTML =
       (c.foto
@@ -368,42 +392,39 @@
       '<section class="cli-det-sec">' +
         '<h3>Resumo</h3>' +
         '<div class="cli-resumo">' +
-          '<div><div class="n">' + pets.length + '</div><div class="r">Pets</div></div>' +
-          '<div><div class="n">' + (c.qtdAgendamentos || ags.length || 0) + '</div><div class="r">Agendamentos</div></div>' +
+          '<div><div class="n">' + (c.qtdPets || 0) + '</div><div class="r">Pets</div></div>' +
+          '<div><div class="n">' + (c.qtdAgendamentos || 0) + '</div><div class="r">Agendamentos</div></div>' +
           '<div><div class="n">' + (c.qtdPedidos || 0) + '</div><div class="r">Pedidos</div></div>' +
           '<div><div class="n">' + (c.temConta ? 'Sim' : 'Não') + '</div><div class="r">Conta no site</div></div>' +
         '</div>' +
       '</section>' +
 
-      '<section class="cli-det-sec" id="secPets">' +
+      secaoFidelidade(d) +
+
+      (d.podeVerPets === false ? '' : '<section class="cli-det-sec" id="secPets">' +
         '<h3>Pets</h3>' +
         miniLista(pets.map(function (p) {
           return '<div class="cli-mini-item"><span><strong>' + esc(p.pet || '—') + '</strong>' +
             (p.raca ? ' · ' + esc(p.raca) : '') + '</span>' +
             '<span class="quando">' + esc(p.tipo || '—') + '</span></div>';
         }), 'Nenhum pet vinculado a este cliente.') +
-      '</section>' +
+      '</section>') +
 
-      '<section class="cli-det-sec" id="secAgendamentos">' +
+      (d.podeVerAgendamentos === false ? '' : '<section class="cli-det-sec" id="secAgendamentos">' +
         '<h3>Agendamentos</h3>' +
-        miniLista(ags.slice(0, 8).map(function (a) {
+        miniLista(ags.map(function (a) {
           return '<div class="cli-mini-item"><span><strong>' + esc(a.pet || '—') + '</strong> · ' + esc(a.status || 'Solicitado') + '</span>' +
             '<span class="quando">' + esc(dataHoraBr(a.dataHora)) + '</span></div>';
         }), 'Nenhum agendamento registrado.') +
-        (ags.length > 8 ? '<p class="cli-mini-vazio">Mostrando os 8 mais recentes de ' + ags.length + '.</p>' : '') +
-      '</section>' +
+        (totalAgs > ags.length ? '<p class="cli-mini-vazio">Mostrando os ' + ags.length + ' mais recentes de ' + totalAgs + '.</p>' : '') +
+      '</section>') +
 
-      '<section class="cli-det-sec" id="secPedidos">' +
+      (d.podeVerPedidos === false ? '' : '<section class="cli-det-sec" id="secPedidos">' +
         '<h3>Pedidos</h3>' +
         '<p class="cli-mini-vazio">Carregando pedidos…</p>' +
-      '</section>';
+      '</section>');
 
-    var btnEd = el('btnDetEditar');
-    if (btnEd) btnEd.dataset.id = id;
-
-    el('modalDetalhe').classList.add('ativo');
-
-    carregarPedidos().then(function (mapa) {
+    if (d.podeVerPedidos !== false) carregarPedidos(id).then(function (mapa) {
       var alvo = el('secPedidos');
       if (!alvo) return;
       if (!mapa) { alvo.parentNode.removeChild(alvo); return; }
@@ -421,9 +442,53 @@
         if (destino) destino.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }, 140);
     }
-  };
+  }
+
+  /* 29/09: cartao fidelidade — selos = atendimentos concluidos (de todas as unidades). A entrega do premio
+     e marcada aqui (clientes:editar); o botao pede um segundo clique para confirmar. */
+  function secaoFidelidade(d) {
+    var f = d.fidelidade;
+    if (!f) return '';
+    var id = d.cliente.id;
+    var linha = f.premiosDisponiveis > 0
+      ? '<strong>' + f.premiosDisponiveis + (f.premiosDisponiveis === 1 ? ' prêmio disponível' : ' prêmios disponíveis') + '</strong>: ' + esc(f.premio) + '.'
+      : 'Faltam ' + f.faltamParaProximo + ' atendimento(s) concluído(s) para ' + esc(f.premio) + '.';
+    return '<section class="cli-det-sec" id="secFidelidade">' +
+      '<h3>Cartão fidelidade</h3>' +
+      '<div class="cli-resumo">' +
+        '<div><div class="n">' + f.selosNoCartao + '/' + f.selos + '</div><div class="r">Selos no cartão</div></div>' +
+        '<div><div class="n">' + f.concluidos + '</div><div class="r">Concluídos</div></div>' +
+        '<div><div class="n">' + f.resgatados + '</div><div class="r">Prêmios entregues</div></div>' +
+      '</div>' +
+      '<p class="cli-mini-vazio" style="margin-top:8px">' + linha + '</p>' +
+      (d.podeResgatarFidelidade && f.premiosDisponiveis > 0
+        ? '<button type="button" class="btn btn-primary btn-sm" data-fid-resgatar="' + esc(id) + '">Entregar prêmio</button>'
+        : '') +
+    '</section>';
+  }
+
+  document.addEventListener('click', function (ev) {
+    var botao = ev.target.closest('[data-fid-resgatar]');
+    if (!botao) return;
+    if (!botao.dataset.confirmar) {
+      botao.dataset.confirmar = '1';
+      botao.textContent = 'Confirmar entrega do prêmio';
+      return;
+    }
+    var id = botao.getAttribute('data-fid-resgatar');
+    botao.disabled = true;
+    window.LaneAdmin.resgatarFidelidade(id).then(function (r) {
+      window.toast && toast(r.message || 'Prêmio entregue.');
+      window.abrirDetalheCliente(id, 'secFidelidade');
+    }).catch(function (erro) {
+      console.error('[LanePets] resgate da fidelidade:', erro);
+      window.toast && toast(erro.message, 'error');
+      botao.disabled = false;
+    });
+  });
 
   window.fecharDetalheCliente = function () {
+    detalheAtual = null;
     el('modalDetalhe').classList.remove('ativo');
   };
 
@@ -432,8 +497,7 @@
   /* gravacao do modal de edicao que ja existia.                         */
   /* ----------------------------------------------------------------- */
   function alternarStatus(id) {
-    var clientes = lista('clientes');
-    var alvo = clientes.filter(function (c) { return c.id === id; })[0];
+    var alvo = item(id);
     if (!alvo) return;
     var vai = statusDe(alvo) === 'ativo' ? 'inativo' : 'ativo';
 
@@ -446,10 +510,16 @@
       textoBotao: vai === 'inativo' ? 'Desativar' : 'Reativar'
     }).then(function (ok) {
       if (!ok) return;
-      alvo.status = vai;
-      LaneStore.salvar("clientes", clientes);
-      desenhar();
-      window.toast(vai === 'inativo' ? 'Cliente marcado como inativo.' : 'Cliente reativado.', 'success');
+      /* "Atualizar regrava o registro inteiro": vai o objeto completo, so com o status trocado. */
+      return window.LaneAdmin.sincronizar('clientes', { atualizados: [Object.assign({}, alvo, { status: vai })] })
+        .then(function () {
+          window.toast(vai === 'inativo' ? 'Cliente marcado como inativo.' : 'Cliente reativado.', 'success');
+          return carregar();
+        })
+        .catch(function (erro) {
+          console.error('[LanePets] status do cliente:', erro);
+          window.toast(erro.message, 'error');
+        });
     });
   }
 
@@ -501,7 +571,7 @@
     Array.prototype.forEach.call(el('segStatus').querySelectorAll('button'), function (b) {
       b.setAttribute('aria-pressed', String(b.dataset.status === ''));
     });
-    pintarLista();
+    carregar();
   }
 
   function ligarEventos() {
@@ -512,17 +582,17 @@
       estado.busca = campo.value;
       estado.pagina = 1;
       caixa.classList.toggle('tem-texto', !!campo.value.trim());
-      pintarLista();
     }
-    campo.addEventListener('input', aplicarBusca);
+    campo.addEventListener('input', function () { aplicarBusca(); carregarComAtraso(); });
     campo.addEventListener('keydown', function (e) {
-      if (e.key === 'Enter') { e.preventDefault(); aplicarBusca(); }
+      if (e.key === 'Enter') { e.preventDefault(); aplicarBusca(); carregar(); }
     });
 
     el('btnLimparBusca').addEventListener('click', function () {
       campo.value = '';
       campo.focus();
       aplicarBusca();
+      carregar();
     });
 
     el('segStatus').addEventListener('click', function (e) {
@@ -533,25 +603,26 @@
       Array.prototype.forEach.call(this.querySelectorAll('button'), function (b) {
         b.setAttribute('aria-pressed', String(b === botao));
       });
-      pintarLista();
+      carregar();
     });
 
     el('filtroOrigem').addEventListener('change', function () {
       estado.origem = this.value;
       estado.pagina = 1;
-      pintarLista();
+      carregar();
     });
 
     el('paginacao').addEventListener('click', function (e) {
       var botao = e.target.closest('button[data-pagina]');
       if (!botao || botao.disabled) return;
       estado.pagina = Number(botao.dataset.pagina) || 1;
-      pintarLista();
+      carregar();
       el('cardLista').scrollIntoView({ behavior: 'smooth', block: 'start' });
     });
 
     el('listaClientes').addEventListener('click', function (e) {
       if (e.target.closest('[data-acao="limpar-tudo"]')) { limparFiltros(); return; }
+      if (e.target.closest('[data-acao="recarregar"]')) { estado.carregando = true; pintarLista(); carregar(); return; }
 
       var botao = e.target.closest('button[data-acao]');
       if (!botao) return;
@@ -606,20 +677,20 @@
   /* ----------------------------------------------------------------- */
   /* Ciclo de vida                                                      */
   /* ----------------------------------------------------------------- */
-  function desenhar() {
-    estado.carregando = false;
-    pintarResumo();
-    pintarLista();
-    if (typeof window.carregarTabelaPets === 'function') window.carregarTabelaPets();
-  }
-  window.desenharClientes = desenhar;
+  /* Usado pela edicao do cliente (clientes.html): o objeto completo da pagina
+     atual e a recarga depois de gravar. */
+  window.LaneClientes = { item: item, recarregar: carregar };
 
   document.addEventListener('DOMContentLoaded', function () {
     lerUrl();
     ligarEventos();
     if (window.LaneBusca) window.LaneBusca.atalhos('filtro', function () { el('btnLimparBusca').click(); });
-    pintarLista();   /* esqueleto enquanto a ponte confirma os dados */
-    setTimeout(desenhar, 80);
-    window.addEventListener('lanepets:dados', desenhar);
+    pintarLista();   /* esqueleto enquanto a primeira pagina chega */
+    carregar();
+    /* Tempo real: qualquer mudanca no banco recarrega a pagina atual (e os pets). */
+    window.LaneAdmin.aoMudar(function () {
+      carregar();
+      if (typeof window.carregarTabelaPets === 'function') window.carregarTabelaPets({ manterQuantidade: true });
+    });
   });
 })();

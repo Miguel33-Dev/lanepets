@@ -2,6 +2,7 @@ using LanePets.Data;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Data.Sqlite;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace LanePets.Tests.Infra;
@@ -46,6 +47,15 @@ public sealed class LanePetsApp : WebApplicationFactory<Program>
     {
         builder.UseEnvironment("Development");
         builder.UseSetting("ConnectionStrings:LanePetsConnection", $"Data Source={CaminhoBanco}");
+        // 28/09: mesmo com SMTP configurado no appsettings.Development.json da maquina, os testes
+        // nunca mandam e-mail de verdade: SmtpHost vazio = e-mail vira .txt na pasta temporaria.
+        builder.ConfigureAppConfiguration((_, c) => c.AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            ["LanePets:Email:SmtpHost"] = "",
+            // 29/09: o visitante ligado no appsettings.Development.json da maquina nao vale nos testes
+            // (VisitanteTests liga e desliga a conta por conta propria).
+            ["LanePets:Visitante"] = "false"
+        }));
     }
 
     /// <summary>Cliente HTTP ja apontando para a aplicacao em memoria.</summary>

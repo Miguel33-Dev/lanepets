@@ -22,6 +22,11 @@
   };
 
   let itens = [];
+  /* 26/09: paginacao no servidor — 50 por vez, "Carregar mais" busca a proxima pagina.
+     Os cartoes de resumo continuam somando o filtro inteiro (vem do servidor). */
+  const POR_PAGINA = 50;
+  let total = 0;
+  let pedido = 0;   /* descarta resposta antiga quando o filtro muda no meio da busca */
   let alvo = null, alvoStatus = '';
 
   async function api(caminho, opcoes) {
@@ -39,9 +44,9 @@
   const FILTROS = { busca: 'fBusca', status: 'fStatus', origem: 'fOrigem', unidade: 'fUnidade', de: 'fDe', ate: 'fAte', reembolso: 'fReembolso' };
   const temFiltro = () => window.LaneBusca ? LaneBusca.ativos(Object.values(FILTROS)) > 0 : false;
 
-  function filtros() {
+  function filtros(limite = POR_PAGINA, offset = 0) {
     if (window.LaneBusca) LaneBusca.gravarUrl(FILTROS);
-    const q = new URLSearchParams({ token: token() });
+    const q = new URLSearchParams({ token: token(), limite: String(limite), offset: String(offset) });
     const add = (k, v) => { if (v) q.set(k, v); };
     add('busca', $('fBusca').value.trim()); add('status', $('fStatus').value); add('origem', $('fOrigem').value);
     add('unidade', $('fUnidade').value); add('de', $('fDe').value); add('ate', $('fAte').value);
@@ -49,11 +54,15 @@
     return q.toString();
   }
 
-  async function carregar() {
+  /* manterQuantidade: depois de mudar um status, recarrega sem "encolher" o que ja estava aberto. */
+  async function carregar({ manterQuantidade = false } = {}) {
     erro('erro', '');
+    const meu = ++pedido;
     try {
-      const d = await api('/admin/pagamentos?' + filtros());
+      const d = await api('/admin/pagamentos?' + filtros(manterQuantidade ? Math.max(POR_PAGINA, itens.length) : POR_PAGINA, 0));
+      if (meu !== pedido) return;
       itens = d.itens || [];
+      total = d.total ?? itens.length;
       const r = d.resumo || {};
       $('kpiPendentes').textContent = r.pendentes ?? 0;
       $('kpiPendentesValor').textContent = brl(r.valorPendente);
@@ -73,9 +82,31 @@
     }
   }
 
+  async function carregarMais() {
+    const botao = $('btnMaisPag');
+    botao.disabled = true;
+    const meu = pedido;
+    try {
+      const d = await api('/admin/pagamentos?' + filtros(POR_PAGINA, itens.length));
+      if (meu !== pedido) return;          /* filtro mudou enquanto buscava */
+      const vistos = new Set(itens.map(p => p.id));
+      itens = itens.concat((d.itens || []).filter(p => !vistos.has(p.id)));
+      total = d.total ?? total;
+      desenhar();
+    } catch (e) {
+      console.error('[LanePets] pagamentos (carregar mais):', e);
+      erro('erro', e.message);
+    } finally { botao.disabled = false; }
+  }
+
   function desenhar() {
     const filtrado = temFiltro();
-    $('contagem').textContent = `${itens.length} pagamento(s)${filtrado ? ' no filtro atual' : ''}`;
+    $('contagem').textContent = itens.length < total
+      ? `Mostrando ${itens.length} de ${total} pagamento(s)${filtrado ? ' no filtro atual' : ''}`
+      : `${total} pagamento(s)${filtrado ? ' no filtro atual' : ''}`;
+    const mais = $('btnMaisPag');
+    mais.hidden = itens.length >= total;
+    mais.style.display = mais.hidden ? 'none' : '';
     $('btnLimparPag').style.display = filtrado ? '' : 'none';
     $('corpo').innerHTML = itens.length ? itens.map(p => `
       <tr>
@@ -121,7 +152,7 @@
       });
       fechar();
       if (window.toast) toast(r.message || 'Pagamento atualizado.', 'success');
-      await carregar();
+      await carregar({ manterQuantidade: true });
     } catch (err) { erro('msErro', err.message); }
     finally { botao.disabled = false; }
   });
@@ -143,7 +174,8 @@
   let espera = null;
   $('fBusca').addEventListener('input', () => { clearTimeout(espera); espera = setTimeout(carregar, 300); });
   ['fStatus', 'fOrigem', 'fUnidade', 'fDe', 'fAte', 'fReembolso'].forEach(id => $(id).addEventListener('change', carregar));
-  $('btnAtualizar').addEventListener('click', carregar);
+  $('btnAtualizar').addEventListener('click', () => carregar({ manterQuantidade: true }));
+  $('btnMaisPag').addEventListener('click', carregarMais);
 
   if (window.LaneBusca) LaneBusca.atalhos('fBusca', carregar);
 

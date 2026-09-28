@@ -91,7 +91,16 @@
     produtos: () => get('admin/produtos').then(listaDe),
     lancamentos: filtros => get('admin/entradas-saidas', filtros).then(listaDe),
     pacotes: () => get('admin/pacotes').then(listaDe),
-    pedidos: () => get('admin/pedidos').then(listaDe),
+    /* 27/09: pedidos vem paginados do servidor ({ total, temMais, itens, resumo }). */
+    pedidos: filtros => get('admin/pedidos', filtros),
+    /* 27/09: tela Clientes sem o estado inteiro — listas paginadas e detalhe proprio. */
+    clientesPainel: filtros => get('admin/clientes', filtros),
+    cliente: id => get('admin/clientes/' + encodeURIComponent(id)),
+    /* 29/09: entrega do premio do cartao fidelidade (clientes:editar). */
+    resgatarFidelidade: id => post('admin/clientes/' + encodeURIComponent(id) + '/fidelidade/resgatar', {}),
+    petsPainel: filtros => get('admin/pets', filtros),
+    /* Gravacao do painel: o mesmo POST /api/admin/sync/{colecao} que o LaneStore usa. */
+    sincronizar: (colecao, delta) => post('admin/sync/' + colecao, { criados: [], atualizados: [], removidos: [], ...delta }),
     avaliacoes: () => get('admin/depoimentos').then(listaDe),
     seguros: () => get('admin/seguros/solicitacoes').then(listaDe),
     importar: (dados, simular) => post('admin/importar', { ...dados, simular: !!simular })
