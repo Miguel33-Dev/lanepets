@@ -3,6 +3,7 @@ using LanePets.Data;
 using LanePets.Models;
 using LanePets.Services;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 
 namespace LanePets.Controllers;
@@ -84,7 +85,7 @@ public class PublicController(LanePetsDbContext db, PermissaoService permissoes,
     // Avaliacao agora so pela conta: POST /api/cliente/avaliacoes (AvaliacoesService), inclusive
     // a partir do botao do site. Um POST aqui responde 405 no envelope (so o GET continua).
 
-    [HttpPost("public/seguros/solicitacoes")]
+    [HttpPost("public/seguros/solicitacoes")] [EnableRateLimiting("sensivel")]
     public async Task<IActionResult> ContratarSeguro([FromBody] SeguroRequest request)
     {
         try

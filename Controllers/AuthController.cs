@@ -2,12 +2,24 @@ using LanePets.Controllers;
 using LanePets.Data;
 using LanePets.Services;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 
 namespace LanePets.Controllers;
 [Route("api")]
-public class AuthController(SessionService sessions, LanePetsDbContext db, PermissaoService permissoes, EventosService eventos, EmailService email, IConfiguration config, IHostEnvironment ambiente, ILogger<AuthController> log) : ApiControllerBase
+public class AuthController(SessionService sessions, LanePetsDbContext db, PermissaoService permissoes, EventosService eventos, EmailService email, IConfiguration config, IHostEnvironment ambiente, ILogger<AuthController> log, TentativasLogin tentativas) : ApiControllerBase
 {
+    /// <summary>Seguranca (29/09): IP de quem chamou (ja corrigido pelo proxy) para a trava de tentativas.</summary>
+    private string? Ip() => HttpContext.Connection.RemoteIpAddress?.ToString();
+
+    /// <summary>Senha errada: conta para a trava e, se acabou de bloquear, vira evento no Log.</summary>
+    private async Task Errou(string conta, string autor)
+    {
+        if (tentativas.Falhou(conta, Ip()))
+            await eventos.RegistrarAsync(new("seguranca", "Acesso bloqueado por excesso de tentativas", "aviso", "admin", Autor: autor,
+                Detalhes: "Senhas erradas demais seguidas; novas tentativas ficam bloqueadas por alguns minutos."), HttpContext);
+    }
+
     [HttpGet("health")]
     public IActionResult Health() => OkApi(new { ok=true, system="Lane Pets", version="CSharp-1.0", timezone="America/Sao_Paulo", unidades=Normalizador.Unidades.Where(u=>u.Ativa).Select(u=>u.Nome), api="ASP.NET Core + SQLite", banco="lanepets.db", escrita=new { habilitada=true, modo="DADOS_REAIS" }, demo=Hospedagem.ModoDemo(config, ambiente), visitante=Visitante.Ligado(config), google=GoogleLogin.Ativo(config) });   /* Tarefa 1: login com Google ligado? (conferir no Railway) */   // 29/09: demo -> a tela de login mostra as credenciais de teste
 
@@ -22,7 +34,7 @@ public class AuthController(SessionService sessions, LanePetsDbContext db, Permi
     // muda e o que cada um encontra depois dela. Nao existe tela de login
     // separada por perfil.
     // -----------------------------------------------------------------------
-    [HttpPost("login")]
+    [HttpPost("login")] [EnableRateLimiting("sensivel")]
     public async Task<IActionResult> Login([FromBody] LoginBody body)
     {
         try
@@ -30,6 +42,7 @@ public class AuthController(SessionService sessions, LanePetsDbContext db, Permi
             var email = (body.Email ?? "").Trim().ToLowerInvariant();
             if (string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(body.Senha))
                 throw new Exception("Informe e-mail e senha.");
+            tentativas.Conferir("admin:" + email, Ip());   // Etapa 2: bloqueado = 429, mesmo com a senha certa
 
             // Item 15: toda recusa de login vira evento (o motivo real fica so no
             // log; a tela continua com a mensagem generica, para nao revelar se
@@ -38,14 +51,17 @@ public class AuthController(SessionService sessions, LanePetsDbContext db, Permi
             if (admin is null)
             {
                 await eventos.RegistrarAsync(new("autenticacao", "Login administrativo recusado", "aviso", "admin", Autor: email, Detalhes: "E-mail não cadastrado."), HttpContext);
+                await Errou("admin:" + email, email);
                 throw new Exception("E-mail ou senha inválidos.");
             }
 
             if (!SessionService.VerifyPassword(body.Senha, admin.SenhaHash, admin.SenhaSalt))
             {
                 await eventos.RegistrarAsync(new("autenticacao", "Login administrativo recusado", "aviso", "admin", admin.Id, admin.Email, Detalhes: "Senha incorreta."), HttpContext);
+                await Errou("admin:" + email, email);
                 throw new Exception("E-mail ou senha inválidos.");
             }
+            tentativas.Acertou("admin:" + email);
 
             // Conta desativada nao entra. A mensagem e distinta da de senha
             // errada porque aqui a credencial estava certa — esconder isso so
@@ -65,7 +81,7 @@ public class AuthController(SessionService sessions, LanePetsDbContext db, Permi
     /// 29/09: "Entrar como visitante" — so com LanePets:Visitante=true. Sem senha a divulgar: abre a conta
     /// so leitura (Visitante). Mesma sessao e mesmo pacote de permissoes do login normal.
     /// </summary>
-    [HttpPost("login/visitante")]
+    [HttpPost("login/visitante")] [EnableRateLimiting("sensivel")]
     public async Task<IActionResult> LoginVisitante()
     {
         try
@@ -106,7 +122,7 @@ public class AuthController(SessionService sessions, LanePetsDbContext db, Permi
     // Mesmas regras da area do cliente (RecuperacaoSenhaService): resposta igual exista ou nao a conta,
     // codigo so como hash, 15 min, uso unico, 5 tentativas, 3 pedidos/hora; conta desativada nao recebe.
 
-    [HttpPost("admin/senha/esqueci")]
+    [HttpPost("admin/senha/esqueci")] [EnableRateLimiting("sensivel")]
     public async Task<IActionResult> EsqueciSenha([FromBody] EsqueciBody body)
     {
         try
@@ -135,7 +151,7 @@ public class AuthController(SessionService sessions, LanePetsDbContext db, Permi
         catch (Exception ex) { return ErrorApi(ex); }
     }
 
-    [HttpPost("admin/senha/redefinir")]
+    [HttpPost("admin/senha/redefinir")] [EnableRateLimiting("sensivel")]
     public async Task<IActionResult> RedefinirSenha([FromBody] RedefinirBody body)
     {
         try
@@ -162,8 +178,8 @@ public class AuthController(SessionService sessions, LanePetsDbContext db, Permi
     public IActionResult Status([FromQuery] string token) { try { var s=sessions.RequireAdmin(token); return OkApi(new { autenticado=true, perfil=s.Profile, criadoEm=s.CreatedAt.ToString("O") }); } catch(Exception ex){return ErrorApi(ex);} }
     [HttpPost("logout")]
     public IActionResult Logout([FromBody] TokenBody body) { sessions.Logout(body.Token ?? ""); Response.Cookies.Delete("lanePetsAdmin"); return OkApi(new { encerrado=!string.IsNullOrWhiteSpace(body.Token) }); }
-    [HttpPost("financeiro_login")]
-    public async Task<IActionResult> FinanceLogin([FromBody] FinanceBody body) { try { await permissoes.ExigirAsync(body.Token??"", ModulosAdmin.Pagamentos, AcaoPermissao.Visualizar); if(!sessions.ValidateFinance(body.Senha)) throw new Exception("Senha financeira inválida."); var t=sessions.CreateFinancial(body.Token!); return OkApi(new { autorizado=true, perfil="financeiro", token=t, expiresInMinutes=30 }); } catch(Exception ex){return ErrorApi(ex);} }
+    [HttpPost("financeiro_login")] [EnableRateLimiting("sensivel")]
+    public async Task<IActionResult> FinanceLogin([FromBody] FinanceBody body) { try { await permissoes.ExigirAsync(body.Token??"", ModulosAdmin.Pagamentos, AcaoPermissao.Visualizar); var contaFin = "financeiro:" + sessions.RequireAdmin(body.Token!).UsuarioId; tentativas.Conferir(contaFin, Ip()); if(!sessions.ValidateFinance(body.Senha)) { await Errou(contaFin, "senha financeira"); throw new Exception("Senha financeira inválida."); } tentativas.Acertou(contaFin); var t=sessions.CreateFinancial(body.Token!); return OkApi(new { autorizado=true, perfil="financeiro", token=t, expiresInMinutes=30 }); } catch(Exception ex){return ErrorApi(ex);} }
     [HttpGet("financeiro_status")]
     public IActionResult FinanceStatus([FromQuery(Name="financeiro_token")] string token) { try { var s=sessions.RequireFinancial(token); return OkApi(new { autorizado=true, perfil="financeiro", criadoEm=s.CreatedAt.ToString("O"), expiresInMinutes=sessions.RemainingMinutes(s) }); } catch(Exception ex){return ErrorApi(ex);} }
     [HttpPost("financeiro_logout")]

@@ -2,13 +2,25 @@ using LanePets.Data;
 using LanePets.Models;
 using LanePets.Services;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 
 namespace LanePets.Controllers;
 
 [Route("api/cliente")]
-public class ClientPortalController(LanePetsDbContext db, SessionService sessions, RealtimeNotifier realtime, EventosService eventos, EmailService email, IConfiguration config, GoogleTokenService google) : ApiControllerBase
+public class ClientPortalController(LanePetsDbContext db, SessionService sessions, RealtimeNotifier realtime, EventosService eventos, EmailService email, IConfiguration config, GoogleTokenService google, TentativasLogin tentativas) : ApiControllerBase
 {
+    /// <summary>Seguranca (29/09): IP de quem chamou, para a trava de tentativas.</summary>
+    private string? Ip() => HttpContext.Connection.RemoteIpAddress?.ToString();
+
+    /// <summary>Senha errada: conta para a trava e, se acabou de bloquear, vira evento no Log.</summary>
+    private async Task Errou(string conta, string autor)
+    {
+        if (tentativas.Falhou(conta, Ip()))
+            await Evento("seguranca", "Acesso bloqueado por excesso de tentativas", null,
+                detalhes: "Senhas erradas demais seguidas; novas tentativas ficam bloqueadas por alguns minutos.", nivel: "aviso", autor: autor);
+    }
+
     /// <summary>Item 15: evento de log com o IP desta requisicao. Nunca lanca.</summary>
     private Task Evento(string categoria, string acao, Cliente? cliente, string alvoId = "", string detalhes = "", string nivel = "info", string autor = "")
         => eventos.RegistrarAsync(new(categoria, acao, nivel, "cliente", cliente?.Id ?? "", autor.Length > 0 ? autor : cliente?.Nome ?? "", alvoId, detalhes), HttpContext);
@@ -35,7 +47,7 @@ public class ClientPortalController(LanePetsDbContext db, SessionService session
     /// Respostas: <c>{ token, cliente, novo, completarCadastro }</c> ou <c>{ vincular: true, email }</c> (sem token).
     /// Recusa: 400 com mensagem unica; o motivo real (e nunca o token) vai para o Log.
     /// </summary>
-    [HttpPost("google")]
+    [HttpPost("google")] [EnableRateLimiting("sensivel")]
     public async Task<IActionResult> EntrarComGoogle([FromBody] GoogleLoginRequest request)
     {
         try
@@ -52,9 +64,17 @@ public class ClientPortalController(LanePetsDbContext db, SessionService session
             var g = validacao.Identidade!;
 
             var vinculando = !string.IsNullOrEmpty(request.Senha);
-            var r = vinculando
-                ? await ContaGoogleService.VincularAsync(db, g, request.Senha, Recusar)
-                : await ContaGoogleService.EntrarAsync(db, g, Recusar);
+            var contaVinculo = "cliente:" + g.Email.Trim().ToLowerInvariant();   // mesma trava do login por senha
+            if (vinculando) tentativas.Conferir(contaVinculo, Ip());
+            ContaGoogleService.Resultado r;
+            try
+            {
+                r = vinculando
+                    ? await ContaGoogleService.VincularAsync(db, g, request.Senha, Recusar)
+                    : await ContaGoogleService.EntrarAsync(db, g, Recusar);
+            }
+            catch (Exception) when (vinculando) { await Errou(contaVinculo, g.Email); throw; }
+            if (vinculando) tentativas.Acertou(contaVinculo);
 
             if (r.Situacao == ContaGoogleService.Situacao.PrecisaVincular)
                 return OkApi(new { vincular = true, email = r.Email });
@@ -82,7 +102,7 @@ public class ClientPortalController(LanePetsDbContext db, SessionService session
         catch (Exception ex) { return ErrorApi(ex); }
     }
 
-    [HttpPost("cadastro")]
+    [HttpPost("cadastro")] [EnableRateLimiting("sensivel")]
     public async Task<IActionResult> Cadastro([FromBody] CadastroRequest request)
     {
         try
@@ -98,14 +118,19 @@ public class ClientPortalController(LanePetsDbContext db, SessionService session
         catch (Exception ex) { return ErrorApi(ex); }
     }
 
-    [HttpPost("login")]
+    [HttpPost("login")] [EnableRateLimiting("sensivel")]
     public async Task<IActionResult> Login([FromBody] LoginRequest request)
     {
         try
         {
             // Item 15: recusa vira evento com o motivo real; a tela continua com
             // a mensagem generica (nao revela se o e-mail existe). Item 11.4b: regra em ContaClienteService.
-            var (cliente, user) = await ContaClienteService.AutenticarAsync(db, request.Email, request.Senha, Recusar);
+            var conta = "cliente:" + (request.Email ?? "").Trim().ToLowerInvariant();
+            tentativas.Conferir(conta, Ip());   // Etapa 2: bloqueado = 429, mesmo com a senha certa
+            Cliente cliente; UsuarioCliente user;
+            try { (cliente, user) = await ContaClienteService.AutenticarAsync(db, request.Email, request.Senha, Recusar); }
+            catch (Exception) { await Errou(conta, (request.Email ?? "").Trim()); throw; }
+            tentativas.Acertou(conta);
             await Evento("autenticacao", "Login de cliente", cliente, autor: user.Email);
             return OkApi(new { token=sessions.CreateClient(cliente.Id), cliente = new { cliente.Nome, user.Email } });
         }
@@ -118,7 +143,7 @@ public class ClientPortalController(LanePetsDbContext db, SessionService session
     // RecuperacaoSenhaService; aqui ficam o envio, os eventos e o fim das sessoes.
     // -----------------------------------------------------------------------
 
-    [HttpPost("senha/esqueci")]
+    [HttpPost("senha/esqueci")] [EnableRateLimiting("sensivel")]
     public async Task<IActionResult> EsqueciSenha([FromBody] EsqueciSenhaRequest request)
     {
         try
@@ -146,7 +171,7 @@ public class ClientPortalController(LanePetsDbContext db, SessionService session
         catch (Exception ex) { return ErrorApi(ex); }
     }
 
-    [HttpPost("senha/redefinir")]
+    [HttpPost("senha/redefinir")] [EnableRateLimiting("sensivel")]
     public async Task<IActionResult> RedefinirSenha([FromBody] RedefinirSenhaRequest request)
     {
         try
@@ -580,7 +605,7 @@ public class ClientPortalController(LanePetsDbContext db, SessionService session
 
     /// <summary>Envia uma avaliacao ja vinculada a conta (segue para a mesma moderacao do site).
     /// Desde 26/09 e o UNICO caminho para avaliar: o botao do site tambem chama esta rota.</summary>
-    [HttpPost("avaliacoes")]
+    [HttpPost("avaliacoes")] [EnableRateLimiting("sensivel")]
     public async Task<IActionResult> CriarAvaliacao([FromBody] AvaliacaoRequest request)
     {
         try

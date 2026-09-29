@@ -3,6 +3,8 @@ using LanePets.Hubs;
 using LanePets.Middleware;
 using LanePets.Services;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.RateLimiting;
+using System.Threading.RateLimiting;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -80,6 +82,7 @@ builder.Services.AddDbContext<LanePetsDbContext>(options =>
     options.UseSqlite(DatabaseBootstrap.MontarConnectionString(caminhoDoBanco)));
 
 builder.Services.AddSingleton<SessionService>();
+builder.Services.AddSingleton<TentativasLogin>();   // 29/09: trava contra forca bruta (Etapa 2 da auditoria)
 builder.Services.AddSingleton<IChavesGoogle, ChavesGoogleJwks>();   // Tarefa 1: chaves publicas do Google (JWKS em cache)
 builder.Services.AddSingleton<GoogleTokenService>();
 builder.Services.AddScoped<SeedService>();
@@ -125,6 +128,48 @@ builder.Services.AddCors(options => options.AddDefaultPolicy(policy => policy
     .AllowAnyHeader()
     .AllowAnyMethod()
     .AllowCredentials()));
+
+// ---------------------------------------------------------------------------
+// LIMITE DE REQUISICOES (Seguranca, Etapa 2 — 29/09). Sem pacote novo: o limitador ja vem no ASP.NET Core.
+//   * toda a /api: LanePets:Seguranca:RequisicoesPorMinuto por IP (padrao 300);
+//   * rotas sensiveis ([EnableRateLimiting("sensivel")]: logins, cadastro, codigos de senha, pedidos do site):
+//     LanePets:Seguranca:RequisicoesSensiveisPorMinuto por IP (padrao 10).
+// Passou do limite = 429 ERR-4290 no envelope de sempre. LanePets:Seguranca:LimitarRequisicoes=false desliga
+// (os testes desligam: centenas de chamadas saem do mesmo "IP").
+// ---------------------------------------------------------------------------
+static RateLimitPartition<string> LimitePorIp(HttpContext http, string grupo, string chave, int padrao)
+{
+    var cfg = http.RequestServices.GetRequiredService<IConfiguration>();
+    if (!cfg.GetValue("LanePets:Seguranca:LimitarRequisicoes", true))
+        return RateLimitPartition.GetNoLimiter("livre");
+    var ip = http.Connection.RemoteIpAddress?.ToString() ?? "local";
+    var limite = Math.Max(1, cfg.GetValue(chave, padrao));
+    return RateLimitPartition.GetFixedWindowLimiter($"{grupo}:{ip}", _ => new FixedWindowRateLimiterOptions
+    {
+        PermitLimit = limite, Window = TimeSpan.FromMinutes(1), QueueLimit = 0, AutoReplenishment = true
+    });
+}
+builder.Services.AddRateLimiter(o =>
+{
+    o.RejectionStatusCode = 429;
+    o.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(http =>
+        http.Request.Path.StartsWithSegments("/api")
+            ? LimitePorIp(http, "api", "LanePets:Seguranca:RequisicoesPorMinuto", 300)
+            : RateLimitPartition.GetNoLimiter("fora-da-api"));
+    o.AddPolicy("sensivel", http => LimitePorIp(http, "sensivel", "LanePets:Seguranca:RequisicoesSensiveisPorMinuto", 10));
+    o.OnRejected = async (contexto, ct) =>
+    {
+        var http = contexto.HttpContext;
+        http.Response.Headers["Retry-After"] = "60";
+        http.Response.ContentType = "application/json; charset=utf-8";
+        await http.Response.WriteAsync(System.Text.Json.JsonSerializer.Serialize(new
+        {
+            ok = false, error = "Muitas requisições em pouco tempo. Aguarde 1 minuto e tente de novo.",
+            codigo = CodigoErro.MuitasTentativas, proibido = false, timestamp = DateTime.UtcNow.ToString("O")
+        }), ct);
+        // Sem evento no Log de proposito: numa enxurrada de requisicoes, cada recusa viraria uma linha no banco.
+    };
+});
 
 var app = builder.Build();
 GoogleLogin.AvisarSeMalConfigurado(app.Configuration, app.Logger);   // Tarefa 1: chave com formato errado = desligado + aviso
@@ -235,6 +280,7 @@ app.UseDefaultFiles(new DefaultFilesOptions
 app.UseStaticFiles();
 
 app.UseRouting();
+app.UseRateLimiter();   // Seguranca (29/09): depois do routing, para valer o [EnableRateLimiting] de cada rota
 app.UseAuthorization();
 
 // Somente rotas de API por atributo ([Route("api/...")]). A rota MVC
