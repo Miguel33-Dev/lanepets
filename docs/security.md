@@ -78,7 +78,7 @@
 | **C. Cabeçalhos de segurança** | `Content-Security-Policy`, `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy`, `Permissions-Policy`; tirar o `Server: Kestrel` |
 | **D. Cookie** | `Secure` no `lanePetsAdmin` e no cookie de sessão em produção |
 | **E. Tamanho da requisição** | limite de ~2 MB nas APIs (a foto maior tem 200 KB) — evita derrubar o servidor com envio gigante |
-| **F. `/api/health`** | em produção, devolver só o necessário (`ok`, `demo`, `visitante`, `google`) |
+| **F. `/api/health`** | em produção, devolver só o necessário (`ok`, `demo`, `google`) |
 | **G. Avaliações públicas** | mostrar "Fabrício S." em vez do nome completo |
 | **H. Token na URL** | aceitar o token do painel também por header e ir trocando as telas aos poucos (não bloqueia o deploy) |
 
@@ -112,7 +112,7 @@ está no `.gitignore`, mas o histórico guarda).
 | C | Toda resposta sai com `Content-Security-Policy`, `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: strict-origin-when-cross-origin` e `Permissions-Policy` (câmera, microfone, localização e pagamento desligados). Sem `Server: Kestrel`. | `Middleware/SegurancaHttpMiddleware.cs`, `Program.cs` |
 | D | Cookie `lanePetsAdmin` com `Secure` quando a requisição chega por HTTPS (no Railway, pelo `X-Forwarded-Proto`); em `http://localhost` continua sem, para o login local funcionar. Cookie de sessão com `SameAsRequest`. | `AuthController`, `Program.cs` |
 | E | Corpo acima de **2 MB** → `413 ERR-4130` ("O envio é grande demais…"). A importação do navegador (`/api/admin/importar`) tem teto próprio de **20 MB**. Configurável: `LanePets:Seguranca:TamanhoMaximoKB` / `TamanhoMaximoImportacaoKB`. | `SegurancaHttpMiddleware`, `ErrosApi` |
-| F | `GET /api/health` devolve só `ok`, `demo`, `visitante` e `google`. | `AuthController.Health` |
+| F | `GET /api/health` devolve só `ok`, `demo` e `google` (o `visitante` saiu em 30/09 junto com o acesso de visitante). | `AuthController.Health` |
 | G | Avaliações públicas mostram "Fabrício S." (primeiro nome + inicial do último sobrenome). O painel continua com o nome completo. | `Services/NomePublico.cs`, `PublicController` |
 
 **Limite conhecido da CSP:** várias telas do painel ainda têm `<script>` e `onclick` no próprio HTML, então

@@ -108,7 +108,6 @@ flowchart LR
   | `LanePets__AdminSenhaInicial` | 8+ caracteres, com letra e número (não pode ser `123456`) |
   | `LanePets__FinancePassword` | mesma regra |
   | `LanePets__Google__ClientId` | o Client ID do Google |
-  | `LanePets__Visitante` | `true` só se for vitrine com dados de exemplo |
   | `LanePets__Email__*` | SMTP (opcional) |
   | `LanePets__UrlPublica` | endereço do site (opcional) |
 

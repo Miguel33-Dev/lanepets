@@ -28,7 +28,7 @@ public class SeedService(LanePetsDbContext db, IWebHostEnvironment env, ILogger<
     {
         await GarantirEstruturaAsync();
         await GarantirCatalogoAsync();
-        await Visitante.GarantirAsync(db, config, log);   // 29/09: acesso so leitura para a vitrine
+        await Visitante.DesativarAsync(db, log);   // 30/09: acesso de visitante removido — desativa a conta antiga
     }
 
     // -----------------------------------------------------------------------

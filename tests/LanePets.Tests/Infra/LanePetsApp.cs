@@ -52,9 +52,6 @@ public sealed class LanePetsApp : WebApplicationFactory<Program>
         builder.ConfigureAppConfiguration((_, c) => c.AddInMemoryCollection(new Dictionary<string, string?>
         {
             ["LanePets:Email:SmtpHost"] = "",
-            // 29/09: o visitante ligado no appsettings.Development.json da maquina nao vale nos testes
-            // (VisitanteTests liga e desliga a conta por conta propria).
-            ["LanePets:Visitante"] = "false",
             // Tarefa 1: o Client ID do Google da maquina tambem nao vale nos testes (GoogleLoginTests liga por conta propria).
             ["LanePets:Google:ClientId"] = "",
             // Seguranca (29/09): centenas de chamadas saem do mesmo "IP" nos testes, e varios testes erram senha de

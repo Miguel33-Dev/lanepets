@@ -22,8 +22,8 @@ public class AuthController(SessionService sessions, LanePetsDbContext db, Permi
 
     [HttpGet("health")]
     // Etapa 3 (29/09): so o que as telas e o Railway precisam. Antes saiam versao, banco, API e unidades — informacao
-    // de graca para quem procura brecha. demo -> dica de credenciais; visitante -> botao da vitrine; google -> login Google.
-    public IActionResult Health() => OkApi(new { ok=true, demo=Hospedagem.ModoDemo(config, ambiente), visitante=Visitante.Ligado(config), google=GoogleLogin.Ativo(config) });
+    // de graca para quem procura brecha. demo -> modo demonstracao; google -> login Google.
+    public IActionResult Health() => OkApi(new { ok=true, demo=Hospedagem.ModoDemo(config, ambiente), google=GoogleLogin.Ativo(config) });
 
     // -----------------------------------------------------------------------
     // LOGIN ADMINISTRATIVO — UM SO, o que ja existia.
@@ -79,29 +79,8 @@ public class AuthController(SessionService sessions, LanePetsDbContext db, Permi
         catch(Exception ex){ return ErrorApi(ex); }
     }
 
-    /// <summary>
-    /// 29/09: "Entrar como visitante" — so com LanePets:Visitante=true. Sem senha a divulgar: abre a conta
-    /// so leitura (Visitante). Mesma sessao e mesmo pacote de permissoes do login normal.
-    /// </summary>
-    [HttpPost("login/visitante")] [EnableRateLimiting("sensivel")]
-    public async Task<IActionResult> LoginVisitante()
-    {
-        try
-        {
-            const string desligado = "O acesso de visitante não está ligado neste LanePets.";
-            if (!Visitante.Ligado(config)) throw new Exception(desligado);
-            // A chave pode ter sido ligada com o LanePets ja aberto (o appsettings recarrega sozinho, mas a conta
-            // so nascia na subida): garante a conta aqui tambem, sempre so leitura.
-            var admin = await db.UsuariosAdministradores.FirstOrDefaultAsync(u => u.Id == Visitante.Id && u.Ativo);
-            if (admin is null)
-            {
-                await Visitante.GarantirAsync(db, config, log);
-                admin = await db.UsuariosAdministradores.FirstOrDefaultAsync(u => u.Id == Visitante.Id && u.Ativo) ?? throw new Exception(desligado);
-            }
-            return await Entrar(admin, "Login como visitante", "Acesso só leitura da vitrine.");
-        }
-        catch(Exception ex){ return ErrorApi(ex); }
-    }
+    // 30/09: o acesso de visitante (POST /api/login/visitante) foi removido a pedido do Fabricio — ninguem de fora
+    // da equipe entra no painel, nem so para olhar. A conta antiga e desativada na subida (Visitante.DesativarAsync).
 
     private async Task<IActionResult> Entrar(Models.UsuarioAdministrador admin, string acao, string detalhes)
     {

@@ -91,7 +91,7 @@ pelos testes.
 <details>
 <summary><b>Todos os Services por área</b></summary>
 
-- **Contas e acesso:** Session · Permissao · ContaCliente · ContaGoogle · GoogleLogin · GoogleToken · RecuperacaoSenha · Visitante · Hospedagem
+- **Contas e acesso:** Session · Permissao · ContaCliente · ContaGoogle · GoogleLogin · GoogleToken · RecuperacaoSenha · Hospedagem
 - **Operação:** AgendamentosCliente · Pedidos · Estoque · Pagamentos · SegurosCliente · Avaliacoes · Fidelidade · AvisosCliente · UnidadesRegras · ResponsaveisAgendamento
 - **Painel:** SyncPainel · ClientesPainel · AgendaPainel · FormatoPainel · NotificacoesPainel
 - **Plataforma:** Banco · Integridade · Importacao · Eventos · RetencaoEventos · Email · PlanilhaXlsx · Seed · DatabaseBootstrap · Normalizador · Csv · Realtime
@@ -153,7 +153,7 @@ RecuperacaoSenha · ResgateFidelidade
 | 👤 **Cliente** `/api/cliente`<br><sub>header `X-LanePets-Client`</sub> | `cadastro` · `login` · `logout` · `senha/esqueci\|redefinir` · `google/config` · `google` · `conta` (+ `/avisos`, `/email`, `/senha`) · `pets` · `catalogo` · `horarios` · `agendamentos` (`servicoIds`, até 6) · `pedidos` · **`pedidos/lote`** · `seguros` · `avaliacoes` |
 | 🌐 **Público** `/api/public` | `servicos` · `produtos` · `depoimentos` · `seguros` · `seguros/solicitacoes` · `unidades` · `numeros` |
 | 🛠️ **Painel** `/api/admin`<br><sub>`?token=`</sub> | `estado?colecoes=` · `sync/{colecao}` · `resumo` · `relatorio` (+ `excel`) · `clientes` · `pets` · `agenda` · `produtos` · `estoque/movimentacoes` · `entradas-saidas` · `pedidos` · `importar` · `unidades` · `pagamentos` · `integridade` · `eventos` · `usuarios` · `notificacoes` · `senha/esqueci\|redefinir` |
-| 🔑 **Auth** `/api` | `health` (`demo`, `visitante`, `google`) · `login` · `login/visitante` · `admin/me` · `logout` |
+| 🔑 **Auth** `/api` | `health` (`demo`, `google`) · `login` · `admin/me` · `logout` |
 
 ## 🔄 8. Fluxos principais
 
@@ -231,7 +231,6 @@ flowchart LR
   - `LanePets__AdminSenhaInicial`
   - `LanePets__FinancePassword`
   - `LanePets__Google__ClientId`
-  - `LanePets__Visitante`
   - `LanePets__Email__*`
 
 > [!WARNING]

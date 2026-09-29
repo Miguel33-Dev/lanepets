@@ -191,20 +191,8 @@
     if (!u) return;
     document.querySelectorAll('.topbar-user-info strong').forEach(el => { el.textContent = u.nome; });
     document.querySelectorAll('.topbar-user-info span').forEach(el => { el.textContent = u.perfilRotulo; });
-    /* 29/09: conta de visitante da vitrine — deixa claro que nada pode ser alterado. */
-    if (u.visitante && !document.getElementById('lp-visitante')) {
-      const destino = document.querySelector('.topbar-right');
-      if (destino) {
-        const selo = document.createElement('span');
-        selo.id = 'lp-visitante';
-        selo.className = 'lp-visitante';
-        selo.title = 'Você entrou como visitante: pode navegar por tudo, mas nada é gravado.';
-        selo.innerHTML = '<span class="hide-mobile">Modo visitante&nbsp;·&nbsp;</span>só leitura';
-        destino.prepend(selo);
-      }
-    }
     document.querySelectorAll('.topbar-user .avatar').forEach(el => {
-      /* So palavras que comecam com letra: "Visitante (só leitura)" vira "VS", nao "V(". */
+      /* So palavras que comecam com letra: "Ana (Caieiras)" vira "AC", nao "A(". */
       const partes = String(u.nome || 'LP').trim().split(/\s+/).map(p => p.replace(/^[^\p{L}]+/u, '')).filter(Boolean);
       el.textContent = ((partes[0] || 'L')[0] + (partes[1] || partes[0] || 'P')[0]).toUpperCase();
     });

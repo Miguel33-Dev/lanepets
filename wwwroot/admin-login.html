@@ -48,7 +48,7 @@
           <div class="lp-field__topo"><label for="email">E-mail</label></div>
           <div class="lp-input">
             <svg class="lp-input__icone" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3.5 7 8.5 6 8.5-6"/></svg>
-            <input id="email" type="email" autocomplete="username" placeholder="admin@gmail.com" required>
+            <input id="email" type="email" autocomplete="username" placeholder="seu@email.com" required>
             <svg class="lp-input__check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>
           </div>
           <span class="lp-field__msg"></span>
@@ -73,13 +73,6 @@
         </button>
       </form>
 
-      <!-- 29/09: vitrine — so aparece com LanePets:Visitante=true (GET /api/health) -->
-      <button class="lp-btn lp-btn--verde" type="button" id="entrar-visitante" style="margin-top:12px;display:none">
-        <span class="lp-spin" aria-hidden="true"></span>
-        <span class="lp-btn__texto">Entrar como visitante (só leitura)</span>
-      </button>
-
-      <p class="lp-dica" id="dica-demo" hidden>Credenciais de teste — <b>admin@gmail.com</b> · senha <b>123456</b></p>
       </div>
 
       <!-- ---------- 29/09: esqueci a senha do painel (mesmas regras da area do cliente) ---------- -->
@@ -254,19 +247,6 @@
       location.href = primeiraPaginaPermitida(data.permissoes);
     }
 
-    /* 29/09: "Entrar como visitante" (so leitura, sem senha) — vitrine com LanePets:Visitante=true. */
-    $('#entrar-visitante').addEventListener('click', async () => {
-      const b = $('#entrar-visitante');
-      UI.alerta('#aviso', '');
-      UI.carregando(b, true, 'Entrando…');
-      try {
-        concluirEntrada(await LanePetsHttp.request('login/visitante', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' }), b);
-      } catch (erro) {
-        UI.carregando(b, false);
-        UI.alerta('#aviso', erro.message || 'Não foi possível entrar como visitante.');
-      }
-    });
-
     /* ---------- 29/09: esqueci a senha do painel ---------- */
     const formPedir = $('#form-rec-pedir'), formTrocar = $('#form-rec-trocar');
     const senhaValida = v => v.length >= 8 && /\p{L}/u.test(v) && /\d/.test(v) && v.trim() === v;
@@ -343,12 +323,6 @@
         if (/c[oó]digo/i.test(erro.message || '')) { UI.erro(cCodigo, 'Confira o código.'); cCodigo.select(); }
       } finally { UI.carregando('#rec-trocar', false); }
     });
-
-    /* 29/09: credenciais de teste so no modo demonstracao (local ou LanePets:Demo=true). No ar de verdade, somem. */
-    fetch('/api/health').then(r => r.json()).then(c => {
-      if (c && c.data && c.data.demo) $('#dica-demo').hidden = false;
-      if (c && c.data && c.data.visitante) $('#entrar-visitante').style.display = '';   // .lp-btn tem display proprio: [hidden] nao basta
-    }).catch(() => {});
 
     if (location.hash === '#recuperar') etapa('pedir'); else email.focus();
   })();

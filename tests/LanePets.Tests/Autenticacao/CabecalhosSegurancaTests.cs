@@ -46,7 +46,7 @@ public class CabecalhosSegurancaTests(LanePetsApp app)
         var r = await app.Api().Get("/api/health");
         Assert.True(r.Codigo == 200, r.ToString());
         var campos = r.Data.EnumerateObject().Select(p => p.Name).OrderBy(n => n).ToArray();
-        Assert.Equal(new[] { "demo", "google", "ok", "visitante" }, campos);
+        Assert.Equal(new[] { "demo", "google", "ok" }, campos);
     }
 
     [Fact]

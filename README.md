@@ -432,10 +432,9 @@ LanePets__UrlPublica=https://seu-endereco.up.railway.app (opcional: link nos e-m
 Regras de segurança da hospedagem:
 
 * Em produção o LanePets não sobe com as senhas de exemplo (123456): o log mostra quais variáveis faltam.
-* A dica "Credenciais de teste" da tela de login do painel só aparece no modo demonstração.
-* Quer uma vitrine em que qualquer pessoa entre com admin@gmail.com / 123456? Use LanePets__Demo=true — mas lembre que o visitante vira Administrador Geral.
+* A tela de login do painel não mostra credenciais nem tem acesso de visitante: só a equipe, com e-mail e senha, entra no painel.
+* LanePets__Demo=true libera a senha de exemplo (123456) — **nunca ligue no ar**, só para testar localmente.
 * O appsettings.Development.json (com a sua senha de app do Gmail) nunca entra na imagem (.dockerignore).
-* Vitrine para recrutadores: LanePets__Visitante=true mostra na tela de login do painel o botão "Entrar como visitante (só leitura)". O visitante navega por todas as telas do petshop, mas nada é gravado (o servidor responde 403), e Usuários, Log de eventos e Configurações ficam fechados. Ele vê os dados do painel: ligue só com dados de exemplo.
 
 ⸻
 

@@ -330,8 +330,7 @@ public class PermissaoService(LanePetsDbContext db, SessionService sessions, Eve
             adminGeral = contexto.EhGeral,
             funcionario = contexto.EhFuncionario,
             unidade = contexto.UnidadeDoFuncionario,
-            ultimoAcesso = contexto.Usuario.UltimoAcesso?.ToString("O"),
-            visitante = Visitante.Eh(contexto.Usuario)   // 29/09: a tela mostra "Modo visitante · só leitura"
+            ultimoAcesso = contexto.Usuario.UltimoAcesso?.ToString("O")
         },
         acessoIrrestrito = contexto.AcessoIrrestrito,
         modulos = ModulosAdmin.Todos.ToDictionary(
