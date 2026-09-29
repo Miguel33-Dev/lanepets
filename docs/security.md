@@ -100,7 +100,25 @@ está no `.gitignore`, mas o histórico guarda).
 
 | Etapa | O que | Testes novos |
 |:-:|---|:-:|
-| 1 | **A — XSS**: escapar `ui-kit.js` e as telas do painel, recusar HTML nos nomes | sim |
-| 2 | **B — força bruta / rate limit** nos logins, cadastro e códigos | sim |
-| 3 | **C, D, E, F, G** — cabeçalhos, cookie `Secure`, limite de tamanho, health enxuto, nome curto nas avaliações | sim |
+| 1 | ✅ **A — XSS**: escapar `ui-kit.js` e as telas do painel, recusar HTML nos nomes | sim |
+| 2 | ✅ **B — força bruta / rate limit** nos logins, cadastro e códigos | sim |
+| 3 | 🟡 **C, D, E, F, G** — cabeçalhos, cookie `Secure`, limite de tamanho, health enxuto, nome curto nas avaliações (entregue, aguardando validação) | sim |
 | 4 | **H** — token por header no painel (pode ficar para depois do deploy) | — |
+
+## Etapa 3 — cabeçalhos, cookie, tamanho, health e nome curto (29/09)
+
+| Item | O que mudou | Onde |
+|---|---|---|
+| C | Toda resposta sai com `Content-Security-Policy`, `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: strict-origin-when-cross-origin` e `Permissions-Policy` (câmera, microfone, localização e pagamento desligados). Sem `Server: Kestrel`. | `Middleware/SegurancaHttpMiddleware.cs`, `Program.cs` |
+| D | Cookie `lanePetsAdmin` com `Secure` quando a requisição chega por HTTPS (no Railway, pelo `X-Forwarded-Proto`); em `http://localhost` continua sem, para o login local funcionar. Cookie de sessão com `SameAsRequest`. | `AuthController`, `Program.cs` |
+| E | Corpo acima de **2 MB** → `413 ERR-4130` ("O envio é grande demais…"). A importação do navegador (`/api/admin/importar`) tem teto próprio de **20 MB**. Configurável: `LanePets:Seguranca:TamanhoMaximoKB` / `TamanhoMaximoImportacaoKB`. | `SegurancaHttpMiddleware`, `ErrosApi` |
+| F | `GET /api/health` devolve só `ok`, `demo`, `visitante` e `google`. | `AuthController.Health` |
+| G | Avaliações públicas mostram "Fabrício S." (primeiro nome + inicial do último sobrenome). O painel continua com o nome completo. | `Services/NomePublico.cs`, `PublicController` |
+
+**Limite conhecido da CSP:** várias telas do painel ainda têm `<script>` e `onclick` no próprio HTML, então
+`script-src` leva `'unsafe-inline'`. A política continua barrando script de outro site, envio de dados para fora
+(`connect-src`), `<object>`, `<base>`, formulário para fora e o site dentro de iframe. Tirar os scripts inline fica
+como melhoria futura.
+
+Testes: `tests/LanePets.Tests/Autenticacao/CabecalhosSegurancaTests.cs` (5 fatos + 5 casos de nome curto).
+

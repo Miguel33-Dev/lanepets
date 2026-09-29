@@ -14,6 +14,7 @@ public static class CodigoErro
     public const string Permissao      = "ERR-4030"; // autenticado, mas sem permissao (403)
     public const string NaoEncontrado  = "ERR-4040"; // rota da API inexistente (404)
     public const string Metodo         = "ERR-4050"; // rota existe, metodo HTTP nao (405)
+    public const string GrandeDemais   = "ERR-4130"; // corpo da requisicao acima do limite (413) — Seguranca, Etapa 3
     public const string MuitasTentativas = "ERR-4290"; // senha errada demais ou requisicoes demais (429)
     public const string Interno        = "ERR-5001"; // falha inesperada no servidor (500)
 }
@@ -74,6 +75,12 @@ public static class ErrosApi
             case MuitasTentativasException muitas:
                 contexto.Response.Headers["Retry-After"] = muitas.Segundos.ToString();
                 return (429, new { ok = false, error = ex.Message, codigo = CodigoErro.MuitasTentativas, proibido = false, timestamp = agora });
+
+            // Seguranca, Etapa 3 (29/09): envio em partes (sem Content-Length) que passou do limite.
+            case BadHttpRequestException { StatusCode: 413 }:
+                return (413, new { ok = false, error = LanePets.Middleware.SegurancaHttpMiddleware.MensagemGrande(
+                    contexto.Features.Get<Microsoft.AspNetCore.Http.Features.IHttpMaxRequestBodySizeFeature>()?.MaxRequestBodySize ?? 2L * 1024 * 1024),
+                    codigo = CodigoErro.GrandeDemais, proibido = false, timestamp = agora });
 
             case var _ when EhErroDeNegocio(ex):
                 return (400, new { ok = false, error = ex.Message, codigo = CodigoErro.Validacao, proibido = false, timestamp = agora });

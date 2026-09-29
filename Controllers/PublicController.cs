@@ -65,7 +65,7 @@ public class PublicController(LanePetsDbContext db, PermissaoService permissoes,
     }
 
     [HttpGet("public/depoimentos")]
-    public async Task<IActionResult> Depoimentos() => OkApi((await db.Depoimentos.AsNoTracking().Where(d => d.Status == "Aprovado").OrderByDescending(d => d.CriadoEm).ToListAsync()).Select(d => new { d.Id, d.NomeCliente, d.NomePet, d.Avaliacao, d.Comentario, d.CriadoEm }));
+    public async Task<IActionResult> Depoimentos() => OkApi((await db.Depoimentos.AsNoTracking().Where(d => d.Status == "Aprovado").OrderByDescending(d => d.CriadoEm).ToListAsync()).Select(d => new { d.Id, NomeCliente = NomePublico.Curto(d.NomeCliente), d.NomePet, d.Avaliacao, d.Comentario, d.CriadoEm }));   // Etapa 3: "Fabrício S."
 
     [HttpGet("public/seguros")]
     public async Task<IActionResult> Seguros() => OkApi(await db.PlanosSeguro.AsNoTracking().Where(p => p.Ativo).OrderBy(p => p.ValorMensal).ToListAsync());

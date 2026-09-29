@@ -24,6 +24,8 @@ builder.Services.Configure<Microsoft.AspNetCore.Builder.ForwardedHeadersOptions>
     o.KnownProxies.Clear();
 });
 Hospedagem.ConferirSegredos(builder.Configuration, builder.Environment);
+// Seguranca, Etapa 3 (29/09): sem "Server: Kestrel" na resposta (nao conta a quem ataca o que roda aqui).
+builder.WebHost.ConfigureKestrel(o => o.AddServerHeader = false);
 
 // ---------------------------------------------------------------------------
 // BANCO DE DADOS — UM SO
@@ -114,6 +116,8 @@ builder.Services.AddSession(options =>
     options.IdleTimeout = TimeSpan.FromMinutes(30);
     options.Cookie.HttpOnly = true;
     options.Cookie.IsEssential = true;
+    options.Cookie.SameSite = SameSiteMode.Lax;
+    options.Cookie.SecurePolicy = Microsoft.AspNetCore.Http.CookieSecurePolicy.SameAsRequest;   // Etapa 3: Secure no HTTPS
 });
 
 // CORS (item 1 do roadmap, 24/09). Antes qualquer site podia chamar a API
@@ -231,6 +235,7 @@ app.Lifetime.ApplicationStopped.Register(() => DatabaseBootstrap.Encerrar(caminh
 // Pipeline
 // ---------------------------------------------------------------------------
 app.UseForwardedHeaders();   // 29/09: antes de tudo (ver HOSPEDAGEM no topo)
+app.UseMiddleware<SegurancaHttpMiddleware>();   // Seguranca, Etapa 3: cabecalhos (CSP etc.) + limite de tamanho
 
 if (app.Environment.IsDevelopment())
 {

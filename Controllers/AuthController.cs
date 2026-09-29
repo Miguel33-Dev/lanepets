@@ -21,7 +21,9 @@ public class AuthController(SessionService sessions, LanePetsDbContext db, Permi
     }
 
     [HttpGet("health")]
-    public IActionResult Health() => OkApi(new { ok=true, system="Lane Pets", version="CSharp-1.0", timezone="America/Sao_Paulo", unidades=Normalizador.Unidades.Where(u=>u.Ativa).Select(u=>u.Nome), api="ASP.NET Core + SQLite", banco="lanepets.db", escrita=new { habilitada=true, modo="DADOS_REAIS" }, demo=Hospedagem.ModoDemo(config, ambiente), visitante=Visitante.Ligado(config), google=GoogleLogin.Ativo(config) });   /* Tarefa 1: login com Google ligado? (conferir no Railway) */   // 29/09: demo -> a tela de login mostra as credenciais de teste
+    // Etapa 3 (29/09): so o que as telas e o Railway precisam. Antes saiam versao, banco, API e unidades — informacao
+    // de graca para quem procura brecha. demo -> dica de credenciais; visitante -> botao da vitrine; google -> login Google.
+    public IActionResult Health() => OkApi(new { ok=true, demo=Hospedagem.ModoDemo(config, ambiente), visitante=Visitante.Ligado(config), google=GoogleLogin.Ativo(config) });
 
     // -----------------------------------------------------------------------
     // LOGIN ADMINISTRATIVO — UM SO, o que ja existia.
@@ -108,7 +110,9 @@ public class AuthController(SessionService sessions, LanePetsDbContext db, Permi
 
         var t = sessions.CreateAdmin(admin.Id);
         await eventos.RegistrarAsync(new("autenticacao", acao, "info", "admin", admin.Id, admin.Email, Detalhes: detalhes), HttpContext);
-        Response.Cookies.Append("lanePetsAdmin", t, new CookieOptions { HttpOnly=true, SameSite=SameSiteMode.Lax, IsEssential=true, MaxAge=TimeSpan.FromHours(2) });
+        // Etapa 3 (29/09): Secure quando a requisicao chegou por HTTPS (no Railway, via X-Forwarded-Proto) — o cookie
+        // nunca viaja em HTTP aberto. Local em http://localhost continua funcionando.
+        Response.Cookies.Append("lanePetsAdmin", t, new CookieOptions { HttpOnly=true, Secure=Request.IsHttps, SameSite=SameSiteMode.Lax, IsEssential=true, MaxAge=TimeSpan.FromHours(2) });
 
         var contexto = await permissoes.ResolverAsync(t);
         return OkApi(new { autenticado=true, perfil="admin", token=t, expiresInMinutes=120, permissoes = PermissaoService.Mapear(contexto) });
@@ -177,7 +181,7 @@ public class AuthController(SessionService sessions, LanePetsDbContext db, Permi
     [HttpGet("auth_status")]
     public IActionResult Status([FromQuery] string token) { try { var s=sessions.RequireAdmin(token); return OkApi(new { autenticado=true, perfil=s.Profile, criadoEm=s.CreatedAt.ToString("O") }); } catch(Exception ex){return ErrorApi(ex);} }
     [HttpPost("logout")]
-    public IActionResult Logout([FromBody] TokenBody body) { sessions.Logout(body.Token ?? ""); Response.Cookies.Delete("lanePetsAdmin"); return OkApi(new { encerrado=!string.IsNullOrWhiteSpace(body.Token) }); }
+    public IActionResult Logout([FromBody] TokenBody body) { sessions.Logout(body.Token ?? ""); Response.Cookies.Delete("lanePetsAdmin", new CookieOptions { HttpOnly=true, Secure=Request.IsHttps, SameSite=SameSiteMode.Lax }); return OkApi(new { encerrado=!string.IsNullOrWhiteSpace(body.Token) }); }
     [HttpPost("financeiro_login")] [EnableRateLimiting("sensivel")]
     public async Task<IActionResult> FinanceLogin([FromBody] FinanceBody body) { try { await permissoes.ExigirAsync(body.Token??"", ModulosAdmin.Pagamentos, AcaoPermissao.Visualizar); var contaFin = "financeiro:" + sessions.RequireAdmin(body.Token!).UsuarioId; tentativas.Conferir(contaFin, Ip()); if(!sessions.ValidateFinance(body.Senha)) { await Errou(contaFin, "senha financeira"); throw new Exception("Senha financeira inválida."); } tentativas.Acertou(contaFin); var t=sessions.CreateFinancial(body.Token!); return OkApi(new { autorizado=true, perfil="financeiro", token=t, expiresInMinutes=30 }); } catch(Exception ex){return ErrorApi(ex);} }
     [HttpGet("financeiro_status")]
