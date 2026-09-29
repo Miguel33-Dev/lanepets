@@ -58,12 +58,12 @@
   #buscaCadastroVazio { display: none; }
 </style>
   <script src="js/config.js"></script>
-  <script src="js/api.js"></script>
+  <script src="js/api.js?v=2"></script>
   <script src="lib/signalr/signalr.min.js"></script>
-  <script src="js/admin-dados.js?v=5"></script>
+  <script src="js/admin-dados.js?v=6"></script>
   <script>window.LANE_COLECOES = ['pets', 'servicos'];   /* 27/09: so o que esta tela usa vem do servidor */</script>
-  <script src="js/admin-store.js?v=3"></script>
-  <script src="js/admin-permissoes.js?v=7"></script>
+  <script src="js/admin-store.js?v=4"></script>
+  <script src="js/admin-permissoes.js?v=8"></script>
 <script src="js/marca-unidades.js?v=1" defer></script>
 </head>
 <body>
@@ -397,7 +397,7 @@
   </form>
 </div>
 
-<script src="ui-kit.js?v=6"></script>
+<script src="ui-kit.js?v=7"></script>
 <script>
 
 </script>
@@ -733,7 +733,7 @@
 
   async function contarPelaApi(caminho, extrairLista) {
     try {
-      const resposta = await fetch(`/api/${caminho}${caminho.includes('?') ? '&' : '?'}token=${encodeURIComponent(LaneAdmin.token())}`);
+      const resposta = await fetch(`/api/${caminho}`, { headers: { 'X-LanePets-Admin': LaneAdmin.token() } });
       const corpo = await resposta.json();
       if (!resposta.ok || !corpo.ok) return null;
       const lista = extrairLista(corpo.data);

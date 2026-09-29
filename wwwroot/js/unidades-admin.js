@@ -15,7 +15,8 @@
   let editando = '';
 
   async function api(caminho, opcoes) {
-    const r = await fetch('/api' + caminho, opcoes);
+    const o = opcoes || {};   /* Etapa 4: token no header, nunca na URL */
+    const r = await fetch('/api' + caminho, { ...o, headers: { ...(o.headers || {}), 'X-LanePets-Admin': token() } });
     const corpo = await r.json().catch(() => null);
     if (r.status === 401) { location.replace('admin-login.html?retorno=' + encodeURIComponent('/unidades.html')); throw new Error('Sessão expirada.'); }
     if (!r.ok || !corpo || !corpo.ok) throw new Error((corpo && corpo.error) || 'Não foi possível concluir a operação.');
@@ -95,7 +96,7 @@
   async function carregar() {
     erro('erro', '');
     try {
-      const d = await api('/admin/unidades?token=' + encodeURIComponent(token()));
+      const d = await api('/admin/unidades');
       unidades = d.unidades || [];
       servicos = d.servicos || [];
       desenhar();

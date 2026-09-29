@@ -110,8 +110,8 @@ async function lanePetsLogout() {
   try {
     await fetch("/api/logout", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ token: token })
+      headers: { "Content-Type": "application/json", "X-LanePets-Admin": token },
+      body: "{}"
     });
   } catch (_) { /* a sessão local é encerrada de qualquer forma */ }
   try { sessionStorage.removeItem("lanePetsAuthToken"); } catch (_) {}

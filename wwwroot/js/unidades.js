@@ -31,7 +31,7 @@
 
   function carregar(forcar) {
     if (promessa && !forcar) return promessa;
-    promessa = fetch('/api/admin/unidades/lista?token=' + encodeURIComponent(token()))
+    promessa = fetch('/api/admin/unidades/lista', { headers: { 'X-LanePets-Admin': token() } })
       .then(r => r.json())
       .then(corpo => {
         if (corpo && corpo.ok && corpo.data && Array.isArray(corpo.data.unidades) && corpo.data.unidades.length) {

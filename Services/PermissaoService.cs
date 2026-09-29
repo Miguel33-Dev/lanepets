@@ -199,7 +199,7 @@ public class ContextoAdmin
 /// Esconder um botao no HTML nao protege nada: quem chamar
 /// DELETE /api/... na mao passa pelo mesmo caminho acima e leva 403 igual.
 /// </summary>
-public class PermissaoService(LanePetsDbContext db, SessionService sessions, EventosService eventos)
+public class PermissaoService(LanePetsDbContext db, SessionService sessions, EventosService eventos, IHttpContextAccessor http)
 {
     private ContextoAdmin? _cache;
     private string _cacheToken = "";
@@ -213,8 +213,12 @@ public class PermissaoService(LanePetsDbContext db, SessionService sessions, Eve
     /// administrador desativado para de operar mesmo que continue com o token
     /// na mao (regra 19).
     /// </summary>
+    /// <summary>Etapa 4 (29/09): o token da requisicao — header X-LanePets-Admin, senao o informado (?token= ou corpo).</summary>
+    public string Token(string? informado) => TokenPainel.Escolher(http.HttpContext, informado);
+
     public async Task<ContextoAdmin> ResolverAsync(string token)
     {
+        token = Token(token);   // Etapa 4 (29/09): header X-LanePets-Admin tem prioridade sobre ?token= / corpo
         if (_cache is not null && _cacheToken == token) return _cache;
 
         var sessao = sessions.RequireAdmin(token);

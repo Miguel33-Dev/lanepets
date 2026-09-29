@@ -30,7 +30,8 @@
   let alvo = null, alvoStatus = '';
 
   async function api(caminho, opcoes) {
-    const r = await fetch('/api' + caminho, opcoes);
+    const o = opcoes || {};   /* Etapa 4: token no header, nunca na URL */
+    const r = await fetch('/api' + caminho, { ...o, headers: { ...(o.headers || {}), 'X-LanePets-Admin': token() } });
     const corpo = await r.json().catch(() => null);
     if (r.status === 401) { location.replace('admin-login.html?retorno=' + encodeURIComponent('/pagamentos.html')); throw new Error('Sessão expirada.'); }
     if (!r.ok || !corpo || !corpo.ok) throw new Error((corpo && corpo.error) || `O servidor retornou um erro inesperado (HTTP ${r.status}).`);
@@ -46,7 +47,7 @@
 
   function filtros(limite = POR_PAGINA, offset = 0) {
     if (window.LaneBusca) LaneBusca.gravarUrl(FILTROS);
-    const q = new URLSearchParams({ token: token(), limite: String(limite), offset: String(offset) });
+    const q = new URLSearchParams({ limite: String(limite), offset: String(offset) });
     const add = (k, v) => { if (v) q.set(k, v); };
     add('busca', $('fBusca').value.trim()); add('status', $('fStatus').value); add('origem', $('fOrigem').value);
     add('unidade', $('fUnidade').value); add('de', $('fDe').value); add('ate', $('fAte').value);

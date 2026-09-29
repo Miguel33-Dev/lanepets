@@ -260,7 +260,7 @@
     if (!caixa) return;
     const contador = caixa.querySelector('.lp-sino__contador'), lista = caixa.querySelector('.lp-sino__lista');
     try {
-      const r = await fetch('/api/admin/notificacoes?token=' + encodeURIComponent(token()));
+      const r = await fetch('/api/admin/notificacoes', { headers: { 'X-LanePets-Admin': token() } });
       const corpo = await r.json();
       if (!r.ok || !corpo.ok) throw new Error(corpo.error || ('HTTP ' + r.status));
       const { total, itens } = corpo.data;
@@ -282,7 +282,7 @@
 
     let resposta;
     try {
-      resposta = await fetch('/api/admin/me?token=' + encodeURIComponent(t));
+      resposta = await fetch('/api/admin/me', { headers: { 'X-LanePets-Admin': t } });
     } catch (_) {
       console.error('[LanePets] não foi possível carregar as permissões.');
       return;

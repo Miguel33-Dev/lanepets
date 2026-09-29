@@ -84,6 +84,7 @@ builder.Services.AddDbContext<LanePetsDbContext>(options =>
     options.UseSqlite(DatabaseBootstrap.MontarConnectionString(caminhoDoBanco)));
 
 builder.Services.AddSingleton<SessionService>();
+builder.Services.AddHttpContextAccessor();   // Etapa 4 (29/09): PermissaoService le o token do header X-LanePets-Admin
 builder.Services.AddSingleton<TentativasLogin>();   // 29/09: trava contra forca bruta (Etapa 2 da auditoria)
 builder.Services.AddSingleton<IChavesGoogle, ChavesGoogleJwks>();   // Tarefa 1: chaves publicas do Google (JWKS em cache)
 builder.Services.AddSingleton<GoogleTokenService>();

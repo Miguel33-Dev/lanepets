@@ -17,7 +17,7 @@
     const botao = $('btnVerificar'); botao.disabled = true;
     $('erro').style.display = 'none';
     try {
-      const r = await fetch('/api/admin/integridade?token=' + encodeURIComponent(token()));
+      const r = await fetch('/api/admin/integridade', { headers: { 'X-LanePets-Admin': token() } });
       const corpo = await r.json().catch(() => null);
       if (r.status === 401) { location.replace('admin-login.html?retorno=%2Fintegridade.html'); return; }
       if (!r.ok || !corpo || !corpo.ok) {

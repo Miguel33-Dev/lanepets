@@ -102,8 +102,8 @@ está no `.gitignore`, mas o histórico guarda).
 |:-:|---|:-:|
 | 1 | ✅ **A — XSS**: escapar `ui-kit.js` e as telas do painel, recusar HTML nos nomes | sim |
 | 2 | ✅ **B — força bruta / rate limit** nos logins, cadastro e códigos | sim |
-| 3 | 🟡 **C, D, E, F, G** — cabeçalhos, cookie `Secure`, limite de tamanho, health enxuto, nome curto nas avaliações (entregue, aguardando validação) | sim |
-| 4 | **H** — token por header no painel (pode ficar para depois do deploy) | — |
+| 3 | ✅ **C, D, E, F, G** — cabeçalhos, cookie `Secure`, limite de tamanho, health enxuto, nome curto nas avaliações | sim |
+| 4 | 🟡 **H** — token por header no painel (entregue, aguardando validação) | sim |
 
 ## Etapa 3 — cabeçalhos, cookie, tamanho, health e nome curto (29/09)
 
@@ -121,4 +121,17 @@ está no `.gitignore`, mas o histórico guarda).
 como melhoria futura.
 
 Testes: `tests/LanePets.Tests/Autenticacao/CabecalhosSegurancaTests.cs` (5 fatos + 5 casos de nome curto).
+
+## Etapa 4 — token do painel no header (29/09)
+
+- As telas do painel mandam o token em **`X-LanePets-Admin`** (e o da senha financeira em **`X-LanePets-Financeiro`**);
+  nenhuma URL leva mais `?token=` — ele não fica no histórico do navegador, nos logs de acesso nem no `Referer`.
+- Backend: `Services/TokenPainel.cs` + `PermissaoService.Token()` — o header tem prioridade; `?token=` e `token` no corpo
+  continuam aceitos por compatibilidade (aba aberta com JS antigo). O cookie `lanePetsAdmin` sozinho **continua sem
+  valer** para a API (CSRF: outro site faz o navegador mandar cookie, mas não um header).
+- Telas: `admin-dados.js?v=6`, `api.js?v=2`, `admin-permissoes.js?v=8`, `admin-store.js?v=4`, `eventos.js?v=3`,
+  `gestao-publica.js?v=9`, `integridade.js?v=2`, `pagamentos-admin.js?v=4`, `unidades-admin.js?v=5`, `unidades.js?v=4`,
+  `usuarios-admin.js?v=5`, `ui-kit.js?v=7`, e os scripts de `index.html`, `relatorio.html` e `acesso-negado.html`.
+- Testes: `tests/LanePets.Tests/Autenticacao/TokenPorHeaderTests.cs` (5), incluindo uma varredura que falha se alguma
+  tela voltar a pôr o token na URL.
 

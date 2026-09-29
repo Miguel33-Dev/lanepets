@@ -34,7 +34,7 @@
   }
 
   function parametros() {
-    const p = new URLSearchParams({ token: token(), limite: String(POR_PAGINA), offset: String(offset) });
+    const p = new URLSearchParams({ limite: String(POR_PAGINA), offset: String(offset) });
     const campos = { busca: $('fBusca').value.trim(), categoria: $('fCategoria').value, nivel: $('fNivel').value, de: $('fDe').value, ate: $('fAte').value };
     Object.entries(campos).forEach(([k, v]) => { if (v) p.set(k, v); });
     return p.toString();
@@ -49,7 +49,7 @@
     mostrarErro('');
     let corpo;
     try {
-      const r = await fetch('/api/admin/eventos?' + parametros());
+      const r = await fetch('/api/admin/eventos?' + parametros(), { headers: { 'X-LanePets-Admin': token() } });
       corpo = await r.json().catch(() => null);
       if (r.status === 401) { location.replace('admin-login.html?retorno=' + encodeURIComponent('/eventos.html')); return; }
       if (!r.ok || !corpo || !corpo.ok) throw new Error((corpo && corpo.error) || 'Não foi possível carregar o log.');

@@ -60,7 +60,7 @@
     try { token = sessionStorage.getItem('lanePetsAuthToken') || ''; } catch (_) {}
     if (!token) return;
     try {
-      const r = await fetch('/api/admin/me?token=' + encodeURIComponent(token));
+      const r = await fetch('/api/admin/me', { headers: { 'X-LanePets-Admin': token } });
       const corpo = await r.json();
       if (!corpo || !corpo.ok) return;
       const p = corpo.data;

@@ -26,13 +26,12 @@
   /* --------------------------------------------------------------------- */
   async function get(caminho, parametros = {}) {
     const url = new URL(`${BASE}/${String(caminho).replace(/^\//, '')}`, location.origin);
-    url.searchParams.set('token', token());
     Object.entries(parametros).forEach(([chave, valor]) => {
       if (valor !== undefined && valor !== null && valor !== '') url.searchParams.set(chave, valor);
     });
 
     let resposta;
-    try { resposta = await fetch(url.toString()); }
+    try { resposta = await fetch(url.toString(), { headers: { 'X-LanePets-Admin': token() } }); }   /* Etapa 4: token no header, nunca na URL */
     catch (_) {
       const erro = new Error('Não foi possível falar com o servidor. Verifique se o LanePets está rodando.');
       erro.semConexao = true;
@@ -58,8 +57,8 @@
   async function post(caminho, dados = {}) {
     const resposta = await fetch(`${BASE}/${String(caminho).replace(/^\//, '')}`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...dados, token: token() })
+      headers: { 'Content-Type': 'application/json', 'X-LanePets-Admin': token() },
+      body: JSON.stringify(dados)
     });
     const texto = await resposta.text();
     let corpo;

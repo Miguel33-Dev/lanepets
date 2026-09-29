@@ -47,8 +47,8 @@
   var PEDIDAS = Array.isArray(window.LANE_COLECOES) && window.LANE_COLECOES.length
     ? window.LANE_COLECOES.filter(function (c) { return Object.prototype.hasOwnProperty.call(COLECOES, c); })
     : null;
-  function urlEstado(t) {
-    return '/api/admin/estado?token=' + encodeURIComponent(t) + (PEDIDAS ? '&colecoes=' + encodeURIComponent(PEDIDAS.join(',')) : '');
+  function urlEstado() {   /* Etapa 4: o token vai no header X-LanePets-Admin, nunca na URL */
+    return '/api/admin/estado' + (PEDIDAS ? '?colecoes=' + encodeURIComponent(PEDIDAS.join(',')) : '');
   }
   function carregada(colecao) { return !PEDIDAS || PEDIDAS.indexOf(colecao) !== -1; }
 
@@ -99,7 +99,8 @@
     if (!t) { vazio(); return; }
     try {
       var xhr = new XMLHttpRequest();
-      xhr.open('GET', urlEstado(t), false);
+      xhr.open('GET', urlEstado(), false);
+      xhr.setRequestHeader('X-LanePets-Admin', t);
       xhr.send(null);
       if (xhr.status !== 200) { vazio(); return; }
       var corpo = JSON.parse(xhr.responseText);
@@ -115,7 +116,7 @@
   function recarregar() {
     var t = token();
     if (!t) return Promise.resolve(false);
-    return fetch(urlEstado(t))
+    return fetch(urlEstado(), { headers: { 'X-LanePets-Admin': t } })
       .then(function (r) { return r.json(); })
       .then(function (corpo) {
         if (!corpo || corpo.ok !== true) return false;
@@ -201,9 +202,8 @@
 
     return fetch('/api/admin/sync/' + encodeURIComponent(COLECOES[colecao].rota), {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'X-LanePets-Admin': token() },
       body: JSON.stringify({
-        token: token(),
         criados: delta.criados,
         atualizados: delta.atualizados,
         removidos: delta.removidos

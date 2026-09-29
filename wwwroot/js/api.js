@@ -66,17 +66,18 @@
     assertConfigured();
     const url = new URL(API_URL + '/' + encodeURIComponent(action), window.location.origin);
     const token = getToken();
-    if (token) url.searchParams.set('token', token);
     Object.entries(params).forEach(([k, v]) => { if (v !== undefined && v !== null && v !== '') url.searchParams.set(k, v); });
-    return parseResponse(await fetch(url.toString(), { method: 'GET' }));
+    /* Etapa 4 (29/09): token no header, nunca na URL (historico, logs, Referer). */
+    return parseResponse(await fetch(url.toString(), { method: 'GET', headers: token ? { 'X-LanePets-Admin': token } : {} }));
   }
 
   async function post(action, data = {}) {
     assertConfigured();
     const body = { action, ...data };
     const token = getToken();
-    if (token) body.token = token;
-    const response = await fetch(API_URL + '/' + encodeURIComponent(action), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    const headers = { 'Content-Type': 'application/json' };
+    if (token) headers['X-LanePets-Admin'] = token;
+    const response = await fetch(API_URL + '/' + encodeURIComponent(action), { method: 'POST', headers, body: JSON.stringify(body) });
     return parseResponse(response);
   }
 
@@ -120,9 +121,8 @@
     const token = getFinanceiroToken();
     if (!token) return { autorizado: false };
     const url = new URL(API_URL + '/financeiro_status', window.location.origin);
-    url.searchParams.set('financeiro_token', token);
     try {
-      return parseResponse(await fetch(url.toString(), { method: 'GET' }));
+      return parseResponse(await fetch(url.toString(), { method: 'GET', headers: { 'X-LanePets-Financeiro': token } }));
     } catch (err) {
       clearFinanceiroToken();
       throw err;

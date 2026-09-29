@@ -14,7 +14,8 @@
   const $$ = seletor => Array.from(document.querySelectorAll(seletor));
 
   const api = async (url, opcoes = {}) => {
-    const resposta = await fetch(url, opcoes);
+    /* Etapa 4: token do painel sempre no header, nunca na URL */
+    const resposta = await fetch(url, { ...opcoes, headers: { ...(opcoes.headers || {}), 'X-LanePets-Admin': token } });
     const corpo = await resposta.json();
     if (!resposta.ok || !corpo.ok) throw new Error(corpo.error || 'Erro ao processar.');
     return corpo.data;
@@ -327,7 +328,7 @@
       });
       if (!ok) return;
       try {
-        await api('/api/admin/seguros/' + id + '?token=' + encodeURIComponent(token), { method: 'DELETE' });
+        await api('/api/admin/seguros/' + id, { method: 'DELETE' });
         aviso('Plano excluído.', 'success');
         await carregarTudo();
       } catch (erro) { aviso(erro.message, 'error'); }
@@ -451,9 +452,9 @@
     $('#erroGeralPublica').style.display = 'none';
     try {
       const [planos, depoimentos, solicitacoes] = await Promise.all([
-        api('/api/admin/seguros?token=' + encodeURIComponent(token)),
-        api('/api/admin/depoimentos?token=' + encodeURIComponent(token)),
-        api('/api/admin/seguros/solicitacoes?token=' + encodeURIComponent(token))
+        api('/api/admin/seguros'),
+        api('/api/admin/depoimentos'),
+        api('/api/admin/seguros/solicitacoes')
       ]);
       planosCache = planos;
       depoimentosCache = depoimentos;

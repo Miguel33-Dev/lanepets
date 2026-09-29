@@ -77,7 +77,8 @@
 
   /* ------------------------------------------------------------------ API */
   async function api(caminho, opcoes) {
-    const resposta = await fetch('/api' + caminho, opcoes);
+    const o = opcoes || {};   /* Etapa 4: token no header, nunca na URL */
+    const resposta = await fetch('/api' + caminho, { ...o, headers: { ...(o.headers || {}), 'X-LanePets-Admin': token() } });
     const corpo = await resposta.json().catch(() => null);
 
     if (resposta.status === 401) {
@@ -251,7 +252,7 @@
 
   async function carregar() {
     try {
-      const dados = await api('/admin/usuarios?token=' + encodeURIComponent(token()));
+      const dados = await api('/admin/usuarios');
       usuarios = dados.usuarios || [];
       souAdminGeral = !!dados.souAdminGeral;
       meuId = dados.meuId || '';
@@ -262,7 +263,7 @@
 
   async function carregarAuditoria() {
     try {
-      const dados = await api('/admin/usuarios/auditoria?token=' + encodeURIComponent(token()));
+      const dados = await api('/admin/usuarios/auditoria');
       $('corpoAuditoria').innerHTML = (dados.registros || []).map(r => `
         <tr>
           <td class="small-note">${dataCurta(r.dataHora)}</td>
@@ -502,7 +503,7 @@
 
   async function abrirPermissoes(id) {
     try {
-      const dados = await api('/admin/usuarios/' + encodeURIComponent(id) + '/permissoes?token=' + encodeURIComponent(token()));
+      const dados = await api('/admin/usuarios/' + encodeURIComponent(id) + '/permissoes');
       permissoesDe = dados.usuario;
 
       const daLista = usuarios.find(u => u.id === id) || {};
@@ -663,7 +664,7 @@
         });
         if (!confirmado) return;
         await comCarregamento(botao, () =>
-          api('/admin/usuarios/' + encodeURIComponent(u.id) + '?token=' + encodeURIComponent(token()), { method: 'DELETE' }));
+          api('/admin/usuarios/' + encodeURIComponent(u.id), { method: 'DELETE' }));
         return carregar();
       }
     } catch (ex) { alert(ex.message); }
