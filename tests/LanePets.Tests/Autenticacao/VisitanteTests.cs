@@ -8,7 +8,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 namespace LanePets.Tests.Autenticacao;
 
 /// <summary>
-/// 30/09: o acesso de visitante ao painel (vitrine de 29/09) foi REMOVIDO a pedido do Fabrício — quem não é da
+/// 29/09: o acesso de visitante ao painel (vitrine de 29/09) foi REMOVIDO a pedido do Fabrício — quem não é da
 /// equipe não vê nada do painel. A tela de login também não mostra mais as credenciais de teste.
 /// Mesmo com a chave antiga LanePets:Visitante=true (que ele tinha no appsettings.Development.json), nada volta.
 /// </summary>

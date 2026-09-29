@@ -79,7 +79,7 @@ public class AuthController(SessionService sessions, LanePetsDbContext db, Permi
         catch(Exception ex){ return ErrorApi(ex); }
     }
 
-    // 30/09: o acesso de visitante (POST /api/login/visitante) foi removido a pedido do Fabricio — ninguem de fora
+    // 29/09: o acesso de visitante (POST /api/login/visitante) foi removido a pedido do Fabricio — ninguem de fora
     // da equipe entra no painel, nem so para olhar. A conta antiga e desativada na subida (Visitante.DesativarAsync).
 
     private async Task<IActionResult> Entrar(Models.UsuarioAdministrador admin, string acao, string detalhes)
