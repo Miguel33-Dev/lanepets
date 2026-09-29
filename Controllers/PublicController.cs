@@ -91,6 +91,8 @@ public class PublicController(LanePetsDbContext db, PermissaoService permissoes,
         {
             var plano = await db.PlanosSeguro.FirstOrDefaultAsync(p => p.Id == request.PlanoId && p.Ativo) ?? throw new Exception("Plano indisponível.");
             if (string.IsNullOrWhiteSpace(request.Nome) || NormalizarTelefone(request.Telefone).Length < 8 || string.IsNullOrWhiteSpace(request.Pet)) throw new Exception("Informe seu nome, telefone e nome do pet.");
+            Validacao.SemMarcacao(request.Nome, "O nome");
+            Validacao.SemMarcacao(request.Pet, "O nome do pet");
             // Formulario publico, sem login (item 1 do roadmap, 24/09): o pedido
             // NAO e mais vinculado a conta nenhuma. Antes bastava saber nome +
             // telefone de um cliente para criar um contrato que aparecia em

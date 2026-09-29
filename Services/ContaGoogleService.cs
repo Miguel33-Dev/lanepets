@@ -89,9 +89,9 @@ public static class ContaGoogleService
     /// <summary>Nome do Google; sem nome (ou curto demais), a parte do e-mail antes do @; em ultimo caso "Cliente".</summary>
     public static string NomeDoGoogle(GoogleIdentidade g)
     {
-        var nome = string.Join(' ', (g.Nome ?? "").Split(' ', StringSplitOptions.RemoveEmptyEntries));
+        var nome = string.Join(' ', Validacao.TirarMarcacao(g.Nome).Split(' ', StringSplitOptions.RemoveEmptyEntries));
         if (nome.Length >= 3) return nome.Length > 120 ? nome[..120] : nome;
-        var parte = g.Email.Split('@')[0];
+        var parte = Validacao.TirarMarcacao(g.Email.Split('@')[0]);
         return parte.Length >= 3 ? parte : "Cliente";
     }
 

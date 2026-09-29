@@ -21,11 +21,18 @@ const TOAST_ICONS = {
   info: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg>'
 };
 
+/* Seguranca (29/09): tudo que chega em toast()/confirmarAcao() vira TEXTO.
+   Antes ia direto para innerHTML — um nome de pet com HTML rodava script no painel. */
+function escUi(valor) {
+  return String(valor ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+window.escUi = escUi;
+
 function toast(mensagem, tipo = "success", duracao = 3200) {
   const stack = garantirToastStack();
   const el = document.createElement("div");
   el.className = `toast toast-${tipo}`;
-  el.innerHTML = `${TOAST_ICONS[tipo] || TOAST_ICONS.info}<span>${mensagem}</span>`;
+  el.innerHTML = `${TOAST_ICONS[tipo] || TOAST_ICONS.info}<span>${escUi(mensagem)}</span>`;
   stack.appendChild(el);
   setTimeout(() => {
     el.classList.add("leaving");
@@ -44,11 +51,11 @@ function confirmarAcao({ titulo = "Tem certeza?", texto = "Esta ação não pode
         <div class="modal-confirm-icon">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/></svg>
         </div>
-        <h2 id="confirmTitle">${titulo}</h2>
-        <p class="text-muted" style="margin:6px 0 0;font-size:.9rem;">${texto}</p>
+        <h2 id="confirmTitle">${escUi(titulo)}</h2>
+        <p class="text-muted" style="margin:6px 0 0;font-size:.9rem;">${escUi(texto)}</p>
         <div class="modal-actions">
           <button type="button" class="btn btn-outline" data-acao="cancelar">Cancelar</button>
-          <button type="button" class="btn ${corBotao}" data-acao="confirmar">${textoBotao}</button>
+          <button type="button" class="btn ${escUi(corBotao)}" data-acao="confirmar">${escUi(textoBotao)}</button>
         </div>
       </div>`;
     document.body.appendChild(overlay);

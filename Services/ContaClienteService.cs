@@ -55,6 +55,11 @@ public static class ContaClienteService
         var telefone = Validacao.Telefone(d.Telefone);
         var nomePet = (d.Pet ?? "").Trim();
         if (nomePet.Length < 2) throw new Exception("Informe o nome do pet (mínimo 2 letras).");
+        Validacao.SemMarcacao(nome, "O nome");
+        Validacao.SemMarcacao(d.Endereco, "O endereço");
+        Validacao.SemMarcacao(nomePet, "O nome do pet");
+        Validacao.SemMarcacao(d.Raca, "A raça");
+        Validacao.SemMarcacao(d.Tipo, "A espécie");
         if (await db.UsuariosClientes.AnyAsync(u => u.Email == email)) throw new Exception("Já existe uma conta com este e-mail.");
 
         var cliente = new Cliente { Id = NovoId("CLI"), Nome = nome, Telefone = telefone, Endereco = (d.Endereco ?? "").Trim(), Origem = "portal_cliente", Status = "ativo" };
@@ -100,6 +105,8 @@ public static class ContaClienteService
         var cliente = await db.Clientes.FindAsync(clienteId) ?? throw new Exception("Cadastro nao localizado.");
         var nome = (nomeInformado ?? "").Trim();
         if (nome.Length < 3) throw new Exception("Informe seu nome completo (minimo 3 letras).");
+        Validacao.SemMarcacao(nome, "O nome");
+        Validacao.SemMarcacao(endereco, "O endereço");
         var telefone = Validacao.Telefone(telefoneInformado);
 
         cliente.Nome = nome;

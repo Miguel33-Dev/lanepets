@@ -213,7 +213,7 @@
   </form>
 </div>
 
-<script src="ui-kit.js?v=5"></script>
+<script src="ui-kit.js?v=6"></script>
 <script>
 /* =============================================================================
    DADOS — mesmas chaves e formato de sempre, lidos e gravados no lanepets.db
@@ -430,7 +430,7 @@ function atualizarRelatorio() {
           <td>${dataBr(item.data)}</td>
           <td><span class="es-tipo-badge ${positivo ? "entrada" : "saida"}"><span class="bolinha"></span>${item.tipo}</span></td>
           <td>${escaparHtmlES(item.descricao)}</td>
-          <td><span class="badge badge-neutral">${nomeUnidadeFinanceira(unidadeDoLancamento(item))}</span></td>
+          <td><span class="badge badge-neutral">${escUi(nomeUnidadeFinanceira(unidadeDoLancamento(item)))}</span></td>
           <td class="num ${positivo ? "positive" : "negative"}">${positivo ? "+ " : "− "}${formatarValor(item.valor)}</td>
           <td>${automatico
             ? '<span class="es-automatico" data-dica="Gerado automaticamente por um agendamento">'

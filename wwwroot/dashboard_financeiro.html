@@ -39,7 +39,7 @@
 <div class="chart-grid" style="margin-top:var(--sp-5)"><section class="card"><h2 class="section-title">Indicadores operacionais</h2><div class="category-list" id="indicadoresOperacionais"></div></section><section class="card"><h2 class="section-title">Atenção necessária</h2><div class="alert-list" id="alertasDashboard"></div></section></div>
 <section class="card" style="margin-top:var(--sp-5)"><div class="page-header" style="margin-bottom:var(--sp-3)"><div><h2 class="section-title">Produtos com estoque baixo <span class="badge badge-warning" id="estoqueBaixoTotal">0</span></h2><p class="small-note">Saldo igual ou abaixo do estoque mínimo. Estoque é um só para todas as unidades.</p></div><a class="btn btn-outline btn-sm" href="Produtos.html?estoque=alerta">Abrir Produtos</a></div><div class="table-wrap tabela-cards"><table><thead><tr><th>Produto</th><th>Saldo</th><th>Mínimo</th><th>Situação</th></tr></thead><tbody id="tabelaEstoqueBaixo"></tbody></table></div></section>
 <section class="card" style="margin-top:var(--sp-5)"><h2 class="section-title">Nota sobre dados antigos</h2><p class="small-note">Lançamentos financeiros antigos sem unidade continuam preservados e aparecem como “Sem unidade / antigos”. O dashboard não atribui uma unidade automaticamente e não altera o histórico.</p></section>
-</main></div></div><script src="ui-kit.js?v=5"></script><script>
+</main></div></div><script src="ui-kit.js?v=6"></script><script>
 /* =============================================================================
    Dashboard — 100% alimentado pelo banco (lanepets.db) via /api/admin/resumo.
 
@@ -162,7 +162,7 @@ function pintarTotais(t) {
   ];
   const maior = Math.max(...itens.map(([, v]) => Number(v) || 0), 1);
   el('totaisSistema').innerHTML = itens.map(([nome, valor]) =>
-    `<div class="cat-row"><span>${nome}</span><div class="cat-track"><div class="cat-fill" style="width:${(Number(valor) || 0) / maior * 100}%"></div></div><strong>${valor}</strong></div>`).join('');
+    `<div class="cat-row"><span>${escUi(nome)}</span><div class="cat-track"><div class="cat-fill" style="width:${(Number(valor) || 0) / maior * 100}%"></div></div><strong>${valor}</strong></div>`).join('');
 }
 
 function pintarKpis(f, anterior) {
@@ -204,13 +204,13 @@ function tendencia(id, atual, anterior, bomSeSobe) {
 function pintarCategorias(categorias) {
   const maior = Math.max(...categorias.map(c => Number(c.valor) || 0), 1);
   el('categoriasReceita').innerHTML = categorias.length
-    ? categorias.map(c => `<div class="cat-row"><span>${c.nome}</span><div class="cat-track"><div class="cat-fill" style="width:${c.valor / maior * 100}%"></div></div><strong>${brl(c.valor)}</strong></div>`).join('')
+    ? categorias.map(c => `<div class="cat-row"><span>${escUi(c.nome)}</span><div class="cat-track"><div class="cat-fill" style="width:${c.valor / maior * 100}%"></div></div><strong>${brl(c.valor)}</strong></div>`).join('')
     : '<div class="empty">Sem receitas no período.</div>';
 }
 
 function pintarUnidades(linhas) {
   el('tabelaUnidades').innerHTML = linhas.map(u =>
-    `<tr><td><strong>${u.nome}</strong></td><td>${brl(u.receita)}</td><td>${brl(u.despesas)}</td><td class="${u.resultado >= 0 ? 'positive' : 'negative'}">${brl(u.resultado)}</td><td>${Number(u.margem || 0).toFixed(1)}%</td><td>${u.atendimentos}</td><td>${brl(u.ticket)}</td></tr>`).join('');
+    `<tr><td><strong>${escUi(u.nome)}</strong></td><td>${brl(u.receita)}</td><td>${brl(u.despesas)}</td><td class="${u.resultado >= 0 ? 'positive' : 'negative'}">${brl(u.resultado)}</td><td>${Number(u.margem || 0).toFixed(1)}%</td><td>${u.atendimentos}</td><td>${brl(u.ticket)}</td></tr>`).join('');
 }
 
 function pintarOperacional(op, f) {
@@ -226,7 +226,7 @@ function pintarOperacional(op, f) {
   const base = op.atendimentos || 1;
   el('indicadoresOperacionais').innerHTML = itens.map(([nome, valor]) => {
     const proporcao = typeof valor === 'number' ? Math.min(100, valor / base * 100) : 100;
-    return `<div class="cat-row"><span>${nome}</span><div class="cat-track"><div class="cat-fill" style="width:${proporcao}%"></div></div><strong>${valor}</strong></div>`;
+    return `<div class="cat-row"><span>${escUi(nome)}</span><div class="cat-track"><div class="cat-fill" style="width:${proporcao}%"></div></div><strong>${valor}</strong></div>`;
   }).join('');
 }
 

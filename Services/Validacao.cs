@@ -22,6 +22,21 @@ public static partial class Validacao
 
     public sealed class ValidacaoException(string mensagem) : Exception(mensagem) { }
 
+    /// <summary>
+    /// Seguranca (29/09, Etapa 1 da auditoria): nomes e textos curtos nao aceitam
+    /// os caracteres &lt; e &gt;. Eles nao existem em nome de gente, de pet ou de
+    /// rua, e sao a porta de entrada de HTML/script (XSS) nas telas do painel.
+    /// A tela continua escapando tudo; isto e a segunda barreira, no servidor.
+    /// </summary>
+    public static void SemMarcacao(string? valor, string campo)
+    {
+        if (!string.IsNullOrEmpty(valor) && valor.IndexOfAny(['<', '>']) >= 0)
+            throw new ValidacaoException($"{campo} não pode ter os caracteres < ou >.");
+    }
+
+    /// <summary>Remove &lt; e &gt; de um texto que nao veio digitado pelo cliente (ex.: nome do Google).</summary>
+    public static string TirarMarcacao(string? valor) => (valor ?? "").Replace("<", "").Replace(">", "").Trim();
+
     [GeneratedRegex(@"^[^@\s]+@[^@\s]+\.[^@\s]{2,}$")]
     private static partial Regex EmailRegex();
 

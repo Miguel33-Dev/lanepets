@@ -397,7 +397,7 @@
   </form>
 </div>
 
-<script src="ui-kit.js?v=5"></script>
+<script src="ui-kit.js?v=6"></script>
 <script>
 
 </script>
@@ -576,14 +576,14 @@
       algum = true;
       const liPorte = document.createElement("li");
       let label = porte === "Adicional" ? "Serviços Adicionais" : (porte === "Gato" ? "Serviços para Gato" : "Porte " + porte);
-      liPorte.innerHTML = `<strong>${label}</strong>`;
+      liPorte.innerHTML = `<strong>${escUi(label)}</strong>`;
       ul.appendChild(liPorte);
       itens.forEach((s) => {
           const idx = servicos.indexOf(s);
           const li = document.createElement("li");
           li.className = "service-item";
           li.innerHTML = `
-            <span>${s.nome}${s.pacote ? " (Pacote)" : ""} ${s.preco !== null && s.preco !== undefined ? "- R$ " + s.preco.toFixed(2) : ""}</span>
+            <span>${escUi(s.nome)}${s.pacote ? " (Pacote)" : ""} ${s.preco !== null && s.preco !== undefined ? "- R$ " + s.preco.toFixed(2) : ""}</span>
             <div class="row-actions">
               <button class="btn btn-outline btn-sm" data-permissao="servicos:editar" onclick="editarServico(${idx})">Editar</button>
               <button class="btn btn-danger btn-sm" data-permissao="servicos:excluir" onclick="excluirServico(${idx})">Excluir</button>

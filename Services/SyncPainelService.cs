@@ -300,6 +300,7 @@ public sealed class SyncPainelService(LanePetsDbContext db, PermissaoService per
     private async Task<string> CriarPet(JsonElement item, string unidadePadrao = "")
     {
         var id = Id(item, "PET");
+        NomesSemMarcacao(item);
         var dono = Texto(item, "dono");
         var telefone = Texto(item, "telefone");
         var endereco = Texto(item, "endereco");
@@ -339,10 +340,20 @@ public sealed class SyncPainelService(LanePetsDbContext db, PermissaoService per
         return id;
     }
 
+    /// <summary>Seguranca (29/09): nomes de pet/tutor/cliente vindos do painel tambem nao aceitam &lt; e &gt;.</summary>
+    private static void NomesSemMarcacao(JsonElement item)
+    {
+        Validacao.SemMarcacao(Texto(item, "pet"), "O nome do pet");
+        Validacao.SemMarcacao(Texto(item, "dono"), "O nome do tutor");
+        Validacao.SemMarcacao(Texto(item, "nome"), "O nome");
+        Validacao.SemMarcacao(Texto(item, "raca"), "A raça");
+    }
+
     private async Task<int> AtualizarPet(JsonElement item)
     {
         var alvo = await db.Pets.FindAsync(Texto(item, "id"));
         if (alvo is null) return 0;
+        NomesSemMarcacao(item);
         alvo.Dono = Texto(item, "dono");
         alvo.PetNome = Texto(item, "pet");
         alvo.Tipo = Texto(item, "tipo");
@@ -359,6 +370,7 @@ public sealed class SyncPainelService(LanePetsDbContext db, PermissaoService per
     private async Task<string> CriarCliente(JsonElement item)
     {
         var id = Id(item, "CLI");
+        NomesSemMarcacao(item);
         db.Clientes.Add(new Cliente
         {
             Id = id,
@@ -377,6 +389,7 @@ public sealed class SyncPainelService(LanePetsDbContext db, PermissaoService per
     {
         var alvo = await db.Clientes.FindAsync(Texto(item, "id"));
         if (alvo is null) return 0;
+        NomesSemMarcacao(item);
         var nome = Texto(item, "nome");
         if (nome.Length > 0) alvo.Nome = nome;
         alvo.Telefone = Texto(item, "telefone");

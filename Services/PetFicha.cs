@@ -57,6 +57,7 @@ public static class PetFicha
         var nome = Limpar(entrada.Nome);
         if (nome.Length < 2) throw new ValidacaoException("Informe o nome do pet (mínimo 2 letras).");
         if (nome.Length > LimiteNome) throw new ValidacaoException($"O nome do pet pode ter até {LimiteNome} caracteres.");
+        Validacao.SemMarcacao(nome, "O nome do pet");
 
         var especie = Limpar(entrada.Tipo);
         if (especie.Length == 0) throw new ValidacaoException("Escolha a espécie do pet.");
@@ -65,6 +66,7 @@ public static class PetFicha
 
         var raca = Limpar(entrada.Raca);
         if (raca.Length > LimiteRaca) throw new ValidacaoException($"A raça pode ter até {LimiteRaca} caracteres.");
+        Validacao.SemMarcacao(raca, "A raça");
 
         var sexo = Limpar(entrada.Sexo);
         if (sexo.Length > 0)
@@ -87,6 +89,7 @@ public static class PetFicha
 
         var cor = Limpar(entrada.Cor);
         if (cor.Length > LimiteCor) throw new ValidacaoException($"A cor pode ter até {LimiteCor} caracteres.");
+        Validacao.SemMarcacao(cor, "A cor");
 
         // So remove uma foto ja salva quando o cliente pede isso de forma
         // explicita (RemoverFoto=true). Um FotoUrl vazio/ausente sozinho NUNCA

@@ -203,7 +203,7 @@
   <div class="table-wrap tabela-cards"><table><thead><tr><th>Data</th><th>Tipo</th><th>Descrição</th><th>Unidade</th><th class="num">Valor</th></tr></thead><tbody id="tabelaMovimentacoes"></tbody></table></div>
 </section>
 
-</main></div></div><script src="ui-kit.js?v=5"></script>
+</main></div></div><script src="ui-kit.js?v=6"></script>
   <script>
   /* =========================================================================
      Relatório Financeiro — centro de análise, 100% alimentado pelo banco
@@ -340,7 +340,7 @@
     if (!categorias || !categorias.length) { alvo.innerHTML = '<div class="empty">Sem receitas no período.</div>'; return; }
     const maior = Math.max(...categorias.map(c => Number(c.valor) || 0), 1);
     alvo.innerHTML = categorias.map(c =>
-      `<div class="cat-row"><span>${c.nome}</span><div class="cat-track"><div class="cat-fill" style="width:${c.valor / maior * 100}%"></div></div><strong>${brl(c.valor)}</strong></div>`
+      `<div class="cat-row"><span>${escUi(c.nome)}</span><div class="cat-track"><div class="cat-fill" style="width:${c.valor / maior * 100}%"></div></div><strong>${brl(c.valor)}</strong></div>`
     ).join('');
   }
 
@@ -349,7 +349,7 @@
     const alvo = el('tabelaUnidadesRelatorio');
     if (!linhas || !linhas.length) { alvo.innerHTML = '<tr><td colspan="5"><div class="empty">Sem movimentação por unidade no período.</div></td></tr>'; return; }
     alvo.innerHTML = linhas.map(u =>
-      `<tr><td><strong>${u.nome}</strong></td><td class="num">${brl(u.receita)}</td><td class="num">${brl(u.despesas)}</td><td class="num ${u.saldo >= 0 ? 'positive' : 'negative'}">${brl(u.saldo)}</td><td class="num">${u.pedidos}</td></tr>`
+      `<tr><td><strong>${escUi(u.nome)}</strong></td><td class="num">${brl(u.receita)}</td><td class="num">${brl(u.despesas)}</td><td class="num ${u.saldo >= 0 ? 'positive' : 'negative'}">${brl(u.saldo)}</td><td class="num">${u.pedidos}</td></tr>`
     ).join('');
   }
 
@@ -375,7 +375,7 @@
       ...(r.valorTotalPedidos == null ? [] : [['Valor total dos pedidos', brl(r.valorTotalPedidos)]]),
       ...(r.valorRecebido == null ? [] : [['Valor efetivamente recebido', brl(r.valorRecebido)]])
     ];
-    el('resumoPedidos').innerHTML = itens.map(([nome, valor]) => `<div class="rel-kv"><span>${nome}</span><strong>${valor}</strong></div>`).join('');
+    el('resumoPedidos').innerHTML = itens.map(([nome, valor]) => `<div class="rel-kv"><span>${escUi(nome)}</span><strong>${valor}</strong></div>`).join('');
   }
 
   function pintarResumoPagamentos(r) {
@@ -386,7 +386,7 @@
       ...(r.reembolsosPendentes ? [['Reembolsos pendentes', r.reembolsosPendentes]] : []),
       ['Total recebido', brl(r.totalRecebido)], ['A receber (pendentes)', brl(r.totalPendente)]
     ];
-    el('resumoPagamentos').innerHTML = itens.map(([nome, valor]) => `<div class="rel-kv"><span>${nome}</span><strong>${valor}</strong></div>`).join('');
+    el('resumoPagamentos').innerHTML = itens.map(([nome, valor]) => `<div class="rel-kv"><span>${escUi(nome)}</span><strong>${valor}</strong></div>`).join('');
   }
 
   /* ---------- Tops ---------- */
@@ -435,8 +435,8 @@
       return `<tr>
         <td>${dataFmt}</td>
         <td><span class="es-tipo-badge ${positivo ? 'entrada' : 'saida'}"><span class="bolinha"></span>${item.tipo}</span></td>
-        <td>${item.descricao || ''}</td>
-        <td><span class="badge badge-neutral">${nomeUnidadeRelatorio(item.unidade)}</span></td>
+        <td>${escUi(item.descricao || '')}</td>
+        <td><span class="badge badge-neutral">${escUi(nomeUnidadeRelatorio(item.unidade))}</span></td>
         <td class="num ${positivo ? 'positive' : 'negative'}">${positivo ? '+' : '-'} ${brl(Math.abs(Number(item.valor) || 0))}</td>
       </tr>`;
     }).join('');

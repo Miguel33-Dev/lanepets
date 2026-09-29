@@ -90,7 +90,7 @@
 
 <div id="modalHistorico" class="modal-overlay"><form id="formHistorico" class="modal-box modal-wide"><div class="modal-head"><div><h2>Editar histórico de banhos</h2><p>Altere, remova ou adicione datas ao histórico.</p></div><button type="button" class="btn btn-outline" onclick="fecharModalHistorico()">Fechar</button></div><input type="hidden" id="historicoPetIndex"><div id="historicoLista"></div><div class="field"><label for="novaDataHistorico">Adicionar nova data</label><input class="input" type="datetime-local" id="novaDataHistorico"><button type="button" class="btn btn-outline" style="margin-top:8px;align-self:flex-start;" onclick="adicionarDataHistorico()">Adicionar data</button></div><div class="modal-actions"><button type="button" class="btn btn-outline" onclick="fecharModalHistorico()">Cancelar</button><button type="submit" class="btn btn-primary">Salvar histórico</button></div></form></div>
 
-  <script src="ui-kit.js?v=5"></script>
+  <script src="ui-kit.js?v=6"></script>
   <script>
     // Função para carregar e exibir os clientes pacote
       // Função para formatar data no formato DD/MM/YYYY HH:mm
@@ -220,7 +220,7 @@
         
         // Monta o HTML dos últimos banhos
         const historico = ultimosBanhos
-          .map(d => `<div class="data-banho">${formatarData(d)}</div>`)
+          .map(d => `<div class="data-banho">${escUi(formatarData(d))}</div>`)
           .join('') +
           (temMaisHistorico ? 
             `<div class="ver-mais">
@@ -231,19 +231,19 @@
         
         const cortesias = (p.pacote?.cortesias || [])
           .sort((a, b) => new Date(b.data) - new Date(a.data)) // Ordena cortesias por data
-          .map(c => `<div class="cortesia"><strong>${c.tipo}:</strong> ${formatarData(c.data)}</div>`)
+          .map(c => `<div class="cortesia"><strong>${escUi(c.tipo)}:</strong> ${escUi(formatarData(c.data))}</div>`)
           .join('');
         const renovadoEm = p.pacote?.renovadoEm
           ? p.pacote.renovadoEm.split('-').reverse().join('/')
           : "-";
         row.innerHTML = `
-          <td>${p.dono}</td>
-          <td>${p.pet}</td>
-          <td>${p.raca || "-"}</td>
-          <td>${p.telefone}</td>
-          <td>${p.endereco || "-"}</td>
-          <td>${p.tipo || "-"}</td>
-          <td>${tipoPacote}</td>
+          <td>${escUi(p.dono)}</td>
+          <td>${escUi(p.pet)}</td>
+          <td>${escUi(p.raca || "-")}</td>
+          <td>${escUi(p.telefone)}</td>
+          <td>${escUi(p.endereco || "-")}</td>
+          <td>${escUi(p.tipo || "-")}</td>
+          <td>${escUi(tipoPacote)}</td>
           <td>${feitos}</td>
           <td>${restantes}</td>
           <td class="historico-banho" onclick="event.stopPropagation();">${historico || "-"}</td>
@@ -407,7 +407,7 @@
       }
       div.innerHTML = lista.map((data, i) =>
         `<div style="margin-bottom:6px;">
-          <input type="datetime-local" value="${data.slice(0,16)}" data-index="${i}" onchange="editarDataHistorico(this)">
+          <input type="datetime-local" value="${escUi(String(data).slice(0,16))}" data-index="${i}" onchange="editarDataHistorico(this)">
           <button type="button" onclick="removerDataHistorico(${i})" style="background:#DC143C;color:#fff;padding:2px 8px;margin-left:5px;">Remover</button>
         </div>`
       ).join('');
@@ -512,7 +512,7 @@
       const conteudo = document.getElementById('historicoCompletoConteudo');
       conteudo.innerHTML = `
         <h3 style="margin-bottom:20px">
-          Pet: ${pet.pet} | Dono: ${pet.dono}
+          Pet: ${escUi(pet.pet)} | Dono: ${escUi(pet.dono)}
         </h3>
         ${Object.entries(banhosPorMes).map(([mesAno, datas]) => `
           <div class="historico-mes">
