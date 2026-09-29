@@ -103,7 +103,7 @@ está no `.gitignore`, mas o histórico guarda).
 | 1 | ✅ **A — XSS**: escapar `ui-kit.js` e as telas do painel, recusar HTML nos nomes | sim |
 | 2 | ✅ **B — força bruta / rate limit** nos logins, cadastro e códigos | sim |
 | 3 | ✅ **C, D, E, F, G** — cabeçalhos, cookie `Secure`, limite de tamanho, health enxuto, nome curto nas avaliações | sim |
-| 4 | 🟡 **H** — token por header no painel (entregue, aguardando validação) | sim |
+| 4 | ✅ **H** — token por header no painel | sim |
 
 ## Etapa 3 — cabeçalhos, cookie, tamanho, health e nome curto (29/09)
 
