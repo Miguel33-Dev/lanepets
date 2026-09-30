@@ -2097,3 +2097,7 @@ dialog#modal-agenda-detalhes .cc-modal__corpo { max-height: min(88vh, 860px); ov
   .hsx-card__fim { flex-wrap: nowrap; gap: 8px; }
   .hsx-card__fim .botao { padding: 7px 11px; }
 }
+
+/* ---------- Escala para telas de computador ---------- */
+@media (min-width: 1600px) { .cc-conteudo { max-width: 1320px; } }
+@media (min-width: 1900px) { .cc-conteudo { max-width: 1440px; } }

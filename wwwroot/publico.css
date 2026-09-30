@@ -1043,3 +1043,17 @@ dialog[open] { animation: modal-entra .22s var(--ease); }
   .cta-acoes, .cta-acoes .botao { width: 100%; }
   .loja-mais .botao { width: 100%; min-width: 0; }
 }
+
+/* ---------- Escala para telas de computador ---------- */
+@media (min-width: 1280px) {
+  html { font-size: 106.25%; }
+  :root { --largura: 1280px; }
+}
+@media (min-width: 1600px) {
+  html { font-size: 112.5%; }
+  :root { --largura: 1400px; }
+}
+@media (min-width: 1900px) {
+  html { font-size: 118.75%; }
+  :root { --largura: 1520px; }
+}

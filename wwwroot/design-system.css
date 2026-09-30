@@ -712,3 +712,27 @@ table.data-table { width: 100%; border-collapse: collapse; min-width: 640px; }
 
 /* 29/09: selo do acesso de visitante (js/admin-permissoes.js) */
 .lp-visitante{display:inline-flex;align-items:center;padding:5px 11px;border-radius:999px;font-size:.76rem;font-weight:700;background:var(--accent-100);color:var(--accent-600);border:1px solid var(--accent-200);white-space:nowrap}
+
+/* =========================================================
+   ESCALA PARA TELAS DE COMPUTADOR
+   Em monitores maiores tudo ficava pequeno. Aumentamos a
+   fonte-base (em %, respeitando o zoom/config do navegador)
+   e alargamos a área útil. Celular/tablet não mudam.
+   ========================================================= */
+@media (min-width: 1280px) {
+  html { font-size: 106.25%; }            /* ~17px */
+  :root { --sidebar-w: 264px; }
+  .page-content { max-width: 1480px; }
+}
+@media (min-width: 1600px) {
+  html { font-size: 112.5%; }             /* ~18px */
+  :root { --sidebar-w: 280px; }
+  .page-content { max-width: 1640px; padding-left: var(--sp-8); padding-right: var(--sp-8); }
+  .modal-box { max-width: 580px; }
+  .modal-box.modal-wide { max-width: 820px; }
+}
+@media (min-width: 1900px) {
+  html { font-size: 118.75%; }            /* ~19px */
+  :root { --sidebar-w: 296px; }
+  .page-content { max-width: 1800px; }
+}
